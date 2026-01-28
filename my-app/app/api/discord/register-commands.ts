@@ -1,7 +1,7 @@
-import "dotenv/config";
+import "dotenv/config"
 
-const DISCORD_TOKEN = process.env.DISCORD_TOKEN!;
-const APPLICATION_ID = process.env.DISCORD_APPLICATION_ID!;
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN!
+const APPLICATION_ID = process.env.DISCORD_APPLICATION_ID!
 
 const command = {
   name: "submit",
@@ -14,7 +14,7 @@ const command = {
       required: true,
     },
   ],
-};
+}
 
 fetch(`https://discord.com/api/v10/applications/${APPLICATION_ID}/commands`, {
   method: "POST",
@@ -25,4 +25,4 @@ fetch(`https://discord.com/api/v10/applications/${APPLICATION_ID}/commands`, {
   body: JSON.stringify(command),
 })
   .then((res) => res.json())
-  .then(console.log);
+  .then(console.log)
