@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { verifyKey } from "discord-interactions"
 import { COMMANDS } from "@/app/util/command"
 import { echoCommand } from "./route-commands/echo"
+import { newId } from "@/app/util/newId"
+import { handleRegisterProtectionChamp } from "../web/_handlers/registerProtectionChamp"
 
 const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY!
 
@@ -31,12 +33,15 @@ export async function POST(req: NextRequest) {
 
     if (interaction.type === 2) {
       const { name, options } = interaction.data
+      console.log("command:", name)
 
       if (name === COMMANDS.ECHO) {
-        echoCommand(options)
+        return echoCommand(options)
       }
 
       if (name === COMMANDS.NEW_PROTECT) {
+        const matchId = newId()
+
         return NextResponse.json({
           type: 4,
           data: {
@@ -49,19 +54,19 @@ export async function POST(req: NextRequest) {
                     type: 2, // Button
                     style: 4, // Danger (赤)
                     label: "赤チーム",
-                    custom_id: "red_team",
+                    custom_id: `red_team?match_id=${matchId}`,
                   },
                   {
                     type: 2, // Button
                     style: 1, // Primary (青)
                     label: "青チーム",
-                    custom_id: "blue_team",
+                    custom_id: `blue_team?match_id=${matchId}`,
                   },
                   {
                     type: 2, // Button
                     style: 2, // Secondary (グレー)
                     label: "確認",
-                    custom_id: "confirm",
+                    custom_id: `check?match_id=${matchId}`,
                   },
                 ],
               },
@@ -74,11 +79,13 @@ export async function POST(req: NextRequest) {
     // ボタンクリックなどのコンポーネントインタラクション
     if (interaction.type === 3) {
       const customId = interaction.data.custom_id
+      const [teamId, matchIdParam] = customId.split("?")
+      const matchId = new URLSearchParams(matchIdParam || "").get("match_id") || ""
+      console.log("team:", teamId)
 
-      if (customId === "red_team") {
-        // モーダル（入力フォーム）を表示
+      if (teamId === "red_team") {
         return NextResponse.json({
-          type: 9, // MODAL
+          type: 9, // モーダル（入力フォーム）を表示
           data: {
             custom_id: "red_team_modal",
             title: "赤チーム",
@@ -88,11 +95,11 @@ export async function POST(req: NextRequest) {
                 components: [
                   {
                     type: 4, // Text Input
-                    custom_id: "team_text",
+                    custom_id: `protection_champions?match_id=${matchId}`,
                     label: "メッセージを入力してください",
                     style: 1, // Short (1行)
                     required: true,
-                    placeholder: "プロテクト内容を入力",
+                    placeholder: "例：モルガナ、メル、ニーコ",
                   },
                 ],
               },
@@ -101,10 +108,9 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      if (customId === "blue_team") {
-        // モーダル（入力フォーム）を表示
+      if (teamId === "blue_team") {
         return NextResponse.json({
-          type: 9, // MODAL
+          type: 9, // モーダル（入力フォーム）を表示
           data: {
             custom_id: "blue_team_modal",
             title: "青チーム",
@@ -114,11 +120,11 @@ export async function POST(req: NextRequest) {
                 components: [
                   {
                     type: 4, // Text Input
-                    custom_id: "team_text",
-                    label: "メッセージを入力してください",
+                    custom_id: `protection_champions?match_id=${matchId}`,
+                    label: "プロテクトするチャンプを入力",
                     style: 1, // Short (1行)
                     required: true,
-                    placeholder: "プロテクト内容を入力",
+                    placeholder: "例：ヴェルコズ、ザック、ダイアナ",
                   },
                 ],
               },
@@ -127,7 +133,7 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      if (customId === "confirm") {
+      if (teamId === "check") {
         return NextResponse.json({
           type: 4,
           data: {
@@ -143,23 +149,66 @@ export async function POST(req: NextRequest) {
       const customId = interaction.data.custom_id
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const components = interaction.data.components as any[]
+      const inputCustomId = components[0]?.components[0]?.custom_id || ""
       const teamText = components[0]?.components[0]?.value || ""
+      console.log("customId:", customId, "\ninputCustomId:", inputCustomId, "\nteamText", teamText)
 
+      // Text Inputの custom_id から matchId を抽出
+      const matchId = new URLSearchParams(inputCustomId.split("?")[1] || "").get("match_id") || ""
+      console.log("matchId", matchId)
       if (customId === "red_team_modal") {
+        console.log("Saving red team data for matchId:", matchId)
+
+        // 直接ハンドラーを呼び出す（同期処理）
+        await handleRegisterProtectionChamp(req, {
+          team: "red",
+          match_id: matchId,
+          champions: teamText,
+          interaction_token: interaction.token,
+        })
+
+        console.log("Red team registration completed")
+
+        // DEFERRED レスポンスを返す（Discordに「処理中」を表示）
         return NextResponse.json({
-          type: 4,
-          data: {
-            content: `赤チーム: ${teamText}`,
-          },
+          type: 5, // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
         })
       }
 
       if (customId === "blue_team_modal") {
-        return NextResponse.json({
-          type: 4,
-          data: {
-            content: `青チーム: ${teamText}`,
+        console.log("Saving blue team data for matchId:", matchId)
+
+        // Web APIを呼び出す（リクエストを開始）
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `https://${req.headers.get("host")}`
+        const apiCall = fetch(`${baseUrl}/api/web/registerProtectionChamp`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(process.env.WEB_API_SECRET && {
+              Authorization: `Bearer ${process.env.WEB_API_SECRET}`,
+            }),
           },
+          body: JSON.stringify({
+            team: "blue",
+            match_id: matchId,
+            champions: teamText,
+            interaction_token: interaction.token,
+          }),
+        })
+          .then(() => console.log("Web API completed for blue team"))
+          .catch((err) => console.error("Web API error:", err))
+
+        console.log("Web API call initiated for blue team")
+
+        // レスポンスを返した後も処理を継続
+        if ("waitUntil" in req) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ;(req as any).waitUntil(apiCall)
+        }
+
+        // DEFERRED レスポンスを返す（Discordに「処理中」を表示）
+        return NextResponse.json({
+          type: 5, // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
         })
       }
     }

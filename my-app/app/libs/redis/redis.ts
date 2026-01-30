@@ -4,8 +4,32 @@ let redis: RedisClientType | null = null
 
 const getRedisClient = async (): Promise<RedisClientType> => {
   if (!redis) {
-    redis = createClient()
-    await redis.connect()
+    redis = createClient({
+      url: process.env.REDIS_URL || "redis://localhost:6379",
+      socket: {
+        connectTimeout: 5000, // 5秒でタイムアウト
+        reconnectStrategy: (retries) => {
+          if (retries > 3) {
+            console.error("Redis reconnect failed after 3 retries")
+            return new Error("Redis connection failed")
+          }
+          return Math.min(retries * 100, 3000)
+        },
+      },
+    })
+
+    redis.on("error", (err) => {
+      console.error("Redis Client Error:", err)
+    })
+
+    try {
+      await redis.connect()
+      console.log("Redis connected successfully")
+    } catch (error) {
+      console.error("Failed to connect to Redis:", error)
+      redis = null
+      throw new Error("Redis connection failed")
+    }
   }
   return redis
 }
