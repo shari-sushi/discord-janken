@@ -7,7 +7,7 @@ const COMMAND_PREF = "same-say-"
 type DiscordBotCommand = {
   name: string
   description: string
-  options: [{ name: string; description: string; type: number; required: boolean }]
+  options?: { name: string; description: string; type: number; required: boolean }[]
 }
 
 const EchoCommands: DiscordBotCommand = {
@@ -23,6 +23,12 @@ const EchoCommands: DiscordBotCommand = {
   ],
 }
 
+const newProtect: DiscordBotCommand = {
+  name: COMMAND_PREF + "new-protect",
+  description: "赤チーム・青チーム・確認ボタンを表示します",
+  options: [],
+}
+
 const SubmitCommand: DiscordBotCommand = {
   name: COMMAND_PREF + "submit",
   description: "同時発言に参加",
@@ -36,7 +42,7 @@ const SubmitCommand: DiscordBotCommand = {
   ],
 }
 
-const commands: DiscordBotCommand[] = [SubmitCommand, EchoCommands]
+const commands: DiscordBotCommand[] = [SubmitCommand, EchoCommands, newProtect]
 
 fetch(`https://discord.com/api/v10/applications/${APPLICATION_ID}/commands`, {
   // POSTにすると新規登録のみで古いのは変更されない
