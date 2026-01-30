@@ -1,8 +1,8 @@
+import { COMMANDS } from "@/app/util/command"
 import "dotenv/config"
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN!
 const APPLICATION_ID = process.env.DISCORD_APPLICATION_ID!
-const COMMAND_PREF = "same-say-"
 
 type DiscordBotCommand = {
   name: string
@@ -11,7 +11,7 @@ type DiscordBotCommand = {
 }
 
 const EchoCommands: DiscordBotCommand = {
-  name: COMMAND_PREF + "echo",
+  name: COMMANDS.ECHO,
   description: "入力したテキストをbotがチャットに送信",
   options: [
     {
@@ -24,13 +24,13 @@ const EchoCommands: DiscordBotCommand = {
 }
 
 const newProtect: DiscordBotCommand = {
-  name: COMMAND_PREF + "new-protect",
+  name: COMMANDS.NEW_PROTECT,
   description: "赤チーム・青チーム・確認ボタンを表示します",
   options: [],
 }
 
 const SubmitCommand: DiscordBotCommand = {
-  name: COMMAND_PREF + "submit",
+  name: COMMANDS.SUBMIT,
   description: "同時発言に参加",
   options: [
     {

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyKey } from "discord-interactions"
+import { COMMANDS } from "@/app/util/command"
+import { echoCommand } from "./route-commands/echo"
 
 const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY!
 
@@ -15,7 +17,6 @@ export async function POST(req: NextRequest) {
     }
 
     const isValid = await verifyKey(rawBody, signature, timestamp, PUBLIC_KEY)
-
     if (!isValid) {
       console.error("Invalid signature")
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
@@ -31,20 +32,11 @@ export async function POST(req: NextRequest) {
     if (interaction.type === 2) {
       const { name, options } = interaction.data
 
-      if (name === "same-say-echo") {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const text = options?.find((opt: any) => opt.name === "text")?.value || ""
-
-        // チャンネルにメッセージとして投稿（ephemeralフラグを外す）
-        return NextResponse.json({
-          type: 4,
-          data: {
-            content: text,
-          },
-        })
+      if (name === COMMANDS.ECHO) {
+        echoCommand(options)
       }
 
-      if (name === "same-say-new-protect") {
+      if (name === COMMANDS.NEW_PROTECT) {
         return NextResponse.json({
           type: 4,
           data: {
