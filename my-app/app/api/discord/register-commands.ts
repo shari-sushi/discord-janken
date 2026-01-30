@@ -1,6 +1,9 @@
 import { COMMANDS } from "@/app/util/command"
 import "dotenv/config"
 
+// npx tsx app/api/discord/register-commands.ts でコマンド登録(完全置き換え)できる
+// ただし、本番環境でビルド時に実行させているので、通常は手動で実行する必要は無い
+
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN!
 const APPLICATION_ID = process.env.DISCORD_APPLICATION_ID!
 

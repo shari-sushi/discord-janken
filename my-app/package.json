@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run register-commands && next build",
+    "register-commands": "if [ \"$VERCEL_ENV\" = \"production\" ]; then npx tsx app/api/discord/register-commands.ts; fi",
     "start": "next start",
     "lint": "eslint"
   },
