@@ -1,4 +1,4 @@
-import { COMMANDS } from "@/app/util/command"
+import { COMMANDS } from "@/app/util/commands"
 import "dotenv/config"
 
 // npx tsx app/api/discord/register-commands.ts でコマンド登録(完全置き換え)できる
@@ -32,20 +32,7 @@ const newProtect: DiscordBotCommand = {
   options: [],
 }
 
-const SubmitCommand: DiscordBotCommand = {
-  name: COMMANDS.SUBMIT,
-  description: "同時発言に参加",
-  options: [
-    {
-      name: "message",
-      description: "発言内容",
-      type: 3,
-      required: true,
-    },
-  ],
-}
-
-const commands: DiscordBotCommand[] = [SubmitCommand, EchoCommands, newProtect]
+const commands: DiscordBotCommand[] = [EchoCommands, newProtect]
 
 fetch(`https://discord.com/api/v10/applications/${APPLICATION_ID}/commands`, {
   // POSTにすると新規登録のみで古いのは変更されない
