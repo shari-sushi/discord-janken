@@ -172,7 +172,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
           type: 4,
-          data: { content: message, flags: 64 },
+          data: { content: message },
         })
       }
 
@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
           type: 4,
-          data: { content: message, flags: 64 },
+          data: { content: message },
         })
       }
     }
