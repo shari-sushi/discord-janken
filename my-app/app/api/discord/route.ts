@@ -145,11 +145,24 @@ export async function POST(req: NextRequest) {
       }
 
       if (teamId === "check") {
+        const redTeamText = await redisGet<string>(`protect:${matchId}:red_team`)
+        const blueTeamText = await redisGet<string>(`protect:${matchId}:blue_team`)
+
+        let message: string
+        if (redTeamText && blueTeamText) {
+          message = `✅ 両チーム登録済み\n🔴 赤チーム: ${redTeamText}\n🔵 青チーム: ${blueTeamText}`
+        } else if (redTeamText) {
+          message = "🔴 赤チーム: 登録済み\n🔵 青チーム: 未登録"
+        } else if (blueTeamText) {
+          message = "🔴 赤チーム: 未登録\n🔵 青チーム: 登録済み"
+        } else {
+          message = "🔴 赤チーム: 未登録\n🔵 青チーム: 未登録"
+        }
+
         return NextResponse.json({
           type: 4,
           data: {
-            content: "両チーム提出済みか確認中(未実装)",
-            flags: 64,
+            content: message,
           },
         })
       }
