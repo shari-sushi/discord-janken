@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({
             type: 9,
             data: {
-              custom_id: "red_team_modal",
+              custom_id: CLIENT_ACTIONS.REGISTER_RED_TEAM,
               title: "レッドサイド",
               components: [
                 {
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({
             type: 9,
             data: {
-              custom_id: "blue_team_modal",
+              custom_id: CLIENT_ACTIONS.REGISTER_BLUE_TEAM,
               title: "ブルーサイド",
               components: [
                 {
