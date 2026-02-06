@@ -124,13 +124,13 @@ export async function POST(req: NextRequest) {
 
           let message: string
           if (redTeamText && blueTeamText) {
-            message = `✅ 両チーム登録済み\n🔴 レッドサイド: ${redTeamText}\n🔵 ブルーサイド: ${blueTeamText}`
+            message = `✅ 両チーム登録済み\n🔵 ブルーサイド: ${blueTeamText}\n🔴 レッドサイド: ${redTeamText}`
           } else if (redTeamText) {
-            message = "🔴 レッドサイド: 登録済み\n🔵 ブルーサイド: 未登録"
+            message = "🔵 ブルーサイド: 未登録\n🔴 レッドサイド: 登録済み"
           } else if (blueTeamText) {
-            message = "🔴 レッドサイド: 未登録\n🔵 ブルーサイド: 登録済み"
+            message = "🔵 ブルーサイド: 登録済み\n🔴 レッドサイド: 未登録"
           } else {
-            message = "🔴 レッドサイド: 未登録\n🔵 ブルーサイド: 未登録"
+            message = "🔵 ブルーサイド: 未登録\n🔴 レッドサイド: 未登録"
           }
 
           return NextResponse.json({
@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
 
       if (customId === CLIENT_ACTIONS.REGISTER_RED_TEAM) {
         const { otherTeamText, myText } = await saveTeamAndCheckOther(matchId, "red", teamText)
-        const message = otherTeamText ? `🔴 レッドサイド: ${myText}\n🔵 ブルーサイド: ${otherTeamText}` : "🔴 レッドサイド登録完了"
+        const message = otherTeamText ? `🔵 ブルーサイド: ${otherTeamText}\n🔴 レッドサイド: ${myText}` : "🔴 レッドサイド登録完了"
         return NextResponse.json({
           type: 4,
           data: { content: message },
@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
 
       if (customId === CLIENT_ACTIONS.REGISTER_BLUE_TEAM) {
         const { otherTeamText, myText } = await saveTeamAndCheckOther(matchId, "blue", teamText)
-        const message = otherTeamText ? `🔴 レッドサイド: ${otherTeamText}\n🔵 ブルーサイド: ${myText}` : "🔵 ブルーサイド登録完了"
+        const message = otherTeamText ? `🔵 ブルーサイド: ${myText}\n🔴 レッドサイド: ${otherTeamText}` : "🔵 ブルーサイド登録完了"
         return NextResponse.json({
           type: 4,
           data: { content: message },

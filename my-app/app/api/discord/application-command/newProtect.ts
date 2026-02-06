@@ -15,15 +15,15 @@ export const newProtectCommand = () => {
           components: [
             {
               type: 2,
-              style: 4,
-              label: "赤チーム",
-              custom_id: CLIENT_ACTIONS.OPEN_MODAL_RED_TEAM_REGISTER + `?match_id=${matchId}`,
-            },
-            {
-              type: 2,
               style: 1,
               label: "青チーム",
               custom_id: CLIENT_ACTIONS.OPEN_MODAL_BLUE_TEAM_REGISTER + `?match_id=${matchId}`,
+            },
+            {
+              type: 2,
+              style: 4,
+              label: "赤チーム",
+              custom_id: CLIENT_ACTIONS.OPEN_MODAL_RED_TEAM_REGISTER + `?match_id=${matchId}`,
             },
             {
               type: 2,
