@@ -32,7 +32,13 @@ const newProtect: DiscordBotCommand = {
   options: [],
 }
 
-const commands: DiscordBotCommand[] = [EchoCommands, newProtect]
+const feedback: DiscordBotCommand = {
+  name: COMMANDS.FEEDBACK,
+  description: "フィードバックを送信します",
+  options: [],
+}
+
+const commands: DiscordBotCommand[] = [EchoCommands, newProtect, feedback]
 
 fetch(`https://discord.com/api/v10/applications/${APPLICATION_ID}/commands`, {
   // POSTにすると新規登録のみで古いのは変更されない

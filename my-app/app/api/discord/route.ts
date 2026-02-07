@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { verifyKey } from "discord-interactions"
 import { echoCommand } from "./application-command/echo"
 import { newProtectCommand } from "./application-command/newProtect"
+import { feedbackCommand } from "./application-command/feedback"
 import { redisSet, redisGet } from "@/app/libs/redis/redis"
+import { appendFeedbackToSheet } from "@/app/libs/googleSheets"
 import { CLIENT_ACTIONS, COMMANDS, DISCORD_INTERACTION_TYPE } from "@/app/util/commands"
 
 const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY!
@@ -52,6 +54,8 @@ export async function POST(req: NextRequest) {
           return echoCommand(options)
         case COMMANDS.NEW_PROTECT:
           return newProtectCommand()
+        case COMMANDS.FEEDBACK:
+          return feedbackCommand()
         default:
           return NextResponse.json({
             type: 4,
@@ -118,6 +122,45 @@ export async function POST(req: NextRequest) {
             },
           })
 
+        case CLIENT_ACTIONS.SELECT_FEEDBACK_TYPE:
+          // Selectメニューから選択されたフィードバックの種類を取得
+          const selectedType = interaction.data.values?.[0] || ""
+          return NextResponse.json({
+            type: 9, // モーダルを開く
+            data: {
+              custom_id: `${CLIENT_ACTIONS.SUBMIT_FEEDBACK}?type=${selectedType}`,
+              title: "フィードバック",
+              components: [
+                {
+                  type: 1,
+                  components: [
+                    {
+                      type: 4,
+                      custom_id: "feedback_name",
+                      label: "お名前（任意）",
+                      style: 1, // 短いテキスト
+                      required: false,
+                      placeholder: "例：太郎",
+                    },
+                  ],
+                },
+                {
+                  type: 1,
+                  components: [
+                    {
+                      type: 4,
+                      custom_id: "feedback_content",
+                      label: "内容（必須）",
+                      style: 2, // 長いテキスト（パラグラフ）
+                      required: true,
+                      placeholder: "フィードバック内容を入力してください",
+                    },
+                  ],
+                },
+              ],
+            },
+          })
+
         case CLIENT_ACTIONS.CHECK_REGISTERED:
           const redTeamText = await redisGet<string>(`protect:${matchId}:red_team`)
           const blueTeamText = await redisGet<string>(`protect:${matchId}:blue_team`)
@@ -155,6 +198,50 @@ export async function POST(req: NextRequest) {
       const customId = interaction.data.custom_id
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const components = interaction.data.components as any[]
+
+      if (customId.startsWith(CLIENT_ACTIONS.SUBMIT_FEEDBACK)) {
+        // フィードバック送信処理
+        // custom_idからフィードバックの種類を取得
+        const customIdParams = new URLSearchParams(customId.split("?")[1] || "")
+        const type = customIdParams.get("type") || ""
+
+        // componentsからお名前と内容を取得
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const name = components.find((c: any) => c.components[0]?.custom_id === "feedback_name")?.components[0]?.value || ""
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const content = components.find((c: any) => c.components[0]?.custom_id === "feedback_content")?.components[0]?.value || ""
+
+        const guildId = interaction.guild_id || ""
+        const memberId = interaction.member?.user?.id || interaction.user?.id || ""
+
+        try {
+          await appendFeedbackToSheet({
+            guildId,
+            memberId,
+            name,
+            type,
+            content,
+          })
+
+          return NextResponse.json({
+            type: 4,
+            data: {
+              content: "フィードバックを送信しました。ありがとうございます！",
+              flags: 64, // EPHEMERAL - 送信者のみに表示
+            },
+          })
+        } catch (error) {
+          console.error("Error submitting feedback:", error)
+          return NextResponse.json({
+            type: 4,
+            data: {
+              content: "フィードバックの送信に失敗しました。もう一度お試しください。",
+              flags: 64, // EPHEMERAL
+            },
+          })
+        }
+      }
+
       const inputCustomId = components[0]?.components[0]?.custom_id || ""
       const teamText = components[0]?.components[0]?.value || ""
       const matchId = new URLSearchParams(inputCustomId.split("?")[1] || "").get("match_id") || ""

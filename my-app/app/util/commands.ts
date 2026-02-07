@@ -3,6 +3,7 @@ export const COMMAND_PREF = "lol-"
 export const COMMANDS = {
   ECHO: COMMAND_PREF + "echo",
   NEW_PROTECT: COMMAND_PREF + "new-protect",
+  FEEDBACK: COMMAND_PREF + "feedback",
 }
 
 export const CLIENT_ACTIONS = {
@@ -11,6 +12,8 @@ export const CLIENT_ACTIONS = {
   REGISTER_RED_TEAM: "register-red-team-register",
   REGISTER_BLUE_TEAM: "register-blue-team",
   CHECK_REGISTERED: "check-registered",
+  SELECT_FEEDBACK_TYPE: "select-feedback-type",
+  SUBMIT_FEEDBACK: "submit-feedback",
 }
 
 // https://discord.com/developers/docs/interactions/receiving-and-responding#interaction-object-interaction-type
