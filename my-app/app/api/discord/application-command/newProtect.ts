@@ -2,6 +2,7 @@ import { CLIENT_ACTIONS } from "@/app/util/commands"
 import { newId } from "@/app/util/newId"
 import { NextResponse } from "next/server"
 import { redisSet, redisGet } from "@/app/libs/redis/redis"
+import { createProtectComponents } from "@/app/util/protectMessageComponents"
 
 // チームデータを保存し、相手チームのデータを確認する
 const saveTeamAndCheckOther = async (matchId: string, team: "red" | "blue", text: string): Promise<{ otherTeamText: string | null; myText: string }> => {
@@ -22,31 +23,7 @@ export const newProtectCommand = () => {
     type: 4,
     data: {
       content: "チームを選択してください",
-      components: [
-        {
-          type: 1,
-          components: [
-            {
-              type: 2,
-              style: 1,
-              label: "青チーム",
-              custom_id: CLIENT_ACTIONS.OPEN_MODAL_BLUE_TEAM_REGISTER + `?match_id=${matchId}`,
-            },
-            {
-              type: 2,
-              style: 4,
-              label: "赤チーム",
-              custom_id: CLIENT_ACTIONS.OPEN_MODAL_RED_TEAM_REGISTER + `?match_id=${matchId}`,
-            },
-            {
-              type: 2,
-              style: 2,
-              label: "確認",
-              custom_id: CLIENT_ACTIONS.CHECK_REGISTERED + `?match_id=${matchId}`,
-            },
-          ],
-        },
-      ],
+      components: createProtectComponents(matchId),
     },
   })
 }
@@ -68,7 +45,7 @@ export const handleOpenModalRedTeam = (matchId: string) => {
               label: "メッセージを入力してください",
               style: 1,
               required: true,
-              placeholder: "例：モルガナ、メル、ニーコ",
+              placeholder: "例：モルガナ、メル",
             },
           ],
         },
@@ -94,7 +71,7 @@ export const handleOpenModalBlueTeam = (matchId: string) => {
               label: "プロテクトするチャンプを入力",
               style: 1,
               required: true,
-              placeholder: "例：ヴェルコズ、ザック、ダイアナ",
+              placeholder: "例：ヴェルコズ、ザック",
             },
           ],
         },
