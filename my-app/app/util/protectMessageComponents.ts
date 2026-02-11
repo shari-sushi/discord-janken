@@ -29,6 +29,12 @@ export function createProtectComponents(matchId: string): any[] {
           label: "確認",
           custom_id: CLIENT_ACTIONS.CHECK_REGISTERED + `?match_id=${matchId}`,
         },
+        {
+          type: 2, // Button
+          style: 2, // Secondary (グレー)
+          label: "タイマーセット",
+          custom_id: CLIENT_ACTIONS.OPEN_MODAL_TIMER + `?match_id=${matchId}`,
+        },
       ],
     },
   ]
