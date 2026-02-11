@@ -4,6 +4,7 @@ export const COMMANDS = {
   ECHO: COMMAND_PREF + "echo",
   NEW_PROTECT: COMMAND_PREF + "new-protect",
   FEEDBACK: COMMAND_PREF + "feedback",
+  TIMER: COMMAND_PREF + "timer",
 }
 
 export const CLIENT_ACTIONS = {
@@ -14,6 +15,8 @@ export const CLIENT_ACTIONS = {
   CHECK_REGISTERED: "check-registered",
   SELECT_FEEDBACK_TYPE: "select-feedback-type",
   SUBMIT_FEEDBACK: "submit-feedback",
+  OPEN_MODAL_TIMER: "open-modal-timer",
+  SUBMIT_TIMER: "submit-timer",
 }
 
 // https://discord.com/developers/docs/interactions/receiving-and-responding#interaction-object-interaction-type

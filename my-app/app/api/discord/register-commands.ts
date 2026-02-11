@@ -38,7 +38,13 @@ const feedback: DiscordBotCommand = {
   options: [],
 }
 
-const commands: DiscordBotCommand[] = [EchoCommands, newProtect, feedback]
+const timer: DiscordBotCommand = {
+  name: COMMANDS.TIMER,
+  description: "指定時刻にメッセージを送信するタイマーを設定します",
+  options: [],
+}
+
+const commands: DiscordBotCommand[] = [EchoCommands, newProtect, feedback, timer]
 
 fetch(`https://discord.com/api/v10/applications/${APPLICATION_ID}/commands`, {
   // POSTにすると新規登録のみで古いのは変更されない

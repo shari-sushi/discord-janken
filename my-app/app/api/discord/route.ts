@@ -10,6 +10,7 @@ import {
   handleCheckRegistered,
 } from "./application-command/newProtect"
 import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./application-command/feedback"
+import { timerCommand, handleSubmitTimer } from "./application-command/timer"
 import { CLIENT_ACTIONS, COMMANDS, DISCORD_INTERACTION_TYPE } from "@/app/util/commands"
 
 const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY!
@@ -50,6 +51,8 @@ export async function POST(req: NextRequest) {
           return newProtectCommand()
         case COMMANDS.FEEDBACK:
           return feedbackCommand()
+        case COMMANDS.TIMER:
+          return timerCommand()
         default:
           return NextResponse.json({
             type: 4,
@@ -99,6 +102,16 @@ export async function POST(req: NextRequest) {
 
       if (customId.startsWith(CLIENT_ACTIONS.SUBMIT_FEEDBACK)) {
         return handleSubmitFeedback(interaction)
+      }
+
+      if (customId === CLIENT_ACTIONS.SUBMIT_TIMER) {
+        const timeInput = components[0]?.components[0]?.value || ""
+        const message = components[1]?.components[0]?.value || ""
+        const channelId = interaction.channel_id || ""
+        const guildId = interaction.guild_id || ""
+        const userId = interaction.member?.user?.id || ""
+
+        return handleSubmitTimer(timeInput, message, channelId, guildId, userId)
       }
 
       const inputCustomId = components[0]?.components[0]?.custom_id || ""
