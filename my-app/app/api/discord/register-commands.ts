@@ -4,7 +4,7 @@ import "dotenv/config"
 // npx tsx app/api/discord/register-commands.ts でコマンド登録(完全置き換え)できる
 // ただし、本番環境でビルド時に実行させているので、通常は手動で実行する必要は無い
 
-const DISCORD_TOKEN = process.env.DISCORD_TOKEN!
+const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN!
 const APPLICATION_ID = process.env.DISCORD_APPLICATION_ID!
 
 type DiscordBotCommand = {
@@ -44,7 +44,7 @@ fetch(`https://discord.com/api/v10/applications/${APPLICATION_ID}/commands`, {
   // POSTにすると新規登録のみで古いのは変更されない
   method: "PUT", // POST → PUT に変更
   headers: {
-    Authorization: `Bot ${DISCORD_TOKEN}`,
+    Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
     "Content-Type": "application/json",
   },
   body: JSON.stringify(commands), // 配列で送信
