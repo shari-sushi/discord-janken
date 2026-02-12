@@ -3,12 +3,13 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 
 export default function LoginPage() {
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     setError("")
     setIsLoading(true)
@@ -19,7 +20,7 @@ export default function LoginPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ username, password }),
       })
 
       const data = await response.json()
@@ -53,6 +54,19 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
+            <label className="block mb-2 font-semibold text-white">ユーザー名:</label>
+            <input
+              type="text"
+              className="w-full border border-zinc-600 bg-zinc-700 text-white px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="ユーザー名を入力"
+              disabled={isLoading}
+              autoFocus
+            />
+          </div>
+
+          <div className="mb-4">
             <label className="block mb-2 font-semibold text-white">パスワード:</label>
             <input
               type="password"
@@ -61,20 +75,15 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="パスワードを入力"
               disabled={isLoading}
-              autoFocus
             />
           </div>
 
-          {error && (
-            <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded text-red-200">
-              {error}
-            </div>
-          )}
+          {error && <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded text-red-200">{error}</div>}
 
           <button
             type="submit"
             className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isLoading || !password}
+            disabled={isLoading || !username || !password}
           >
             {isLoading ? "ログイン中..." : "ログイン"}
           </button>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { validateSession } from "@/app/libs/session"
+import { validateAuthHeader } from "@/app/libs/auth"
 import { validateDiscordId, validateIsProtect } from "../_validators/discordValidators"
 import { newId } from "@/app/util/newId"
 import { sendDiscordMessage, DiscordApiError } from "@/app/libs/discordApi"
@@ -11,34 +11,21 @@ import { createProtectComponents } from "@/app/util/protectMessageComponents"
  */
 export async function POST(request: NextRequest) {
   try {
-    // 1. セッション認証
+    // 1. 認証（Bearer Token または Basic認証）
     const authHeader = request.headers.get("Authorization")
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { success: false, error: "認証トークンが必要です" },
-        { status: 401 }
-      )
-    }
+    const authResult = await validateAuthHeader(authHeader)
 
-    const token = authHeader.substring(7) // "Bearer " を除去
-    const isValid = await validateSession(token)
-
-    if (!isValid) {
-      return NextResponse.json(
-        { success: false, error: "無効な認証トークンです" },
-        { status: 401 }
-      )
+    if (!authResult.valid) {
+      return NextResponse.json({ success: false, error: authResult.error }, { status: 401 })
     }
 
     // 2. リクエストボディの取得
-    let body: any
+    let body: { guild_id: string; channel_id: string; isProtect: boolean }
     try {
       body = await request.json()
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
-      return NextResponse.json(
-        { success: false, error: "不正なJSONフォーマットです" },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: "不正なJSONフォーマットです" }, { status: 400 })
     }
 
     const { guild_id, channel_id, isProtect } = body
@@ -46,37 +33,24 @@ export async function POST(request: NextRequest) {
     // 3. バリデーション
     const guildIdValidation = validateDiscordId(guild_id)
     if (!guildIdValidation.valid) {
-      return NextResponse.json(
-        { success: false, error: `guild_id: ${guildIdValidation.error}` },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: `guild_id: ${guildIdValidation.error}` }, { status: 400 })
     }
 
     const channelIdValidation = validateDiscordId(channel_id)
     if (!channelIdValidation.valid) {
-      return NextResponse.json(
-        { success: false, error: `channel_id: ${channelIdValidation.error}` },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: `channel_id: ${channelIdValidation.error}` }, { status: 400 })
     }
 
     const isProtectValidation = validateIsProtect(isProtect)
     if (!isProtectValidation.valid) {
-      return NextResponse.json(
-        { success: false, error: `isProtect: ${isProtectValidation.error}` },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: `isProtect: ${isProtectValidation.error}` }, { status: 400 })
     }
 
     // 4. isProtect による条件分岐
     const isProtectFlag = isProtect === true
-
     if (!isProtectFlag) {
       // note: isProtect: false は将来拡張用。現在は何もせずエラーを返す
-      return NextResponse.json(
-        { success: false, error: "isProtect: false は現在サポートされていません（将来拡張用）" },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: "isProtect: false は現在サポートされていません（将来拡張用）" }, { status: 400 })
     }
 
     // 5. 試合ID生成
@@ -85,11 +59,7 @@ export async function POST(request: NextRequest) {
     // 6. Discord API へのメッセージ送信
     try {
       const components = createProtectComponents(matchId)
-      const response = await sendDiscordMessage(
-        channel_id,
-        "チームを選択してください",
-        components
-      )
+      const response = await sendDiscordMessage(channel_id, "チームを選択してください", components)
 
       // 7. 成功レスポンス
       return NextResponse.json(
@@ -98,7 +68,7 @@ export async function POST(request: NextRequest) {
           match_id: matchId,
           message_id: response.id,
         },
-        { status: 200 }
+        { status: 200 },
       )
     } catch (error) {
       // Discord API エラーハンドリング
@@ -120,10 +90,7 @@ export async function POST(request: NextRequest) {
             break
         }
 
-        return NextResponse.json(
-          { success: false, error: errorMessage, details: error.details },
-          { status: error.status === 429 ? 429 : 500 }
-        )
+        return NextResponse.json({ success: false, error: errorMessage, details: error.details }, { status: error.status === 429 ? 429 : 500 })
       }
 
       // その他のエラー
@@ -131,9 +98,6 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error("POST /api/web/lol/matches error:", error)
-    return NextResponse.json(
-      { success: false, error: "サーバーエラーが発生しました" },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: false, error: "サーバーエラーが発生しました" }, { status: 500 })
   }
 }
