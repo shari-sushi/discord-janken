@@ -105,3 +105,32 @@ export const redisDisconnect = async (): Promise<void> => {
     redis = null
   }
 }
+
+/**
+ * 複数のキーを一括取得する（MGET使用）
+ * @param keys キーの配列
+ * @returns 値の配列（nullを含む可能性あり）
+ *
+ * NOTE: キーが不明でパターンマッチが必要な場合は、SCANコマンドを使用してキーを検索してからMGETを使用する
+ */
+export const redisMGet = async <T = string>(
+  keys: string[]
+): Promise<(T | null)[]> => {
+  if (keys.length === 0) {
+    return []
+  }
+
+  const client = await getRedisClient()
+  const results = await client.mGet(keys)
+
+  return results.map((result: string | null) => {
+    if (result === null) {
+      return null
+    }
+    try {
+      return JSON.parse(result) as T
+    } catch {
+      return result as T
+    }
+  })
+}
