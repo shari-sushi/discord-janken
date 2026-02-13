@@ -1,23 +1,39 @@
 import { CLIENT_ACTIONS } from "@/app/util/commands"
 import { newId } from "@/app/util/newId"
 import { NextResponse } from "next/server"
-import { redisSet, redisGet } from "@/app/libs/redis/redis"
+import { redisSet, redisGet, redisMGet } from "@/app/libs/redis/redis"
 import { createProtectComponents } from "@/app/util/protectMessageComponents"
+import { ProtectTeamData, ProtectMatchMeta } from "@/app/types/match"
+import { getMatchKey } from "@/app/util/redisKeys"
 
 // チームデータを保存し、相手チームのデータを確認する
-const saveTeamAndCheckOther = async (matchId: string, team: "red" | "blue", text: string): Promise<{ otherTeamText: string | null; myText: string }> => {
-  const myKey = `protect:${matchId}:${team}_team`
-  const otherKey = `protect:${matchId}:${team === "red" ? "blue" : "red"}_team`
+const saveTeamAndCheckOther = async (matchId: string, team: "red" | "blue", text: string): Promise<{ otherTeamData: ProtectTeamData | null; myData: ProtectTeamData }> => {
+  const myKey = getMatchKey(matchId, `${team}_team`)
+  const otherKey = getMatchKey(matchId, team === "red" ? "blue_team" : "red_team")
 
-  await redisSet(myKey, text)
-  const otherTeamText = await redisGet<string>(otherKey)
+  // 自チームのデータを作成・保存
+  const myData: ProtectTeamData = {
+    protection_champions: text,
+    updated_at: new Date().toISOString(),
+  }
+  await redisSet(myKey, myData)
 
-  return { otherTeamText, myText: text }
+  // 相手チームのデータを取得
+  const otherTeamData = await redisGet<ProtectTeamData>(otherKey)
+
+  return { otherTeamData, myData }
 }
 
 // コマンド初期表示
-export const newProtectCommand = () => {
+export const newProtectCommand = async () => {
   const matchId = newId()
+
+  // メタデータを作成・保存
+  const meta: ProtectMatchMeta = {
+    match_id: matchId,
+    created_at: new Date().toISOString(),
+  }
+  await redisSet(getMatchKey(matchId, "meta"), meta)
 
   return NextResponse.json({
     type: 4,
@@ -82,8 +98,8 @@ export const handleOpenModalBlueTeam = (matchId: string) => {
 
 // レッドチーム 登録処理
 export const handleRegisterRedTeam = async (matchId: string, teamText: string) => {
-  const { otherTeamText, myText } = await saveTeamAndCheckOther(matchId, "red", teamText)
-  const message = otherTeamText ? `🔵 ブルーサイド: ${otherTeamText}\n🔴 レッドサイド: ${myText}` : "🔴 レッドサイド登録完了"
+  const { otherTeamData, myData } = await saveTeamAndCheckOther(matchId, "red", teamText)
+  const message = otherTeamData ? `🔵 ブルーサイド: ${otherTeamData.protection_champions}\n🔴 レッドサイド: ${myData.protection_champions}` : "🔴 レッドサイド登録完了"
   return NextResponse.json({
     type: 4,
     data: { content: message },
@@ -92,8 +108,8 @@ export const handleRegisterRedTeam = async (matchId: string, teamText: string) =
 
 // ブルーチーム 登録処理
 export const handleRegisterBlueTeam = async (matchId: string, teamText: string) => {
-  const { otherTeamText, myText } = await saveTeamAndCheckOther(matchId, "blue", teamText)
-  const message = otherTeamText ? `🔵 ブルーサイド: ${myText}\n🔴 レッドサイド: ${otherTeamText}` : "🔵 ブルーサイド登録完了"
+  const { otherTeamData, myData } = await saveTeamAndCheckOther(matchId, "blue", teamText)
+  const message = otherTeamData ? `🔵 ブルーサイド: ${myData.protection_champions}\n🔴 レッドサイド: ${otherTeamData.protection_champions}` : "🔵 ブルーサイド登録完了"
   return NextResponse.json({
     type: 4,
     data: { content: message },
@@ -102,15 +118,21 @@ export const handleRegisterBlueTeam = async (matchId: string, teamText: string) 
 
 // 登録状況確認
 export const handleCheckRegistered = async (matchId: string) => {
-  const redTeamText = await redisGet<string>(`protect:${matchId}:red_team`)
-  const blueTeamText = await redisGet<string>(`protect:${matchId}:blue_team`)
+  const redTeamKey = getMatchKey(matchId, "red_team")
+  const blueTeamKey = getMatchKey(matchId, "blue_team")
+
+  // 一括取得（MGET使用）
+  const [redTeamData, blueTeamData] = await redisMGet<ProtectTeamData>([
+    redTeamKey,
+    blueTeamKey,
+  ])
 
   let message: string
-  if (redTeamText && blueTeamText) {
-    message = `✅ 両チーム登録済み\n🔵 ブルーサイド: ${blueTeamText}\n🔴 レッドサイド: ${redTeamText}`
-  } else if (redTeamText) {
+  if (redTeamData && blueTeamData) {
+    message = `✅ 両チーム登録済み\n🔵 ブルーサイド: ${blueTeamData.protection_champions}\n🔴 レッドサイド: ${redTeamData.protection_champions}`
+  } else if (redTeamData) {
     message = "🔵 ブルーサイド: 未登録\n🔴 レッドサイド: 登録済み"
-  } else if (blueTeamText) {
+  } else if (blueTeamData) {
     message = "🔵 ブルーサイド: 登録済み\n🔴 レッドサイド: 未登録"
   } else {
     message = "🔵 ブルーサイド: 未登録\n🔴 レッドサイド: 未登録"
