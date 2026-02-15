@@ -15,7 +15,7 @@ export const COMMANDS = {
 export const CLIENT_ACTIONS = {
   OPEN_MODAL_RED_TEAM_REGISTER: "open-modal-red-team-register",
   OPEN_MODAL_BLUE_TEAM_REGISTER: "open-modal-blue-team-register",
-  REGISTER_RED_TEAM: "register-red-team-register",
+  REGISTER_RED_TEAM: "register-red-team",
   REGISTER_BLUE_TEAM: "register-blue-team",
   CHECK_REGISTERED: "check-registered",
   SELECT_FEEDBACK_TYPE: "select-feedback-type",

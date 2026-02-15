@@ -62,9 +62,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // ボタン押された時とか
     if (interaction.type === DISCORD_INTERACTION_TYPE.MESSAGE_COMPONENT) {
       const customId = interaction.data.custom_id
+      console.log("MESSAGE_COMPONENT custom_id:", customId)
       const [actionId, matchIdParam] = customId.split("?")
       const matchId = new URLSearchParams(matchIdParam || "").get("match_id") || ""
-      console.log("action:", actionId)
+      console.log("action:", actionId, "matchId:", matchId)
 
       switch (actionId) {
         case CLIENT_ACTIONS.OPEN_MODAL_RED_TEAM_REGISTER:
@@ -108,6 +109,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const components = interaction.data.components as any[]
 
+      console.log("MODAL_SUBMIT custom_id:", customId)
+      console.log("MODAL_SUBMIT components:", JSON.stringify(components, null, 2))
+
       if (customId.startsWith(CLIENT_ACTIONS.SUBMIT_FEEDBACK)) {
         return handleSubmitFeedback(interaction)
       }
@@ -127,8 +131,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       // 最初のコンポーネントのcustom_idから取得を試みる
       const firstCustomId = components[0]?.components[0]?.custom_id || ""
+      console.log("First custom_id:", firstCustomId)
       if (firstCustomId.includes("match_id")) {
         matchId = new URLSearchParams(firstCustomId.split("?")[1] || "").get("match_id") || ""
+        console.log("Extracted match_id:", matchId)
       }
 
       if (customId === CLIENT_ACTIONS.REGISTER_RED_TEAM) {

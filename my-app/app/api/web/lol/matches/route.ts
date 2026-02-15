@@ -5,14 +5,25 @@ import { newId } from "@/app/util/newId"
 import { sendDiscordMessage, DiscordApiError } from "@/app/libs/discordApi"
 import { createProtectComponents } from "@/app/util/protectMessageComponents"
 import { redisSet } from "@/app/libs/redis/redis"
-import { MatchMembers, ProtectMatchMeta } from "@/app/types/match"
+import { ProtectMatchMeta } from "@/app/types/match"
 import { getMatchKey } from "@/app/util/redisKeys"
+
+type RequestBody = {
+  guild_id: string
+  channel_id: string
+  is_protect?: boolean
+  is_role_select: boolean
+  members?: {
+    blue_team: string[]
+    red_team: string[]
+  }
+}
 
 /**
  * POST /api/web/lol/matches
  * 試合を作成し、オプションでDiscordにプロテクト登録メッセージを送信
  */
-export async function POST(request: NextRequest): Promise<Response> {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     // 1. 認証（Bearer Token または Basic認証）
     const authHeader = request.headers.get("Authorization")
@@ -23,7 +34,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     }
 
     // 2. リクエストボディの取得
-    let body: { guild_id: string; channel_id: string; isProtect?: boolean; isRoleSelect?: boolean; members?: MatchMembers }
+    let body: RequestBody
     try {
       body = await request.json()
     } catch (error) {
@@ -31,15 +42,19 @@ export async function POST(request: NextRequest): Promise<Response> {
       return NextResponse.json({ success: false, error: "不正なJSONフォーマットです" }, { status: 400 })
     }
 
-    const { guild_id, channel_id, isProtect, isRoleSelect, members } = body
+    const { guild_id: guildId, channel_id: channelId, is_protect: isProtect, is_role_select: isRoleSelect, members: ms } = body
+    const members = {
+      blueTeam: ms!.blue_team,
+      redTeam: ms!.red_team,
+    }
 
     // 3. バリデーション
-    const guildIdValidation = validateDiscordId(guild_id)
+    const guildIdValidation = validateDiscordId(guildId)
     if (!guildIdValidation.valid) {
       return NextResponse.json({ success: false, error: `guild_id: ${guildIdValidation.error}` }, { status: 400 })
     }
 
-    const channelIdValidation = validateDiscordId(channel_id)
+    const channelIdValidation = validateDiscordId(channelId)
     if (!channelIdValidation.valid) {
       return NextResponse.json({ success: false, error: `channel_id: ${channelIdValidation.error}` }, { status: 400 })
     }
@@ -91,7 +106,8 @@ export async function POST(request: NextRequest): Promise<Response> {
     // 9. Discord API へのメッセージ送信
     try {
       const components = createProtectComponents(matchId)
-      const response = await sendDiscordMessage(channel_id, "チームを選択してください", components)
+      const responseMessage = isProtectFlag && isRoleSelectFlag ? "プロテクトとロール" : isProtectFlag && "プロテクト" ? isRoleSelectFlag : "ロール"
+      const response = await sendDiscordMessage(channelId, "自チームの" + responseMessage + "を入力してください", components)
 
       // 10. 成功レスポンス
       return NextResponse.json(
