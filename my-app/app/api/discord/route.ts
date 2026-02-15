@@ -8,7 +8,7 @@ import { CLIENT_ACTIONS, COMMANDS, DISCORD_INTERACTION_TYPE } from "@/app/util/c
 
 const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY!
 
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest): Promise<Response> {
   try {
     const rawBody = await req.text()
     const signature = req.headers.get("x-signature-ed25519")
@@ -107,16 +107,21 @@ export async function POST(req: NextRequest) {
         return handleSubmitTimer(timeInput, message, channelId, guildId, userId)
       }
 
-      const inputCustomId = components[0]?.components[0]?.custom_id || ""
-      const teamText = components[0]?.components[0]?.value || ""
-      const matchId = new URLSearchParams(inputCustomId.split("?")[1] || "").get("match_id") || ""
+      // match_id を取得（複数の方法で取得を試みる）
+      let matchId = ""
+
+      // 最初のコンポーネントのcustom_idから取得を試みる
+      const firstCustomId = components[0]?.components[0]?.custom_id || ""
+      if (firstCustomId.includes("match_id")) {
+        matchId = new URLSearchParams(firstCustomId.split("?")[1] || "").get("match_id") || ""
+      }
 
       if (customId === CLIENT_ACTIONS.REGISTER_RED_TEAM) {
-        return handleRegisterRedTeam(matchId, teamText)
+        return handleRegisterRedTeam(matchId, interaction.data)
       }
 
       if (customId === CLIENT_ACTIONS.REGISTER_BLUE_TEAM) {
-        return handleRegisterBlueTeam(matchId, teamText)
+        return handleRegisterBlueTeam(matchId, interaction.data)
       }
     }
 
