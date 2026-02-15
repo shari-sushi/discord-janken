@@ -44,7 +44,20 @@ const timer: DiscordBotCommand = {
   options: [],
 }
 
-const commands: DiscordBotCommand[] = [EchoCommands, newProtect, feedback, timer]
+const test: DiscordBotCommand[] = [
+  {
+    name: COMMANDS.TEST.ORIGIN,
+    description: "実装の動作確認コマンド origin",
+    options: [],
+  },
+  {
+    name: COMMANDS.TEST.ONE,
+    description: "実装の動作確認コマンド 1",
+    options: [],
+  },
+]
+
+const commands: DiscordBotCommand[] = [EchoCommands, newProtect, feedback, timer, ...test]
 
 fetch(`https://discord.com/api/v10/applications/${APPLICATION_ID}/commands`, {
   // POSTにすると新規登録のみで古いのは変更されない

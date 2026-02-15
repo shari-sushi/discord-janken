@@ -5,6 +5,11 @@ export const COMMANDS = {
   NEW_PROTECT: COMMAND_PREF + "new-protect",
   FEEDBACK: COMMAND_PREF + "feedback",
   TIMER: COMMAND_PREF + "timer",
+  // 動作確認用
+  TEST: {
+    ORIGIN: "test-develop",
+    ONE: "test-develop-1",
+  },
 }
 
 export const CLIENT_ACTIONS = {
@@ -17,6 +22,8 @@ export const CLIENT_ACTIONS = {
   SUBMIT_FEEDBACK: "submit-feedback",
   OPEN_MODAL_TIMER: "open-modal-timer",
   SUBMIT_TIMER: "submit-timer",
+  // 動作確認用
+  TEST_DEVELOP_BUTTON: { ONE: "test-develop-button-1", TWO: "test-develop-button-2", THREE: "test-develop-button-3", FOUR: "test-develop-button-4", FIVE: "test-develop-button-5" },
 }
 
 // https://discord.com/developers/docs/interactions/receiving-and-responding#interaction-object-interaction-type

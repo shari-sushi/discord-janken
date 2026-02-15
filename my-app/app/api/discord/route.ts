@@ -5,6 +5,7 @@ import { newProtectCommand, handleOpenModalRedTeam, handleOpenModalBlueTeam, han
 import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./application-command/feedback"
 import { timerCommand, handleSubmitTimer } from "./application-command/timer"
 import { CLIENT_ACTIONS, COMMANDS, DISCORD_INTERACTION_TYPE } from "@/app/util/commands"
+import { developersTestCommand, handleTestDevelop1, handleTestDevelop2, handleTestDevelop3, handleTestDevelop4, handleTestDevelop5 } from "./application-command/developers-test"
 
 const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY!
 
@@ -46,6 +47,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return timerCommand()
         case COMMANDS.FEEDBACK:
           return feedbackCommand()
+        case COMMANDS.TEST.ORIGIN:
+          return developersTestCommand()
         default:
           return NextResponse.json({
             type: 4,
@@ -76,6 +79,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
         case CLIENT_ACTIONS.CHECK_REGISTERED:
           return handleCheckRegistered(matchId)
+
+        // 動作確認テスト用
+        case CLIENT_ACTIONS.TEST_DEVELOP_BUTTON.ONE:
+          return handleTestDevelop1()
+        case CLIENT_ACTIONS.TEST_DEVELOP_BUTTON.TWO:
+          return handleTestDevelop2()
+        case CLIENT_ACTIONS.TEST_DEVELOP_BUTTON.THREE:
+          return handleTestDevelop3()
+        case CLIENT_ACTIONS.TEST_DEVELOP_BUTTON.FOUR:
+          return handleTestDevelop4()
+        case CLIENT_ACTIONS.TEST_DEVELOP_BUTTON.FIVE:
+          return handleTestDevelop5()
 
         default:
           return NextResponse.json({
