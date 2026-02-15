@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyKey } from "discord-interactions"
 import { echoCommand } from "./application-command/echo"
-import {
-  newProtectCommand,
-  handleOpenModalRedTeam,
-  handleOpenModalBlueTeam,
-  handleRegisterRedTeam,
-  handleRegisterBlueTeam,
-  handleCheckRegistered,
-} from "./application-command/newProtect"
+import { newProtectCommand, handleOpenModalRedTeam, handleOpenModalBlueTeam, handleRegisterRedTeam, handleRegisterBlueTeam, handleCheckRegistered } from "./application-command/newProtect"
 import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./application-command/feedback"
 import { timerCommand, handleSubmitTimer } from "./application-command/timer"
 import { CLIENT_ACTIONS, COMMANDS, DISCORD_INTERACTION_TYPE } from "@/app/util/commands"
@@ -49,10 +42,10 @@ export async function POST(req: NextRequest) {
           return echoCommand(options)
         case COMMANDS.NEW_PROTECT:
           return newProtectCommand()
-        case COMMANDS.FEEDBACK:
-          return feedbackCommand()
         case COMMANDS.TIMER:
           return timerCommand()
+        case COMMANDS.FEEDBACK:
+          return feedbackCommand()
         default:
           return NextResponse.json({
             type: 4,

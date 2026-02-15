@@ -5,6 +5,7 @@ const SESSION_PREFIX = "session:"
 const SESSION_EXPIRY = 60 * 60 * 24 * 7 // 7 days in seconds
 
 export interface SessionData {
+  username: string
   createdAt: number
   lastAccessedAt: number
 }
@@ -13,9 +14,10 @@ export function generateSessionToken(): string {
   return randomBytes(32).toString("hex")
 }
 
-export async function createSession(): Promise<string> {
+export async function createSession(username: string): Promise<string> {
   const token = generateSessionToken()
   const sessionData: SessionData = {
+    username,
     createdAt: Date.now(),
     lastAccessedAt: Date.now(),
   }

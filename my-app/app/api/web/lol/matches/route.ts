@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { validateSession } from "@/app/libs/session"
+import { validateAuthHeader } from "@/app/libs/auth"
 import { validateDiscordId, validateIsProtect, validateIsRoleSelect, validateMembers } from "../_validators/discordValidators"
 import { newId } from "@/app/util/newId"
 import { sendDiscordMessage, DiscordApiError } from "@/app/libs/discordApi"
@@ -14,23 +14,12 @@ import { getMatchKey } from "@/app/util/redisKeys"
  */
 export async function POST(request: NextRequest) {
   try {
-    // 1. セッション認証
+    // 1. 認証（Bearer Token または Basic認証）
     const authHeader = request.headers.get("Authorization")
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { success: false, error: "認証トークンが必要です" },
-        { status: 401 }
-      )
-    }
+    const authResult = await validateAuthHeader(authHeader)
 
-    const token = authHeader.substring(7) // "Bearer " を除去
-    const isValid = await validateSession(token)
-
-    if (!isValid) {
-      return NextResponse.json(
-        { success: false, error: "無効な認証トークンです" },
-        { status: 401 }
-      )
+    if (!authResult.valid) {
+      return NextResponse.json({ success: false, error: authResult.error }, { status: 401 })
     }
 
     // 2. リクエストボディの取得
@@ -49,26 +38,17 @@ export async function POST(request: NextRequest) {
     // 3. バリデーション
     const guildIdValidation = validateDiscordId(guild_id)
     if (!guildIdValidation.valid) {
-      return NextResponse.json(
-        { success: false, error: `guild_id: ${guildIdValidation.error}` },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: `guild_id: ${guildIdValidation.error}` }, { status: 400 })
     }
 
     const channelIdValidation = validateDiscordId(channel_id)
     if (!channelIdValidation.valid) {
-      return NextResponse.json(
-        { success: false, error: `channel_id: ${channelIdValidation.error}` },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: `channel_id: ${channelIdValidation.error}` }, { status: 400 })
     }
 
     const isProtectValidation = validateIsProtect(isProtect)
     if (!isProtectValidation.valid) {
-      return NextResponse.json(
-        { success: false, error: `isProtect: ${isProtectValidation.error}` },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: `isProtect: ${isProtectValidation.error}` }, { status: 400 })
     }
 
     const isRoleSelectValidation = validateIsRoleSelect(isRoleSelect)
@@ -125,11 +105,7 @@ export async function POST(request: NextRequest) {
     // 9. Discord API へのメッセージ送信
     try {
       const components = createProtectComponents(matchId)
-      const response = await sendDiscordMessage(
-        channel_id,
-        "チームを選択してください",
-        components
-      )
+      const response = await sendDiscordMessage(channel_id, "チームを選択してください", components)
 
       // 10. 成功レスポンス
       return NextResponse.json(
@@ -138,7 +114,7 @@ export async function POST(request: NextRequest) {
           match_id: matchId,
           message_id: response.id,
         },
-        { status: 200 }
+        { status: 200 },
       )
     } catch (error) {
       // Discord API エラーハンドリング
@@ -160,10 +136,7 @@ export async function POST(request: NextRequest) {
             break
         }
 
-        return NextResponse.json(
-          { success: false, error: errorMessage, details: error.details },
-          { status: error.status === 429 ? 429 : 500 }
-        )
+        return NextResponse.json({ success: false, error: errorMessage, details: error.details }, { status: error.status === 429 ? 429 : 500 })
       }
 
       // その他のエラー
@@ -171,9 +144,6 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error("POST /api/web/lol/matches error:", error)
-    return NextResponse.json(
-      { success: false, error: "サーバーエラーが発生しました" },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: false, error: "サーバーエラーが発生しました" }, { status: 500 })
   }
 }
