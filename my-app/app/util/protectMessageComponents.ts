@@ -1,3 +1,4 @@
+import { MessageComponent } from "discord-interactions"
 import { CLIENT_ACTIONS } from "./commands"
 
 /**
@@ -5,8 +6,7 @@ import { CLIENT_ACTIONS } from "./commands"
  * @param matchId - 試合ID
  * @returns Discordコンポーネント配列
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function createProtectComponents(matchId: string): any[] {
+export function createProtectComponents(matchId: string): MessageComponent[] {
   return [
     {
       type: 1, // Action Row
@@ -14,13 +14,13 @@ export function createProtectComponents(matchId: string): any[] {
         {
           type: 2, // Button
           style: 1, // Primary (青)
-          label: "青チーム",
+          label: "ブルーサイド",
           custom_id: CLIENT_ACTIONS.OPEN_MODAL_BLUE_TEAM_REGISTER + `?match_id=${matchId}`,
         },
         {
           type: 2, // Button
           style: 4, // Danger (赤)
-          label: "赤チーム",
+          label: "レッドサイド",
           custom_id: CLIENT_ACTIONS.OPEN_MODAL_RED_TEAM_REGISTER + `?match_id=${matchId}`,
         },
         {

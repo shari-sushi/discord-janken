@@ -8,7 +8,7 @@ import { CLIENT_ACTIONS, COMMANDS, DISCORD_INTERACTION_TYPE } from "@/app/util/c
 
 const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY!
 
-export async function POST(req: NextRequest): Promise<Response> {
+export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const rawBody = await req.text()
     const signature = req.headers.get("x-signature-ed25519")

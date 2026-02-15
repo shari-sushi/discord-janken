@@ -1,7 +1,7 @@
 import { CLIENT_ACTIONS } from "@/app/util/commands"
 import { NextResponse } from "next/server"
-import { SelectOptionStructure } from "../types"
 import { appendFeedbackToSheet } from "@/app/libs/googleSheets"
+import { StringSelectOption } from "discord-interactions"
 
 // フィードバック種類
 type FeedBackType = "bugs" | "opinion" | "miss-operation" | "other"
@@ -37,7 +37,7 @@ export const feedbackCommand = () => {
                   label: "その他",
                   value: "other",
                 },
-              ] satisfies Array<SelectOptionStructure & { value: FeedBackType }>,
+              ] satisfies Array<StringSelectOption & { value: FeedBackType }>,
             },
           ],
         },
