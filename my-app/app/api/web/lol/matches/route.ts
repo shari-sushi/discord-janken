@@ -12,7 +12,7 @@ import { getMatchKey } from "@/app/util/redisKeys"
  * POST /api/web/lol/matches
  * 試合を作成し、オプションでDiscordにプロテクト登録メッセージを送信
  */
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<Response> {
   try {
     // 1. 認証（Bearer Token または Basic認証）
     const authHeader = request.headers.get("Authorization")
@@ -26,8 +26,8 @@ export async function POST(request: NextRequest) {
     let body: { guild_id: string; channel_id: string; isProtect?: boolean; isRoleSelect?: boolean; members?: MatchMembers }
     try {
       body = await request.json()
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
+      console.error(error)
       return NextResponse.json({ success: false, error: "不正なJSONフォーマットです" }, { status: 400 })
     }
 

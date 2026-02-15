@@ -70,7 +70,7 @@ function createCompletionEmbed(meta: ProtectMatchMeta, blueTeamData: ProtectTeam
     },
   ]
 
-  return {
+  return NextResponse.json({
     type: 4,
     data: {
       embeds: [
@@ -81,7 +81,7 @@ function createCompletionEmbed(meta: ProtectMatchMeta, blueTeamData: ProtectTeam
         },
       ],
     },
-  }
+  })
 }
 
 // コマンド初期表示
