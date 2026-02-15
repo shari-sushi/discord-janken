@@ -107,21 +107,16 @@ export async function POST(req: NextRequest) {
         return handleSubmitTimer(timeInput, message, channelId, guildId, userId)
       }
 
-      // match_id を取得（複数の方法で取得を試みる）
-      let matchId = ""
-
-      // 最初のコンポーネントのcustom_idから取得を試みる
-      const firstCustomId = components[0]?.components[0]?.custom_id || ""
-      if (firstCustomId.includes("match_id")) {
-        matchId = new URLSearchParams(firstCustomId.split("?")[1] || "").get("match_id") || ""
-      }
+      const inputCustomId = components[0]?.components[0]?.custom_id || ""
+      const teamText = components[0]?.components[0]?.value || ""
+      const matchId = new URLSearchParams(inputCustomId.split("?")[1] || "").get("match_id") || ""
 
       if (customId === CLIENT_ACTIONS.REGISTER_RED_TEAM) {
-        return handleRegisterRedTeam(matchId, interaction.data)
+        return handleRegisterRedTeam(matchId, teamText)
       }
 
       if (customId === CLIENT_ACTIONS.REGISTER_BLUE_TEAM) {
-        return handleRegisterBlueTeam(matchId, interaction.data)
+        return handleRegisterBlueTeam(matchId, teamText)
       }
     }
 

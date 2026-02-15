@@ -2,16 +2,9 @@
  * プロテクト機能 - チームデータ
  */
 export type ProtectTeamData = {
+  protection_champions: string
   updated_at: string // ISO 8601
-  protection_champions?: string // isProtect: true の場合のみ存在
-  roster?: {
-    // isRoleSelect: true の場合のみ存在
-    top: string
-    jg: string
-    mid: string
-    adc: string
-    sup: string
-  }
+  // 将来実装: memberRoles?: { top: string; jg: string; mid: string; adc: string; sup: string }
 }
 
 /**
@@ -20,13 +13,7 @@ export type ProtectTeamData = {
 export type ProtectMatchMeta = {
   match_id: string
   created_at: string // ISO 8601
-  isProtect: boolean // プロテクト機能の有無
-  isRoleSelect: boolean // ロール選択機能の有無
-  members?: {
-    // メンバーリスト（isRoleSelect: true の場合に推奨）
-    blueTeam: string[] // 青チームのメンバー（5名）
-    redTeam: string[] // 赤チームのメンバー（5名）
-  }
+  // 将来実装: members?: string[]
 }
 
 /**
