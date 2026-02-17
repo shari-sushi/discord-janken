@@ -242,9 +242,16 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
   })
 }
 
+type handleRegisterTeamArgs = {
+  matchId: string
+  userId: string
+  teamSide: TeamSide
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: any
+}
+
 // チーム情報の登録処理
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const handleRegisterTeam = async (teamSide: TeamSide, matchId: string, data: any): Promise<{ response: NextResponse; isBothTeamsRegistered: boolean }> => {
+export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: handleRegisterTeamArgs): Promise<{ response: NextResponse; isBothTeamsRegistered: boolean }> => {
   console.log("handleRegisterTeam by", teamSide, "data:", JSON.stringify(data, null, 2))
 
   // 1. メタデータ取得
@@ -348,7 +355,7 @@ export const handleRegisterTeam = async (teamSide: TeamSide, matchId: string, da
   } else {
     console.log(teamSide, "- Returning single team completion message")
     return {
-      response: NextResponse.json({ type: 4, data: { content: teamSide === "blue_team" ? "🟦 ブルーサイド登録完了" : "🟥 レッドサイド登録完了" } }),
+      response: NextResponse.json({ type: 4, data: { content: teamSide === "blue_team" ? `🟦 ブルーサイド登録完了 (登録者<@${userId}>)` : `🟥 レッドサイド登録完了 (登録者<@${userId}>)` } }),
       isBothTeamsRegistered: false,
     }
   }

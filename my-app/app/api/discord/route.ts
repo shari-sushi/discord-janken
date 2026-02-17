@@ -150,10 +150,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const modalParams = new URLSearchParams(customId.split("?")[1] || "")
       const messageId = modalParams.get("message_id") ?? ""
       const channelId = modalParams.get("channel_id") ?? ""
+      const userId = interaction.member.user.id ?? ""
 
       const modalActionId = customId.split("?")[0]
       if (modalActionId === CLIENT_ACTIONS.REGISTER_RED_TEAM) {
-        const { response, isBothTeamsRegistered } = await handleRegisterTeam("red_team", matchId, interaction.data)
+        const { response, isBothTeamsRegistered } = await handleRegisterTeam({ matchId, teamSide: "red_team", userId, data: interaction.data })
         if (isBothTeamsRegistered && messageId && channelId) {
           await disableRegisterButtonsMessage(messageId, channelId, matchId)
         }
@@ -161,7 +162,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       if (modalActionId === CLIENT_ACTIONS.REGISTER_BLUE_TEAM) {
-        const { response, isBothTeamsRegistered } = await handleRegisterTeam("blue_team", matchId, interaction.data)
+        const { response, isBothTeamsRegistered } = await handleRegisterTeam({ matchId, teamSide: "blue_team", userId, data: interaction.data })
         if (isBothTeamsRegistered && messageId && channelId) {
           await disableRegisterButtonsMessage(messageId, channelId, matchId)
         }
