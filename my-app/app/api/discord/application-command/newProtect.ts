@@ -124,7 +124,7 @@ function createCompletionEmbed(meta: ProtectMatchMeta, blueTeamData: ProtectTeam
 }
 
 // プロテクト・ロール入力 モーダル表示（共通処理）
-export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: string, messageId: string, channelId: string): Promise<NextResponse> => {
+export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: string, messageId: string): Promise<NextResponse> => {
   const isBlue = teamSide === "blue_team"
 
   // メタデータ取得
@@ -235,7 +235,7 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
   return NextResponse.json({
     type: 9,
     data: {
-      custom_id: action + `?message_id=${messageId}&channel_id=${channelId}`,
+      custom_id: action + `?message_id=${messageId}`,
       title: isBlue ? "ブルーサイド" : "レッドサイド",
       components,
     },

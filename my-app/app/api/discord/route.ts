@@ -80,20 +80,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       switch (actionId) {
         case CLIENT_ACTIONS.OPEN_MODAL_RED_TEAM_REGISTER:
-          return handleOpenModalProtectRole("red_team", matchId, interaction.message?.id ?? "", interaction.channel_id ?? "")
+          return handleOpenModalProtectRole("red_team", matchId, interaction.message?.id ?? "")
 
         case CLIENT_ACTIONS.OPEN_MODAL_BLUE_TEAM_REGISTER:
-          return handleOpenModalProtectRole("blue_team", matchId, interaction.message?.id ?? "", interaction.channel_id ?? "")
-
-        case CLIENT_ACTIONS.SELECT_FEEDBACK_TYPE:
-          const selectedType = interaction.data.values?.[0] || ""
-          return handleSelectFeedbackType(selectedType)
+          return handleOpenModalProtectRole("blue_team", matchId, interaction.message?.id ?? "")
 
         case CLIENT_ACTIONS.CHECK_REGISTERED:
           return handleCheckRegistered(matchId)
 
         case CLIENT_ACTIONS.RESET_REGISTERED:
           return handleResetRegistered(matchId)
+
+        case CLIENT_ACTIONS.SELECT_FEEDBACK_TYPE:
+          const selectedType = interaction.data.values?.[0] || ""
+          return handleSelectFeedbackType(selectedType)
 
         // 動作確認テスト用
         case CLIENT_ACTIONS.TEST_DEVELOP_BUTTON.ONE:
@@ -119,10 +119,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // モーダルで送信したとき
     if (interaction.type === DISCORD_INTERACTION_TYPE.MODAL_SUBMIT) {
-      const customId = interaction.data.custom_id
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const components = interaction.data.components as any[]
-
+      const { custom_id: customId, components } = interaction.data
       console.log("MODAL_SUBMIT custom_id:", customId)
       console.log("MODAL_SUBMIT components:", JSON.stringify(components, null, 2))
 
@@ -153,7 +150,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       const modalParams = new URLSearchParams(customId.split("?")[1] || "")
       const messageId = modalParams.get("message_id") ?? ""
-      const channelId = modalParams.get("channel_id") ?? ""
+      const channelId = interaction.channel_id || ""
       const userId = interaction.member.user.id ?? ""
 
       const modalActionId = customId.split("?")[0]
