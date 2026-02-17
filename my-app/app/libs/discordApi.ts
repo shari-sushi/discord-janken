@@ -69,3 +69,36 @@ export async function sendDiscordMessage(channelId: string, content: string, com
     throw new Error(`Failed to send Discord message: ${error}`)
   }
 }
+
+/**
+ * Discordのメッセージを編集する（PATCH）
+ * @param channelId - チャンネルID
+ * @param messageId - 編集対象のメッセージID
+ * @param content - 新しいメッセージ本文
+ * @param components - 新しいコンポーネント配列
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function editDiscordMessage(channelId: string, messageId: string, content: string, components?: any[]): Promise<void> {
+  const url = `${DISCORD_API_BASE_URL}/channels/${channelId}/messages/${messageId}`
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const body: any = { content }
+
+  if (components && components.length > 0) {
+    body.components = components
+  }
+
+  const response = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new DiscordApiError(response.status, response.statusText, errorData)
+  }
+}

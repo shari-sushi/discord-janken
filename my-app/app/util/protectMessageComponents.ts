@@ -4,9 +4,10 @@ import { CLIENT_ACTIONS } from "./commands"
 /**
  * プロテクト機能用のボタンコンポーネントを生成
  * @param matchId - 試合ID
+ * @param isDisabledTeamButtons - ブルーサイド・レッドサイドボタンをdisabledにするか
  * @returns Discordコンポーネント配列
  */
-export function createProtectComponents(matchId: string): MessageComponent[] {
+export function createProtectComponents(matchId: string, isDisabledTeamButtons = false): MessageComponent[] {
   return [
     {
       type: 1, // Action Row
@@ -16,12 +17,14 @@ export function createProtectComponents(matchId: string): MessageComponent[] {
           style: 1, // Primary (青)
           label: "ブルーサイド",
           custom_id: CLIENT_ACTIONS.OPEN_MODAL_BLUE_TEAM_REGISTER + `?match_id=${matchId}`,
+          disabled: isDisabledTeamButtons,
         },
         {
           type: 2, // Button
           style: 4, // Danger (赤)
           label: "レッドサイド",
           custom_id: CLIENT_ACTIONS.OPEN_MODAL_RED_TEAM_REGISTER + `?match_id=${matchId}`,
+          disabled: isDisabledTeamButtons,
         },
         {
           type: 2, // Button

@@ -124,7 +124,7 @@ function createCompletionEmbed(meta: ProtectMatchMeta, blueTeamData: ProtectTeam
 }
 
 // プロテクト・ロール入力 モーダル表示（共通処理）
-export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: string): Promise<NextResponse> => {
+export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: string, messageId: string, channelId: string): Promise<NextResponse> => {
   const isBlue = teamSide === "blue_team"
 
   // メタデータ取得
@@ -231,10 +231,11 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
     })
   }
 
+  const action = isBlue ? CLIENT_ACTIONS.REGISTER_BLUE_TEAM : CLIENT_ACTIONS.REGISTER_RED_TEAM
   return NextResponse.json({
     type: 9,
     data: {
-      custom_id: isBlue ? CLIENT_ACTIONS.REGISTER_BLUE_TEAM : CLIENT_ACTIONS.REGISTER_RED_TEAM,
+      custom_id: action + `?message_id=${messageId}&channel_id=${channelId}`,
       title: isBlue ? "ブルーサイド" : "レッドサイド",
       components,
     },
@@ -243,7 +244,7 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
 
 // チーム情報の登録処理
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const handleRegisterTeam = async (teamSide: TeamSide, matchId: string, data: any) => {
+export const handleRegisterTeam = async (teamSide: TeamSide, matchId: string, data: any): Promise<{ response: NextResponse; isBothTeamsRegistered: boolean }> => {
   console.log("handleRegisterTeam by", teamSide, "data:", JSON.stringify(data, null, 2))
 
   // 1. メタデータ取得
@@ -252,10 +253,10 @@ export const handleRegisterTeam = async (teamSide: TeamSide, matchId: string, da
 
   if (!meta) {
     console.error("Meta not found for matchId:", matchId)
-    return NextResponse.json({
-      type: 4,
-      data: { content: "エラー: 試合情報が見つかりません", flags: 64 },
-    })
+    return {
+      response: NextResponse.json({ type: 4, data: { content: "エラー: 試合情報が見つかりません", flags: 64 } }),
+      isBothTeamsRegistered: false,
+    }
   }
 
   // 2. プロテクトチャンピオン取得（meta.isProtect === true の場合のみ）
@@ -275,10 +276,10 @@ export const handleRegisterTeam = async (teamSide: TeamSide, matchId: string, da
     // バリデーション: 全てのロールが選択されていることを確認
     if (!top || !jg || !mid || !adc) {
       console.error("ロール選択エラー: top:", top, ", jg", jg, ", mid:", mid, " adc:", adc)
-      return NextResponse.json({
-        type: 4,
-        data: { content: "エラー: 全てのロールに選手を割り振ってください", flags: 64 },
-      })
+      return {
+        response: NextResponse.json({ type: 4, data: { content: "エラー: 全てのロールに選手を割り振ってください", flags: 64 } }),
+        isBothTeamsRegistered: false,
+      }
     }
 
     // 選択された4人を配列化
@@ -287,18 +288,18 @@ export const handleRegisterTeam = async (teamSide: TeamSide, matchId: string, da
     // 重複チェック
     const uniqueMembers = new Set(selectedMembers)
     if (uniqueMembers.size !== 4) {
-      return NextResponse.json({
-        type: 4,
-        data: { content: "エラー: 同じメンバーが複数のロールに選択されています", flags: 64 },
-      })
+      return {
+        response: NextResponse.json({ type: 4, data: { content: "エラー: 同じメンバーが複数のロールに選択されています", flags: 64 } }),
+        isBothTeamsRegistered: false,
+      }
     }
 
     // メタデータからメンバー配列を取得
     if (!meta.members) {
-      return NextResponse.json({
-        type: 4,
-        data: { content: "エラー: メンバー情報が見つかりません", flags: 64 },
-      })
+      return {
+        response: NextResponse.json({ type: 4, data: { content: "エラー: メンバー情報が見つかりません", flags: 64 } }),
+        isBothTeamsRegistered: false,
+      }
     }
 
     const teamMembers = meta.members.redTeam
@@ -306,10 +307,10 @@ export const handleRegisterTeam = async (teamSide: TeamSide, matchId: string, da
     // 残り1人をsupとして自動割り当て
     const supMember = teamMembers.find((m) => !selectedMembers.includes(m))
     if (!supMember) {
-      return NextResponse.json({
-        type: 4,
-        data: { content: "エラー: Supportロールに割り当てるメンバーが見つかりません", flags: 64 },
-      })
+      return {
+        response: NextResponse.json({ type: 4, data: { content: "エラー: Supportロールに割り当てるメンバーが見つかりません", flags: 64 } }),
+        isBothTeamsRegistered: false,
+      }
     }
 
     // 最終的なroster
@@ -343,13 +344,13 @@ export const handleRegisterTeam = async (teamSide: TeamSide, matchId: string, da
   if (isBothRegistered) {
     console.log(teamSide, "- Returning completion embed")
     // 両チーム完了時はEmbed形式で結果を表示
-    return createCompletionEmbed(meta, otherTeamData!, usTeamData)
+    return { response: createCompletionEmbed(meta, otherTeamData!, usTeamData), isBothTeamsRegistered: true }
   } else {
     console.log(teamSide, "- Returning single team completion message")
-    return NextResponse.json({
-      type: 4,
-      data: { content: teamSide === "blue_team" ? "🟦 ブルーサイド登録完了" : "🟥 レッドサイド登録完了" },
-    })
+    return {
+      response: NextResponse.json({ type: 4, data: { content: teamSide === "blue_team" ? "🟦 ブルーサイド登録完了" : "🟥 レッドサイド登録完了" } }),
+      isBothTeamsRegistered: false,
+    }
   }
 }
 

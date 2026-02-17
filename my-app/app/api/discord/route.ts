@@ -6,8 +6,18 @@ import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from 
 import { timerCommand, handleSubmitTimer } from "./application-command/timer"
 import { CLIENT_ACTIONS, COMMANDS, DISCORD_INTERACTION_TYPE } from "@/app/util/commands"
 import { developersTestCommand, handleTestDevelop1, handleTestDevelop2, handleTestDevelop3, handleTestDevelop4, handleTestDevelop5 } from "./application-command/developers-test"
+import { createProtectComponents } from "@/app/util/protectMessageComponents"
+import { editDiscordMessage } from "@/app/libs/discordApi"
 
 const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY!
+
+async function disableRegisterButtonsMessage(messageId: string, channelId: string, matchId: string) {
+  try {
+    await editDiscordMessage(channelId, messageId, "両チーム入力完了し、結果が発表されました", createProtectComponents(matchId, true))
+  } catch (e) {
+    console.error("Failed to disable register buttons:", e)
+  }
+}
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -69,10 +79,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       switch (actionId) {
         case CLIENT_ACTIONS.OPEN_MODAL_RED_TEAM_REGISTER:
-          return handleOpenModalProtectRole("red_team", matchId)
+          return handleOpenModalProtectRole("red_team", matchId, interaction.message?.id ?? "", interaction.channel_id ?? "")
 
         case CLIENT_ACTIONS.OPEN_MODAL_BLUE_TEAM_REGISTER:
-          return handleOpenModalProtectRole("blue_team", matchId)
+          return handleOpenModalProtectRole("blue_team", matchId, interaction.message?.id ?? "", interaction.channel_id ?? "")
 
         case CLIENT_ACTIONS.SELECT_FEEDBACK_TYPE:
           const selectedType = interaction.data.values?.[0] || ""
@@ -137,12 +147,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         console.log("Extracted match_id:", matchId)
       }
 
-      if (customId === CLIENT_ACTIONS.REGISTER_RED_TEAM) {
-        return handleRegisterTeam("red_team", matchId, interaction.data)
+      const modalParams = new URLSearchParams(customId.split("?")[1] || "")
+      const messageId = modalParams.get("message_id") ?? ""
+      const channelId = modalParams.get("channel_id") ?? ""
+
+      const modalActionId = customId.split("?")[0]
+      if (modalActionId === CLIENT_ACTIONS.REGISTER_RED_TEAM) {
+        const { response, isBothTeamsRegistered } = await handleRegisterTeam("red_team", matchId, interaction.data)
+        if (isBothTeamsRegistered && messageId && channelId) {
+          await disableRegisterButtonsMessage(messageId, channelId, matchId)
+        }
+        return response
       }
 
-      if (customId === CLIENT_ACTIONS.REGISTER_BLUE_TEAM) {
-        return handleRegisterTeam("blue_team", matchId, interaction.data)
+      if (modalActionId === CLIENT_ACTIONS.REGISTER_BLUE_TEAM) {
+        const { response, isBothTeamsRegistered } = await handleRegisterTeam("blue_team", matchId, interaction.data)
+        if (isBothTeamsRegistered && messageId && channelId) {
+          await disableRegisterButtonsMessage(messageId, channelId, matchId)
+        }
+        return response
       }
     }
 
