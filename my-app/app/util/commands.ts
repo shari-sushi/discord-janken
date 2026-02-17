@@ -18,6 +18,7 @@ export const CLIENT_ACTIONS = {
   REGISTER_RED_TEAM: "register-red-team",
   REGISTER_BLUE_TEAM: "register-blue-team",
   CHECK_REGISTERED: "check-registered",
+  RESET_REGISTERED: "reset-registered",
   SELECT_FEEDBACK_TYPE: "select-feedback-type",
   SUBMIT_FEEDBACK: "submit-feedback",
   OPEN_MODAL_TIMER: "open-modal-timer",

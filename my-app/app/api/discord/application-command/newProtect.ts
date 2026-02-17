@@ -1,7 +1,7 @@
 import { CLIENT_ACTIONS } from "@/app/util/commands"
 import { newId } from "@/app/util/newId"
 import { NextResponse } from "next/server"
-import { redisSet, redisGet, redisMGet } from "@/app/libs/redis/redis"
+import { redisSet, redisGet, redisMGet, redisDelete } from "@/app/libs/redis/redis"
 import { createProtectComponents } from "@/app/util/protectMessageComponents"
 import { ProtectTeamData, ProtectMatchMeta, TeamSide } from "@/app/types/match"
 import { getMatchKey } from "@/app/util/redisKeys"
@@ -160,7 +160,7 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
           label: "プロテクトするチャンプを入力",
           style: 1,
           required: true,
-          placeholder: "例：モルガナ、メル",
+          placeholder: isBlue ? "例：モルガナ、メル" : "例：ヴェルコズ、ニーコ",
         },
       ],
     })
@@ -362,10 +362,9 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: ha
 }
 
 // 登録状況確認
-export const handleCheckRegistered = async (matchId: string) => {
+export const handleCheckRegistered = async (matchId: string): Promise<NextResponse> => {
   // 1. メタデータ取得
   const meta = await redisGet<ProtectMatchMeta>(getMatchKey(matchId, "meta"))
-
   if (!meta) {
     return NextResponse.json({
       type: 4,
@@ -374,8 +373,8 @@ export const handleCheckRegistered = async (matchId: string) => {
   }
 
   // 2. 両チームデータ一括取得（MGET使用）
-  const teamKeys = [getMatchKey(matchId, "red_team"), getMatchKey(matchId, "blue_team")]
-  const [redTeamData, blueTeamData] = await redisMGet<ProtectTeamData>(teamKeys)
+  const teamKeys = [getMatchKey(matchId, "blue_team"), getMatchKey(matchId, "red_team")]
+  const [blueTeamData, redTeamData] = await redisMGet<ProtectTeamData>(teamKeys)
 
   // 3. 両チーム完了判定
   const isBothRegistered =
@@ -404,4 +403,48 @@ export const handleCheckRegistered = async (matchId: string) => {
       data: { content: "🟥 レッドサイド：✅登録済み\n🟦 ブルーサイド：✍️未登録", flags: 64 },
     })
   }
+}
+
+// 登録のリセット
+export const handleResetRegistered = async (matchId: string): Promise<NextResponse> => {
+  // 1. メタデータ取得
+  const meta = await redisGet<ProtectMatchMeta>(getMatchKey(matchId, "meta"))
+  if (!meta) {
+    return NextResponse.json({
+      type: 4,
+      data: { content: "エラー: 試合情報が見つかりません", flags: 64 },
+    })
+  }
+
+  // 2. 両チームデータ一括取得（MGET使用）
+  const teamKeys = [getMatchKey(matchId, "blue_team"), getMatchKey(matchId, "red_team")]
+  const [blueTeamData, redTeamData] = await redisMGet<ProtectTeamData>(teamKeys)
+
+  if (blueTeamData && redTeamData) {
+    return NextResponse.json({
+      type: 4,
+      data: { content: "エラー: 両チーム登録済みのためリセットできません", flags: 64 },
+    })
+  }
+
+  if (!blueTeamData && !redTeamData) {
+    return NextResponse.json({
+      type: 4,
+      data: { content: "エラー: 両チーム未登録のため、リセットするデータがありません", flags: 64 },
+    })
+  }
+
+  if (blueTeamData) {
+    await redisDelete(getMatchKey(matchId, "blue_team"))
+    return NextResponse.json({
+      type: 4,
+      data: { content: "ブルーチームのデータを削除しました" },
+    })
+  }
+
+  await redisDelete(getMatchKey(matchId, "red_team"))
+  return NextResponse.json({
+    type: 4,
+    data: { content: "レッドチームのデータを削除しました" },
+  })
 }

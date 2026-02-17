@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyKey } from "discord-interactions"
 import { echoCommand } from "./application-command/echo"
-import { newProtectCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole } from "./application-command/newProtect"
+import { newProtectCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole, handleResetRegistered } from "./application-command/newProtect"
 import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./application-command/feedback"
 import { timerCommand, handleSubmitTimer } from "./application-command/timer"
 import { CLIENT_ACTIONS, COMMANDS, DISCORD_INTERACTION_TYPE } from "@/app/util/commands"
@@ -90,6 +90,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
         case CLIENT_ACTIONS.CHECK_REGISTERED:
           return handleCheckRegistered(matchId)
+
+        case CLIENT_ACTIONS.RESET_REGISTERED:
+          return handleResetRegistered(matchId)
 
         // 動作確認テスト用
         case CLIENT_ACTIONS.TEST_DEVELOP_BUTTON.ONE:
