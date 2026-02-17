@@ -6,8 +6,9 @@ import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from 
 import { timerCommand, handleSubmitTimer } from "./application-command/timer"
 import { CLIENT_ACTIONS, COMMANDS, DISCORD_INTERACTION_TYPE } from "@/app/util/commands"
 import { developersTestCommand, handleTestDevelop1, handleTestDevelop2, handleTestDevelop3, handleTestDevelop4, handleTestDevelop5 } from "./application-command/developers-test"
-import { createProtectComponents } from "@/app/util/protectMessageComponents"
-import { editDiscordMessage } from "@/app/libs/discordApi"
+import { editDiscordMessage } from "@/app/libs/discord/api"
+import { getComponentValue } from "@/app/libs/discord/getComponentValue"
+import { createProtectComponents } from "./util/protectMessageComponents"
 
 const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY!
 
@@ -130,8 +131,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       if (customId === CLIENT_ACTIONS.SUBMIT_TIMER) {
-        const timeInput = components[0]?.components[0]?.value || ""
-        const message = components[1]?.components[0]?.value || ""
+        const timeInput = getComponentValue("timer_time", interaction.data) ?? ""
+        const message = getComponentValue("timer_message", interaction.data) ?? ""
         const channelId = interaction.channel_id || ""
         const guildId = interaction.guild_id || ""
         const userId = interaction.member?.user?.id || ""

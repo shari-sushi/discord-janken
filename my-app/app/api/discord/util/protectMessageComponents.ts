@@ -1,5 +1,5 @@
+import { CLIENT_ACTIONS } from "@/app/util/commands"
 import { MessageComponent } from "discord-interactions"
-import { CLIENT_ACTIONS } from "./commands"
 
 /**
  * プロテクト機能用のボタンコンポーネントを生成

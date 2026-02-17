@@ -2,7 +2,7 @@ import { CLIENT_ACTIONS } from "@/app/util/commands"
 import { newId } from "@/app/util/newId"
 import { NextResponse } from "next/server"
 import { redisSet, redisGet, redisMGet, redisDelete } from "@/app/libs/redis/redis"
-import { createProtectComponents } from "@/app/util/protectMessageComponents"
+import { createProtectComponents } from "../util/protectMessageComponents"
 import { ProtectTeamData, ProtectMatchMeta, TeamSide } from "@/app/types/match"
 import { getMatchKey } from "@/app/util/redisKeys"
 
