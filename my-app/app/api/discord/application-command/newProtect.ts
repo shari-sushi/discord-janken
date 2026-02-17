@@ -3,7 +3,7 @@ import { newId } from "@/app/util/newId"
 import { NextResponse } from "next/server"
 import { redisSet, redisGet, redisMGet } from "@/app/libs/redis/redis"
 import { createProtectComponents } from "@/app/util/protectMessageComponents"
-import { ProtectTeamData, ProtectMatchMeta } from "@/app/types/match"
+import { ProtectTeamData, ProtectMatchMeta, TeamSide } from "@/app/types/match"
 import { getMatchKey } from "@/app/util/redisKeys"
 
 // コマンド初期表示
@@ -123,8 +123,10 @@ function createCompletionEmbed(meta: ProtectMatchMeta, blueTeamData: ProtectTeam
   })
 }
 
-// レッドチーム モーダル表示
-export const handleOpenModalRedTeam = async (matchId: string): Promise<NextResponse> => {
+// プロテクト・ロール入力 モーダル表示（共通処理）
+export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: string): Promise<NextResponse> => {
+  const isBlue = teamSide === "blue_team"
+
   // メタデータ取得
   const meta = await redisGet<ProtectMatchMeta>(getMatchKey(matchId, "meta"))
 
@@ -135,11 +137,11 @@ export const handleOpenModalRedTeam = async (matchId: string): Promise<NextRespo
     })
   }
 
-  // ケース4: どちらもfalseの場合
+  // どちらもfalseの場合
   if (!meta.isProtect && !meta.isRoleSelect) {
     return NextResponse.json({
       type: 4,
-      data: { content: "入力が求められている情報がありません。プロテクトの宣言もロール振り分けもしない試合です。", flags: 64 },
+      data: { content: "入力が求められている情報がありません。プロテクトの宣言もロール振り分けも不要です。", flags: 64 },
     })
   }
 
@@ -151,7 +153,6 @@ export const handleOpenModalRedTeam = async (matchId: string): Promise<NextRespo
   if (meta.isProtect) {
     components.push({
       type: 1, // Action Row
-      // 単数形 blueは複数形にしてある
       components: [
         {
           type: 4, // Text Input
@@ -174,7 +175,7 @@ export const handleOpenModalRedTeam = async (matchId: string): Promise<NextRespo
       })
     }
 
-    const teamMembers = meta.members.redTeam
+    const teamMembers = isBlue ? meta.members.blueTeam : meta.members.redTeam
     const roleOptions = teamMembers.map((member) => ({ label: member, value: member }))
 
     // Top
@@ -233,146 +234,17 @@ export const handleOpenModalRedTeam = async (matchId: string): Promise<NextRespo
   return NextResponse.json({
     type: 9,
     data: {
-      custom_id: CLIENT_ACTIONS.REGISTER_RED_TEAM,
-      title: "レッドサイド",
+      custom_id: isBlue ? CLIENT_ACTIONS.REGISTER_BLUE_TEAM : CLIENT_ACTIONS.REGISTER_RED_TEAM,
+      title: isBlue ? "ブルーサイド" : "レッドサイド",
       components,
     },
   })
 }
 
-// ブルーチーム モーダル表示
-export const handleOpenModalBlueTeam = async (matchId: string): Promise<NextResponse> => {
-  // メタデータ取得
-  const meta = await redisGet<ProtectMatchMeta>(getMatchKey(matchId, "meta"))
-  console.log("Meta data retrieved:", JSON.stringify(meta, null, 2))
-
-  if (!meta) {
-    console.error("Meta not found for matchId:", matchId)
-    return NextResponse.json({
-      type: 4,
-      data: { content: "エラー: 試合情報が見つかりません", flags: 64 },
-    })
-  }
-
-  // ケース4: どちらもfalseの場合
-  if (!meta.isProtect && !meta.isRoleSelect) {
-    console.error("is_protect, is_role_selectが共にfalseです")
-    return NextResponse.json({
-      type: 4,
-      data: { content: "入力が求められている情報がありません。プロテクトの宣言もロール振り分けも不要です。", flags: 64 },
-    })
-  }
-
-  // モーダルのcomponentsを構築
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const components: any[] = []
-
-  // プロテクト入力（isProtect: trueの場合）
-  if (meta.isProtect) {
-    components.push({
-      type: 1, // Action Row
-      // 複数形 redは単数形にしてある
-      components: [
-        {
-          type: 4, // Text Input
-          custom_id: `protection_champions?match_id=${matchId}`,
-          label: "プロテクトするチャンプを入力",
-          style: 1,
-          required: true,
-          placeholder: "例：ヴェルコズ、ザック",
-        },
-      ],
-    })
-  }
-
-  // ロール選択（isRoleSelect: trueの場合）
-  if (meta.isRoleSelect) {
-    if (!meta.members) {
-      return NextResponse.json({
-        type: 4,
-        data: { content: "エラー: メンバー情報が見つかりません", flags: 64 },
-      })
-    }
-
-    const teamMembers = meta.members.blueTeam
-    const roleOptions = teamMembers.map((member) => ({ label: member, value: member }))
-
-    // Top
-    components.push({
-      type: 18, // Label
-      label: "Top",
-      component: {
-        type: 3, // Select Menu
-        custom_id: `role_top?match_id=${matchId}`,
-        placeholder: "Topを選択",
-        options: roleOptions,
-        required: true,
-      },
-    })
-
-    // Jungle
-    components.push({
-      type: 18, // Label
-      label: "Jungle",
-      component: {
-        type: 3, // Select Menu
-        custom_id: `role_jg?match_id=${matchId}`,
-        placeholder: "Jungleを選択",
-        options: roleOptions,
-        required: true,
-      },
-    })
-
-    // Mid
-    components.push({
-      type: 18, // Label
-      label: "Mid",
-      component: {
-        type: 3, // Select Menu
-        custom_id: `role_mid?match_id=${matchId}`,
-        placeholder: "Midを選択",
-        options: roleOptions,
-        required: true,
-      },
-    })
-
-    // ADC
-    components.push({
-      type: 18, // Label
-      label: "ADC",
-      component: {
-        type: 3, // Select Menu
-        custom_id: `role_adc?match_id=${matchId}`,
-        placeholder: "ADCを選択",
-        options: roleOptions,
-        required: true,
-      },
-    })
-  }
-
-  // componentsが空でないことを確認
-  if (components.length === 0) {
-    console.error("Components array is empty! This should not happen.")
-    return NextResponse.json({
-      type: 4,
-      data: { content: "エラー: モーダルのコンポーネントが構築できませんでした", flags: 64 },
-    })
-  }
-
-  return NextResponse.json({
-    type: 9,
-    data: {
-      custom_id: CLIENT_ACTIONS.REGISTER_BLUE_TEAM,
-      title: "ブルーサイド",
-      components,
-    },
-  })
-}
-
-// レッドチーム 登録処理
+// チーム情報の登録処理
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const handleRegisterRedTeam = async (matchId: string, data: any) => {
-  console.log("handleRegisterRedTeam data:", JSON.stringify(data, null, 2))
+export const handleRegisterTeam = async (teamSide: TeamSide, matchId: string, data: any) => {
+  console.log("handleRegisterTeam by", teamSide, "data:", JSON.stringify(data, null, 2))
 
   // 1. メタデータ取得
   const meta = await redisGet<ProtectMatchMeta>(getMatchKey(matchId, "meta"))
@@ -388,7 +260,7 @@ export const handleRegisterRedTeam = async (matchId: string, data: any) => {
 
   // 2. プロテクトチャンピオン取得（meta.isProtect === true の場合のみ）
   const protectionChampions = meta.isProtect ? getValue("protection_champions", data) : undefined
-  console.log("Red team - Protection champions:", protectionChampions)
+  console.log(teamSide, "- Protection champions:", protectionChampions)
 
   // 3. ロール選択の処理（meta.isRoleSelect === true の場合のみ）
   let roster: { top: string; jg: string; mid: string; adc: string; sup: string } | undefined
@@ -433,7 +305,6 @@ export const handleRegisterRedTeam = async (matchId: string, data: any) => {
 
     // 残り1人をsupとして自動割り当て
     const supMember = teamMembers.find((m) => !selectedMembers.includes(m))
-
     if (!supMember) {
       return NextResponse.json({
         type: 4,
@@ -446,137 +317,38 @@ export const handleRegisterRedTeam = async (matchId: string, data: any) => {
   }
 
   // 4. Redisに保存
-  const redTeamKey = getMatchKey(matchId, "red_team")
-  const redTeamData: ProtectTeamData = {
+  const usTeamKey = getMatchKey(matchId, teamSide)
+  const usTeamData: ProtectTeamData = {
     updated_at: new Date().toISOString(),
     ...(protectionChampions && { protection_champions: protectionChampions }),
     ...(roster && { roster }),
   }
-  console.log("Red team - Saving to Redis with key:", redTeamKey)
-  console.log("Red team - Data to save:", JSON.stringify(redTeamData, null, 2))
-  await redisSet(redTeamKey, redTeamData)
-  console.log("Red team - Save completed")
+  console.log(teamSide, "- Saving to Redis with key:", usTeamKey)
+  console.log(teamSide, "- Data to save:", JSON.stringify(usTeamData, null, 2))
+  await redisSet(usTeamKey, usTeamData)
+  console.log(teamSide, "- Save completed")
 
+  const otherTeamSide = teamSide === "blue_team" ? "red_team" : "blue_team"
   // 5. 相手チーム確認
-  const blueTeamKey = getMatchKey(matchId, "blue_team")
-  const blueTeamData = await redisGet<ProtectTeamData>(blueTeamKey)
-  console.log("Red team - Blue team data:", JSON.stringify(blueTeamData, null, 2))
+  const otherTeamKey = getMatchKey(matchId, otherTeamSide)
+  const otherTeamData = await redisGet<ProtectTeamData>(otherTeamKey)
+  console.log(teamSide, "-", otherTeamSide, "data:", JSON.stringify(otherTeamData, null, 2))
 
   // 6. 両チーム完了判定
-  const isBothComplete =
-    blueTeamData && (!meta.isProtect || (redTeamData.protection_champions && blueTeamData.protection_champions)) && (!meta.isRoleSelect || (redTeamData.roster && blueTeamData.roster))
-  console.log("Red team - Both complete?", isBothComplete)
+  const isBothRegistered =
+    otherTeamData && (!meta.isProtect || (usTeamData.protection_champions && otherTeamData.protection_champions)) && (!meta.isRoleSelect || (usTeamData.roster && otherTeamData.roster))
+  console.log(teamSide, "- Both complete?", isBothRegistered)
 
   // 7. メッセージ返却
-  if (isBothComplete) {
-    console.log("Red team - Returning completion embed")
+  if (isBothRegistered) {
+    console.log(teamSide, "- Returning completion embed")
     // 両チーム完了時はEmbed形式で結果を表示
-    return createCompletionEmbed(meta, blueTeamData!, redTeamData)
+    return createCompletionEmbed(meta, otherTeamData!, usTeamData)
   } else {
-    console.log("Red team - Returning single team completion message")
+    console.log(teamSide, "- Returning single team completion message")
     return NextResponse.json({
       type: 4,
-      data: { content: "🟥 レッドサイド登録完了", flags: 64 },
-    })
-  }
-}
-
-// ブルーチーム 登録処理
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const handleRegisterBlueTeam = async (matchId: string, data: any) => {
-  console.log("handleRegisterRedTeam data:", JSON.stringify(data, null, 2))
-  // 1. メタデータ取得
-  const meta = await redisGet<ProtectMatchMeta>(getMatchKey(matchId, "meta"))
-
-  if (!meta) {
-    return NextResponse.json({
-      type: 4,
-      data: { content: "エラー: 試合情報が見つかりません", flags: 64 },
-    })
-  }
-
-  // 2. プロテクトチャンピオン取得（meta.isProtect === true の場合のみ）
-  const protectionChampions = meta.isProtect ? getValue("protection_champions", data) : undefined
-
-  // 3. ロール選択の処理（meta.isRoleSelect === true の場合のみ）
-  let roster: { top: string; jg: string; mid: string; adc: string; sup: string } | undefined
-
-  if (meta.isRoleSelect) {
-    // getValue関数を使用してcustom_idベースで取得
-    const top = getValue("role_top", data)
-    const jg = getValue("role_jg", data)
-    const mid = getValue("role_mid", data)
-    const adc = getValue("role_adc", data)
-
-    // バリデーション: 全てのロールが選択されていることを確認
-    if (!top || !jg || !mid || !adc) {
-      console.error("ロール選択エラー: top:", top, ", jg", jg, ", mid:", mid, " adc:", adc)
-      return NextResponse.json({
-        type: 4,
-        data: { content: "エラー: 全てのロールに選手を割り振ってください", flags: 64 },
-      })
-    }
-
-    // 選択された4人を配列化
-    const selectedMembers = [top, jg, mid, adc]
-
-    // 重複チェック
-    const uniqueMembers = new Set(selectedMembers)
-    if (uniqueMembers.size !== 4) {
-      return NextResponse.json({
-        type: 4,
-        data: { content: "エラー: 同じメンバーが複数のロールに選択されています", flags: 64 },
-      })
-    }
-
-    // メタデータからメンバー配列を取得
-    if (!meta.members) {
-      return NextResponse.json({
-        type: 4,
-        data: { content: "エラー: メンバー情報が見つかりません", flags: 64 },
-      })
-    }
-
-    const teamMembers = meta.members.blueTeam
-
-    // 残り1人をsupとして自動割り当て
-    const supMember = teamMembers.find((m) => !selectedMembers.includes(m))
-
-    if (!supMember) {
-      return NextResponse.json({
-        type: 4,
-        data: { content: "エラー: Supportロールに割り当てるメンバーが見つかりません", flags: 64 },
-      })
-    }
-
-    // 最終的なroster
-    roster = { top, jg, mid, adc, sup: supMember }
-  }
-
-  // 4. Redisに保存
-  const myKey = getMatchKey(matchId, "blue_team")
-  const myData: ProtectTeamData = {
-    updated_at: new Date().toISOString(),
-    ...(protectionChampions && { protection_champions: protectionChampions }),
-    ...(roster && { roster }),
-  }
-  await redisSet(myKey, myData)
-
-  // 5. 相手チーム確認
-  const redTeamKey = getMatchKey(matchId, "red_team")
-  const redTeamData = await redisGet<ProtectTeamData>(redTeamKey)
-
-  // 6. 両チーム完了判定
-  const isBothComplete = redTeamData && (!meta.isProtect || (myData.protection_champions && redTeamData.protection_champions)) && (!meta.isRoleSelect || (myData.roster && redTeamData.roster))
-
-  // 7. メッセージ返却
-  if (isBothComplete) {
-    // 両チーム完了時はEmbed形式で結果を表示
-    return createCompletionEmbed(meta, myData, redTeamData!)
-  } else {
-    return NextResponse.json({
-      type: 4,
-      data: { content: "🟦 ブルーサイド登録完了", flags: 64 },
+      data: { content: teamSide === "blue_team" ? "🟦 ブルーサイド登録完了" : "🟥 レッドサイド登録完了" },
     })
   }
 }
@@ -593,19 +365,16 @@ export const handleCheckRegistered = async (matchId: string) => {
     })
   }
 
-  // 2. 両チームデータ取得
-  const redTeamKey = getMatchKey(matchId, "red_team")
-  const blueTeamKey = getMatchKey(matchId, "blue_team")
-
-  // 一括取得（MGET使用）
-  const [redTeamData, blueTeamData] = await redisMGet<ProtectTeamData>([redTeamKey, blueTeamKey])
+  // 2. 両チームデータ一括取得（MGET使用）
+  const teamKeys = [getMatchKey(matchId, "red_team"), getMatchKey(matchId, "blue_team")]
+  const [redTeamData, blueTeamData] = await redisMGet<ProtectTeamData>(teamKeys)
 
   // 3. 両チーム完了判定
-  const isBothComplete =
+  const isBothRegistered =
     redTeamData && blueTeamData && (!meta.isProtect || (blueTeamData.protection_champions && redTeamData.protection_champions)) && (!meta.isRoleSelect || (blueTeamData.roster && redTeamData.roster))
 
   // 4. メッセージ返却
-  if (isBothComplete) {
+  if (isBothRegistered) {
     // 両チーム完了時はEmbed形式で表示
     return createCompletionEmbed(meta, blueTeamData!, redTeamData!)
   } else if (!redTeamData && !blueTeamData) {

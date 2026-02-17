@@ -93,21 +93,21 @@ export function validateMembers(members: any): ValidationResult {
 
   // blueTeam の型チェック
   if (!Array.isArray(members.blueTeam)) {
-    return { valid: false, error: "members.blueTeamは配列である必要があります" }
+    return { valid: false, error: "members.blue_teamは配列である必要があります" }
   }
 
   // redTeam の型チェック
   if (!Array.isArray(members.redTeam)) {
-    return { valid: false, error: "members.redTeamは配列である必要があります" }
+    return { valid: false, error: "members.red_teamは配列である必要があります" }
   }
 
   // 長さチェック: 各チーム5名
   if (members.blueTeam.length !== 5) {
-    return { valid: false, error: "members.blueTeamは5名である必要があります" }
+    return { valid: false, error: "members.blue_teamは5名である必要があります" }
   }
 
   if (members.redTeam.length !== 5) {
-    return { valid: false, error: "members.redTeamは5名である必要があります" }
+    return { valid: false, error: "members.red_teamは5名である必要があります" }
   }
 
   // 要素チェック: 各要素が文字列であること

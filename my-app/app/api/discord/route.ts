@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyKey } from "discord-interactions"
 import { echoCommand } from "./application-command/echo"
-import { newProtectCommand, handleOpenModalRedTeam, handleOpenModalBlueTeam, handleRegisterRedTeam, handleRegisterBlueTeam, handleCheckRegistered } from "./application-command/newProtect"
+import { newProtectCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole } from "./application-command/newProtect"
 import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./application-command/feedback"
 import { timerCommand, handleSubmitTimer } from "./application-command/timer"
 import { CLIENT_ACTIONS, COMMANDS, DISCORD_INTERACTION_TYPE } from "@/app/util/commands"
@@ -69,10 +69,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       switch (actionId) {
         case CLIENT_ACTIONS.OPEN_MODAL_RED_TEAM_REGISTER:
-          return handleOpenModalRedTeam(matchId)
+          return handleOpenModalProtectRole("red_team", matchId)
 
         case CLIENT_ACTIONS.OPEN_MODAL_BLUE_TEAM_REGISTER:
-          return handleOpenModalBlueTeam(matchId)
+          return handleOpenModalProtectRole("blue_team", matchId)
 
         case CLIENT_ACTIONS.SELECT_FEEDBACK_TYPE:
           const selectedType = interaction.data.values?.[0] || ""
@@ -138,11 +138,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       if (customId === CLIENT_ACTIONS.REGISTER_RED_TEAM) {
-        return handleRegisterRedTeam(matchId, interaction.data)
+        return handleRegisterTeam("red_team", matchId, interaction.data)
       }
 
       if (customId === CLIENT_ACTIONS.REGISTER_BLUE_TEAM) {
-        return handleRegisterBlueTeam(matchId, interaction.data)
+        return handleRegisterTeam("blue_team", matchId, interaction.data)
       }
     }
 

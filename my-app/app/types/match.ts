@@ -34,4 +34,5 @@ export type MatchMembers = {
 /**
  * Redisキー生成ヘルパー関数の型
  */
-export type MatchKeyType = "red_team" | "blue_team" | "meta"
+export type MatchKeyType = TeamSide | "meta"
+export type TeamSide = "red_team" | "blue_team"
