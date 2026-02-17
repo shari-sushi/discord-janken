@@ -1,0 +1,50 @@
+# 環境設定・よく使うコマンド
+
+## 環境変数
+
+以下の環境変数が必要です（`.env.local` に設定）:
+
+**Discord関連:**
+
+- `DISCORD_PUBLIC_KEY`: Discord Bot の公開鍵
+- `DISCORD_APPLICATION_ID`: Discord Application ID
+- `DISCORD_BOT_TOKEN`: Discord Bot トークン
+- `DISCORD_WEB_HOOK_URL`: Discord Webhook URL
+
+**認証・アクセス制御:**
+
+- `ALLOWED_USERS`: Web API認証用のユーザー名とパスワード（形式: `user1:pass1,user2:pass2`）
+- `ADMIN_PASSWORD`: 管理者パスワード
+- `WEB_API_SECRET`: Web API の秘密鍵
+
+**データベース:**
+
+- `REDIS_URL`: Redis接続URL
+
+**Google Sheets:**
+
+- `GOOGLE_SERVICE_ACCOUNT_JSON`: Google サービスアカウントの認証情報 (JSON文字列)
+- `GOOGLE_SHEET_URL`: 保存先のスプレッドシートURL
+
+**QStash (非同期キュー):**
+
+- `QSTASH_URL`: QStash エンドポイントURL
+- `QSTASH_TOKEN`: QStash 認証トークン
+- `QSTASH_CURRENT_SIGNING_KEY`: QStash 署名検証キー（現在）
+- `QSTASH_NEXT_SIGNING_KEY`: QStash 署名検証キー（次回更新用）
+
+## よく使うコマンド
+
+```bash
+# 開発サーバー起動
+npm run dev
+
+# ビルド (本番環境ではコマンド登録も実行される)
+npm run build
+
+# Discordコマンドを手動登録
+npx tsx app/api/discord/register-commands.ts
+
+# ESLint実行
+npm run lint
+```
