@@ -47,14 +47,9 @@ export const redisGet = async <T = string>(key: string): Promise<T | null> => {
   }
 }
 
-export const redisSet = async (
-  key: string,
-  value: string | number | object,
-  expiresInSeconds?: number
-): Promise<void> => {
+export const redisSet = async (key: string, value: string | number | object, expiresInSeconds?: number): Promise<void> => {
   const client = await getRedisClient()
-  const serializedValue =
-    typeof value === "object" ? JSON.stringify(value) : String(value)
+  const serializedValue = typeof value === "object" ? JSON.stringify(value) : String(value)
 
   if (expiresInSeconds) {
     await client.setEx(key, expiresInSeconds, serializedValue)
@@ -69,11 +64,7 @@ export const redisDelete = async (key: string): Promise<boolean> => {
   return result > 0
 }
 
-export const redisUpdate = async (
-  key: string,
-  value: string | number | object,
-  expiresInSeconds?: number
-): Promise<boolean> => {
+export const redisUpdate = async (key: string, value: string | number | object, expiresInSeconds?: number): Promise<boolean> => {
   const client = await getRedisClient()
   const exists = await client.exists(key)
 
@@ -81,8 +72,7 @@ export const redisUpdate = async (
     return false
   }
 
-  const serializedValue =
-    typeof value === "object" ? JSON.stringify(value) : String(value)
+  const serializedValue = typeof value === "object" ? JSON.stringify(value) : String(value)
 
   if (expiresInSeconds) {
     await client.setEx(key, expiresInSeconds, serializedValue)
@@ -113,9 +103,7 @@ export const redisDisconnect = async (): Promise<void> => {
  *
  * NOTE: キーが不明でパターンマッチが必要な場合は、SCANコマンドを使用してキーを検索してからMGETを使用する
  */
-export const redisMGet = async <T = string>(
-  keys: string[]
-): Promise<(T | null)[]> => {
+export const redisMGet = async <T = string>(keys: string[]): Promise<(T | null)[]> => {
   if (keys.length === 0) {
     return []
   }

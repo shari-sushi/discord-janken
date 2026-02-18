@@ -27,13 +27,13 @@ const parseTime = (input: string): Date | null => {
       return null
     }
 
-    // JSTで指定された時刻を設定
+    // JSTで指定された時刻をUTCに変換して設定（JST = UTC+9）
     const targetDate = new Date()
-    targetDate.setHours(hours, minutes, 0, 0)
+    targetDate.setUTCHours(hours - 9, minutes, 0, 0)
 
     // もし指定時刻が過去なら、翌日に設定
     if (targetDate <= now) {
-      targetDate.setDate(targetDate.getDate() + 1)
+      targetDate.setUTCDate(targetDate.getUTCDate() + 1)
     }
 
     return targetDate
@@ -113,7 +113,7 @@ export const handleSubmitTimer = async (timeInput: string, message: string, chan
       notBefore: Math.floor(targetDate.getTime() / 1000), // Unix timestamp (秒)
     })
 
-    const timeString = timeInput.includes("分後") ? timeInput : `${targetDate.getHours()}:${targetDate.getMinutes().toString().padStart(2, "0")}`
+    const timeString = timeInput
 
     return NextResponse.json({
       type: 4,
