@@ -3,7 +3,7 @@ import { verifyKey } from "discord-interactions"
 import { echoCommand } from "./application-command/dev/echo"
 import { newProtectCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole, handleResetRegistered } from "./application-command/lol/newProtect"
 import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./application-command/user/feedback"
-import { timerCommand, handleSubmitTimer } from "./application-command/user/timer"
+import { timerCommand, handleSubmitTimer, handleOpenModalTimer } from "./application-command/user/timer"
 import { CLIENT_ACTIONS, COMMANDS, DISCORD_INTERACTION_TYPE } from "@/app/util/commands"
 import { developersTestCommand } from "./application-command/dev/developers-test"
 import { editDiscordMessage } from "@/app/libs/discord/api"
@@ -14,7 +14,7 @@ const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY!
 
 async function disableRegisterButtonsMessage(messageId: string, channelId: string, matchId: string) {
   try {
-    await editDiscordMessage(channelId, messageId, "両チーム入力完了し、結果が発表されました", createProtectComponents(matchId, true))
+    await editDiscordMessage(channelId, messageId, "✅ 両チームの入力が完了し、結果が発表されました", createProtectComponents(matchId, true))
   } catch (e) {
     console.error("Failed to disable register buttons:", e)
   }
@@ -92,6 +92,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
         case CLIENT_ACTIONS.LOL.RESET_REGISTERED:
           return handleResetRegistered(matchId)
+
+        case CLIENT_ACTIONS.LOL.OPEN_MODAL_TIMER:
+          return handleOpenModalTimer(CLIENT_ACTIONS.LOL.OPEN_MODAL_TIMER)
 
         case CLIENT_ACTIONS.USER.SELECT_FEEDBACK_TYPE:
           const selectedType = interaction.data.values?.[0] || ""

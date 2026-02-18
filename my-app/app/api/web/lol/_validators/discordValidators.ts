@@ -149,3 +149,41 @@ export function validateMembers(members: any): ValidationResult {
 
   return { valid: true }
 }
+
+// 時刻文字列をUTCのDateに変換（ISO 8601 UTC / HH:MM JST / M分後）
+export const parseReminderAt = (input: string): Date | null => {
+  const now = new Date()
+
+  // web api用
+  // ISO 8601 UTC形式（例: "2024-01-15T01:05:00.000Z"）
+  const isoMatch = input.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/)
+  if (isoMatch) {
+    const date = new Date(input)
+    return isNaN(date.getTime()) ? null : date
+  }
+  // "M分後" 形式
+  const minutesMatch = input.match(/^(\d+)分後$/)
+  if (minutesMatch) {
+    const minutes = parseInt(minutesMatch[1], 10)
+    return new Date(now.getTime() + minutes * 60 * 1000)
+  }
+
+  // 以下、discord botのtext input用
+  // "HH:MM" 形式（JSTとして解釈しUTCに変換）
+  const timeMatch = input.match(/^(\d{1,2}):(\d{2})$/)
+  if (timeMatch) {
+    const hours = parseInt(timeMatch[1], 10)
+    const minutes = parseInt(timeMatch[2], 10)
+    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null
+
+    // JSTで指定された時刻をUTCに変換して設定（JST = UTC+9）
+    const targetDate = new Date()
+    targetDate.setUTCHours(hours - 9, minutes, 0, 0)
+    if (targetDate <= now) {
+      targetDate.setUTCDate(targetDate.getUTCDate() + 1)
+    }
+    return targetDate
+  }
+
+  return null
+}

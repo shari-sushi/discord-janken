@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { validateAuthHeader } from "@/app/libs/auth"
-import { validateDiscordId, validateIsProtect, validateIsRoleSelect, validateMembers } from "../_validators/discordValidators"
+import { validateDiscordId, validateIsProtect, validateIsRoleSelect, validateMembers, parseReminderAt } from "../_validators/discordValidators"
 import { newId } from "@/app/util/newId"
 import { sendDiscordMessage, DiscordApiError } from "@/app/libs/discord/api"
 import { createProtectComponents } from "@/app/api/discord/util/protectMessageComponents"
 import { redisSet } from "@/app/libs/redis/redis"
 import { ProtectMatchMeta } from "@/app/types/match"
 import { getMatchKey } from "@/app/util/redisKeys"
+import { qstashPublishJSON } from "@/app/libs/qstash/qstash"
 
 type RequestBody = {
   guild_id: string
@@ -16,6 +17,10 @@ type RequestBody = {
   members?: {
     blue_team: string[]
     red_team: string[]
+  }
+  reminder?: {
+    reminder_at: string // ISO 8601 UTC（例: "2024-01-15T01:05:00.000Z"）を期待。 HH:MM（JST）/ M分後も受け付けているが非推奨とする。
+    message: string // 未記入チームへの通知メッセージを想定
   }
 }
 
@@ -42,7 +47,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, error: "不正なJSONフォーマットです" }, { status: 400 })
     }
 
-    const { guild_id: guildId, channel_id: channelId, is_protect: isProtect, is_role_select: isRoleSelect, members: ms } = body
+    const { guild_id: guildId, channel_id: channelId, is_protect: isProtect, is_role_select: isRoleSelect, members: ms, reminder } = body
     const members = {
       blueTeam: ms!.blue_team,
       redTeam: ms!.red_team,
@@ -67,6 +72,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const isRoleSelectValidation = validateIsRoleSelect(isRoleSelect)
     if (!isRoleSelectValidation.valid) {
       return NextResponse.json({ success: false, error: `isRoleSelect: ${isRoleSelectValidation.error}` }, { status: 400 })
+    }
+
+    const reminderDate = reminder?.reminder_at ? parseReminderAt(reminder.reminder_at) : null
+    if (reminder) {
+      if (!reminder.message) {
+        return NextResponse.json({ success: false, error: "reminder.message は必須です" }, { status: 400 })
+      }
+      if (!reminderDate) {
+        return NextResponse.json({ success: false, error: "reminder.reminder_at: ISO 8601 UTC（例: 2024-01-15T01:05:00.000Z）/ HH:MM（JST）/ M分後 の形式で指定してください" }, { status: 400 })
+      }
     }
 
     // 4. 機能有効性チェック
@@ -109,12 +124,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const responseMessage = isProtectFlag && isRoleSelectFlag ? "プロテクトとロール" : isProtectFlag && "プロテクト" ? isRoleSelectFlag : "ロール"
       const response = await sendDiscordMessage(channelId, "自チームの" + responseMessage + "を入力してください", components)
 
-      // 10. 成功レスポンス
+      // 10. リマインダーのQStashスケジュール登録（reminder が指定されている場合のみ）
+      let reminderRegistered = false
+      if (reminderDate && reminder) {
+        try {
+          await qstashPublishJSON(`${process.env.APP_URL}/api/web/lol/matches/reminder`, { matchId, channelId, guildId, message: reminder.message }, Math.floor(reminderDate.getTime() / 1000))
+          reminderRegistered = true
+        } catch (e) {
+          console.error("Reminder registration failed:", e)
+          // リマインダー登録失敗をDiscordに通知（失敗しても無視）
+          await sendDiscordMessage(channelId, "⚠️ リマインダーの登録に失敗しました。").catch((e) => {
+            console.error("Message to Discord byReminder registration failed:", e)
+          })
+        }
+      }
+
+      // 11. 成功レスポンス
       return NextResponse.json(
         {
           success: true,
           match_id: matchId,
           message_id: response.id,
+          reminder_registered: reminderRegistered,
         },
         { status: 200 },
       )

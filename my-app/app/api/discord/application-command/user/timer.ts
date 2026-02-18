@@ -1,53 +1,18 @@
 import { CLIENT_ACTIONS } from "@/app/util/commands"
 import { NextResponse } from "next/server"
-import { Client } from "@upstash/qstash"
-
-const qstashClient = new Client({
-  token: process.env.QSTASH_TOKEN!,
-})
-
-// 時刻パース関数（HH:MM または M分後）
-const parseTime = (input: string): Date | null => {
-  const now = new Date()
-
-  // "M分後" 形式のチェック
-  const minutesMatch = input.match(/^(\d+)分後$/)
-  if (minutesMatch) {
-    const minutes = parseInt(minutesMatch[1], 10)
-    return new Date(now.getTime() + minutes * 60 * 1000)
-  }
-
-  // "HH:MM" 形式のチェック
-  const timeMatch = input.match(/^(\d{1,2}):(\d{2})$/)
-  if (timeMatch) {
-    const hours = parseInt(timeMatch[1], 10)
-    const minutes = parseInt(timeMatch[2], 10)
-
-    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-      return null
-    }
-
-    // JSTで指定された時刻をUTCに変換して設定（JST = UTC+9）
-    const targetDate = new Date()
-    targetDate.setUTCHours(hours - 9, minutes, 0, 0)
-
-    // もし指定時刻が過去なら、翌日に設定
-    if (targetDate <= now) {
-      targetDate.setUTCDate(targetDate.getUTCDate() + 1)
-    }
-
-    return targetDate
-  }
-
-  return null
-}
+import { qstashPublishJSON } from "@/app/libs/qstash/qstash"
+import { parseReminderAt } from "@/app/api/web/lol/_validators/discordValidators"
 
 // コマンド初期表示（モーダル表示）
 export const timerCommand = () => {
+  return handleOpenModalTimer(CLIENT_ACTIONS.USER.SUBMIT_TIMER)
+}
+
+export const handleOpenModalTimer = (customId: string) => {
   return NextResponse.json({
     type: 9,
     data: {
-      custom_id: CLIENT_ACTIONS.USER.SUBMIT_TIMER,
+      custom_id: customId,
       title: "タイマー設定",
       components: [
         {
@@ -84,7 +49,7 @@ export const timerCommand = () => {
 // モーダル送信処理
 export const handleSubmitTimer = async (timeInput: string, message: string, channelId: string, guildId: string, userId: string) => {
   try {
-    const targetDate = parseTime(timeInput)
+    const targetDate = parseReminderAt(timeInput)
 
     if (!targetDate) {
       return NextResponse.json({
@@ -102,16 +67,11 @@ export const handleSubmitTimer = async (timeInput: string, message: string, chan
     // QStashにスケジュール登録
     const callbackUrl = `${process.env.APP_URL}/api/web/timer/execute`
 
-    await qstashClient.publishJSON({
-      url: callbackUrl,
-      body: {
-        channelId,
-        message: notificationMessage,
-        guildId,
-        createdBy: userId,
-      },
-      notBefore: Math.floor(targetDate.getTime() / 1000), // Unix timestamp (秒)
-    })
+    await qstashPublishJSON(
+      callbackUrl,
+      { channelId, message: notificationMessage, guildId, createdBy: userId },
+      Math.floor(targetDate.getTime() / 1000),
+    )
 
     const timeString = timeInput
 
