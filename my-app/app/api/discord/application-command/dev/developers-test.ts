@@ -1,73 +1,26 @@
 import { NextResponse } from "next/server"
-import { CLIENT_ACTIONS } from "@/app/util/commands"
 
-// コマンドそのものの登録からdiscordへの反映に1時間かかるため、ガワだけ用意しているものもある
-export const developersTestCommand = () => {
-  return NextResponse.json({
-    type: 4, // メッセージを返す
-    data: {
-      components: [
-        {
-          type: 1, // Action Row
-          components: [
-            {
-              type: 2, // Button
-              style: 1, // Primary (青)
-              label: "modal_1",
-              custom_id: CLIENT_ACTIONS.TEST_DEVELOP_BUTTON.ONE,
-            },
-          ],
-        },
-        {
-          type: 1, // Action Row
-          components: [
-            {
-              type: 2, // Button
-              style: 1, // Primary (青)
-              label: "modal_2 *width label",
-              custom_id: CLIENT_ACTIONS.TEST_DEVELOP_BUTTON.TWO,
-            },
-          ],
-        },
-        {
-          type: 1, // Action Row
-          components: [
-            {
-              type: 2, // Button
-              style: 1, // Primary (青)
-              label: "modal_3 Label (1 Select)",
-              custom_id: CLIENT_ACTIONS.TEST_DEVELOP_BUTTON.THREE,
-            },
-          ],
-        },
-        {
-          type: 1, // Action Row
-          components: [
-            {
-              type: 2, // Button
-              style: 1, // Primary (青)
-              label: "modal_4 Label Test",
-              custom_id: CLIENT_ACTIONS.TEST_DEVELOP_BUTTON.FOUR,
-            },
-          ],
-        },
-        {
-          type: 1, // Action Row
-          components: [
-            {
-              type: 2, // Button
-              style: 1, // Primary (青)
-              label: "modal_5",
-              custom_id: CLIENT_ACTIONS.TEST_DEVELOP_BUTTON.FIVE,
-            },
-          ],
-        },
-      ],
-    },
-  })
+export const developersTestCommand = (number: number): NextResponse => {
+  switch (number) {
+    case 1:
+      return handleTestDevelop1()
+    case 2:
+      return handleTestDevelop2()
+    case 3:
+      return handleTestDevelop3()
+    case 4:
+      return handleTestDevelop4()
+    case 5:
+      return handleTestDevelop5()
+    default:
+      return NextResponse.json({
+        type: 4,
+        data: { content: `テスト番号 ${number} は存在しません`, flags: 64 },
+      })
+  }
 }
 
-export const handleTestDevelop1 = (): NextResponse => {
+const handleTestDevelop1 = (): NextResponse => {
   // モーダルなしでString Selectを表示（通常のメッセージとして）
   return NextResponse.json({
     type: 4, // メッセージ返信
@@ -108,7 +61,7 @@ export const handleTestDevelop1 = (): NextResponse => {
   })
 }
 
-export const handleTestDevelop2 = (): NextResponse => {
+const handleTestDevelop2 = (): NextResponse => {
   // モーダル内でString Selectを使用（Labelなし・従来の方法）
   // 注意: Discordはモーダル内でのString Select使用時にLabelコンポーネントを推奨
   return NextResponse.json({
@@ -135,7 +88,7 @@ export const handleTestDevelop2 = (): NextResponse => {
   })
 }
 
-export const handleTestDevelop3 = (): NextResponse => {
+const handleTestDevelop3 = (): NextResponse => {
   // Discord公式ドキュメント準拠: https://docs.discord.com/developers/components/reference#label
   // Modal内でString Selectを使用する場合は、Labelコンポーネント（type: 18）内に配置する必要がある
   return NextResponse.json({
@@ -191,7 +144,7 @@ export const handleTestDevelop3 = (): NextResponse => {
   })
 }
 
-export const handleTestDevelop4 = (): NextResponse => {
+const handleTestDevelop4 = (): NextResponse => {
   // Text Input 1つ + Label + String Select 4つの組み合わせテスト
   return NextResponse.json({
     type: 9, // Modal
@@ -279,7 +232,7 @@ export const handleTestDevelop4 = (): NextResponse => {
   })
 }
 
-export const handleTestDevelop5 = (): NextResponse => {
+const handleTestDevelop5 = (): NextResponse => {
   // TODO: 実装予定
   return NextResponse.json({
     type: 4, // メッセージ返信

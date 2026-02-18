@@ -46,14 +46,24 @@ my-app/
 │   ├── api/
 │   │   ├── discord/
 │   │   │   ├── application-command/     # Discordコマンドの実装
-│   │   │   │   ├── echo.ts              # エコーコマンド
-│   │   │   │   ├── feedback.ts          # フィードバックコマンド
-│   │   │   │   └── newProtect.ts        # LTKプロテクトルール開始コマンド
+│   │   │   │   ├── dev/                 # 開発・テスト用コマンド
+│   │   │   │   │   ├── echo.ts
+│   │   │   │   │   └── developers-test.ts
+│   │   │   │   ├── lol/                 # LoL関連コマンド
+│   │   │   │   │   └── newProtect.ts
+│   │   │   │   ├── user/                # ユーザー向け汎用コマンド
+│   │   │   │   │   ├── feedback.ts
+│   │   │   │   │   └── timer.ts
+│   │   │   │   └── fighting-game/       # 格ゲー関連コマンド（未実装）
 │   │   │   ├── register-commands.ts     # Discord側へのコマンド登録スクリプト
 │   │   │   ├── route.ts                 # メインのDiscord Interaction受信エンドポイント
 │   │   │   └── types.ts                 # Discord関連の型定義
-│   │   ├── web/                         # Web API (CRUD操作など)
-│   │   └── auth/                        # 認証関連
+│   │   └── web/                         # Web API (CRUD操作・認証など)
+│   │       ├── auth/                    # 認証関連
+│   │       │   ├── login/route.ts
+│   │       │   └── logout/route.ts
+│   │       └── timer/                   # QStashコールバック
+│   │           └── execute/route.ts
 │   ├── libs/
 │   │   ├── redis/redis.ts               # Redis操作のラッパー
 │   │   ├── discord/Api.ts               # Discord へのリクエスト処理（メッセージ送信・編集など）

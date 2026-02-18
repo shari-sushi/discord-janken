@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyKey } from "discord-interactions"
-import { echoCommand } from "./application-command/echo"
-import { newProtectCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole, handleResetRegistered } from "./application-command/newProtect"
-import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./application-command/feedback"
-import { timerCommand, handleSubmitTimer } from "./application-command/timer"
+import { echoCommand } from "./application-command/dev/echo"
+import { newProtectCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole, handleResetRegistered } from "./application-command/lol/newProtect"
+import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./application-command/user/feedback"
+import { timerCommand, handleSubmitTimer } from "./application-command/user/timer"
 import { CLIENT_ACTIONS, COMMANDS, DISCORD_INTERACTION_TYPE } from "@/app/util/commands"
-import { developersTestCommand, handleTestDevelop1, handleTestDevelop2, handleTestDevelop3, handleTestDevelop4, handleTestDevelop5 } from "./application-command/developers-test"
+import { developersTestCommand } from "./application-command/dev/developers-test"
 import { editDiscordMessage } from "@/app/libs/discord/api"
 import { getComponentValue } from "@/app/libs/discord/getComponentValue"
 import { createProtectComponents } from "./util/protectMessageComponents"
@@ -50,16 +50,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       console.log("command:", commandName)
 
       switch (commandName) {
-        case COMMANDS.ECHO:
-          return echoCommand(options)
-        case COMMANDS.NEW_PROTECT:
+        case COMMANDS.LOL.NEW_PROTECT:
           return newProtectCommand()
-        case COMMANDS.TIMER:
+        case COMMANDS.USER.TIMER:
           return timerCommand()
-        case COMMANDS.FEEDBACK:
+        case COMMANDS.USER.FEEDBACK:
           return feedbackCommand()
-        case COMMANDS.TEST.ORIGIN:
-          return developersTestCommand()
+        case COMMANDS.DEV.ECHO:
+          return echoCommand(options)
+        case COMMANDS.DEV.TEST: {
+          const testNumber = (options as { name: string; value: number }[] | undefined)?.find((opt) => opt.name === "number")?.value ?? 1
+          return developersTestCommand(testNumber)
+        }
         default:
           return NextResponse.json({
             type: 4,
@@ -79,33 +81,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       console.log("action:", actionId, "matchId:", matchId)
 
       switch (actionId) {
-        case CLIENT_ACTIONS.OPEN_MODAL_RED_TEAM_REGISTER:
+        case CLIENT_ACTIONS.LOL.OPEN_MODAL_RED_TEAM_REGISTER:
           return handleOpenModalProtectRole("red_team", matchId, interaction.message?.id ?? "")
 
-        case CLIENT_ACTIONS.OPEN_MODAL_BLUE_TEAM_REGISTER:
+        case CLIENT_ACTIONS.LOL.OPEN_MODAL_BLUE_TEAM_REGISTER:
           return handleOpenModalProtectRole("blue_team", matchId, interaction.message?.id ?? "")
 
-        case CLIENT_ACTIONS.CHECK_REGISTERED:
+        case CLIENT_ACTIONS.LOL.CHECK_REGISTERED:
           return handleCheckRegistered(matchId)
 
-        case CLIENT_ACTIONS.RESET_REGISTERED:
+        case CLIENT_ACTIONS.LOL.RESET_REGISTERED:
           return handleResetRegistered(matchId)
 
-        case CLIENT_ACTIONS.SELECT_FEEDBACK_TYPE:
+        case CLIENT_ACTIONS.USER.SELECT_FEEDBACK_TYPE:
           const selectedType = interaction.data.values?.[0] || ""
           return handleSelectFeedbackType(selectedType)
-
-        // 動作確認テスト用
-        case CLIENT_ACTIONS.TEST_DEVELOP_BUTTON.ONE:
-          return handleTestDevelop1()
-        case CLIENT_ACTIONS.TEST_DEVELOP_BUTTON.TWO:
-          return handleTestDevelop2()
-        case CLIENT_ACTIONS.TEST_DEVELOP_BUTTON.THREE:
-          return handleTestDevelop3()
-        case CLIENT_ACTIONS.TEST_DEVELOP_BUTTON.FOUR:
-          return handleTestDevelop4()
-        case CLIENT_ACTIONS.TEST_DEVELOP_BUTTON.FIVE:
-          return handleTestDevelop5()
 
         default:
           return NextResponse.json({
@@ -123,11 +113,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       console.log("MODAL_SUBMIT custom_id:", customId)
       console.log("MODAL_SUBMIT components:", JSON.stringify(components, null, 2))
 
-      if (customId.startsWith(CLIENT_ACTIONS.SUBMIT_FEEDBACK)) {
+      if (customId.startsWith(CLIENT_ACTIONS.USER.SUBMIT_FEEDBACK)) {
         return handleSubmitFeedback(interaction)
       }
 
-      if (customId === CLIENT_ACTIONS.SUBMIT_TIMER) {
+      if (customId === CLIENT_ACTIONS.USER.SUBMIT_TIMER) {
         const timeInput = getComponentValue("timer_time", interaction.data) ?? ""
         const message = getComponentValue("timer_message", interaction.data) ?? ""
         const channelId = interaction.channel_id || ""
@@ -154,7 +144,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const userId = interaction.member.user.id ?? ""
 
       const modalActionId = customId.split("?")[0]
-      if (modalActionId === CLIENT_ACTIONS.REGISTER_RED_TEAM) {
+      if (modalActionId === CLIENT_ACTIONS.LOL.REGISTER_RED_TEAM) {
         const { response, isBothTeamsRegistered } = await handleRegisterTeam({ matchId, teamSide: "red_team", userId, data: interaction.data })
         if (isBothTeamsRegistered && messageId && channelId) {
           await disableRegisterButtonsMessage(messageId, channelId, matchId)
@@ -162,7 +152,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         return response
       }
 
-      if (modalActionId === CLIENT_ACTIONS.REGISTER_BLUE_TEAM) {
+      if (modalActionId === CLIENT_ACTIONS.LOL.REGISTER_BLUE_TEAM) {
         const { response, isBothTeamsRegistered } = await handleRegisterTeam({ matchId, teamSide: "blue_team", userId, data: interaction.data })
         if (isBothTeamsRegistered && messageId && channelId) {
           await disableRegisterButtonsMessage(messageId, channelId, matchId)

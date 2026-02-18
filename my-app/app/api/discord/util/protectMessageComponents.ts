@@ -16,33 +16,33 @@ export function createProtectComponents(matchId: string, isDisabledTeamButtons =
           type: 2, // Button
           style: 1, // Primary (青)
           label: "ブルーサイド",
-          custom_id: CLIENT_ACTIONS.OPEN_MODAL_BLUE_TEAM_REGISTER + `?match_id=${matchId}`,
+          custom_id: CLIENT_ACTIONS.LOL.OPEN_MODAL_BLUE_TEAM_REGISTER + `?match_id=${matchId}`,
           disabled: isDisabledTeamButtons,
         },
         {
           type: 2, // Button
           style: 4, // Danger (赤)
           label: "レッドサイド",
-          custom_id: CLIENT_ACTIONS.OPEN_MODAL_RED_TEAM_REGISTER + `?match_id=${matchId}`,
+          custom_id: CLIENT_ACTIONS.LOL.OPEN_MODAL_RED_TEAM_REGISTER + `?match_id=${matchId}`,
           disabled: isDisabledTeamButtons,
         },
         {
           type: 2, // Button
           style: 2, // Secondary (グレー)
           label: "確認",
-          custom_id: CLIENT_ACTIONS.CHECK_REGISTERED + `?match_id=${matchId}`,
+          custom_id: CLIENT_ACTIONS.LOL.CHECK_REGISTERED + `?match_id=${matchId}`,
         },
         {
           type: 2, // Button
           style: 2, // Secondary (グレー)
           label: "リセット",
-          custom_id: CLIENT_ACTIONS.RESET_REGISTERED + `?match_id=${matchId}`,
+          custom_id: CLIENT_ACTIONS.LOL.RESET_REGISTERED + `?match_id=${matchId}`,
         },
         {
           type: 2, // Button
           style: 2, // Secondary (グレー)
           label: "タイマーセット",
-          custom_id: CLIENT_ACTIONS.OPEN_MODAL_TIMER + `?match_id=${matchId}`,
+          custom_id: CLIENT_ACTIONS.LOL.OPEN_MODAL_TIMER + `?match_id=${matchId}`,
         },
       ],
     },

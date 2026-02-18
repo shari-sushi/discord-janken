@@ -47,7 +47,7 @@ export const timerCommand = () => {
   return NextResponse.json({
     type: 9,
     data: {
-      custom_id: CLIENT_ACTIONS.SUBMIT_TIMER,
+      custom_id: CLIENT_ACTIONS.USER.SUBMIT_TIMER,
       title: "タイマー設定",
       components: [
         {
@@ -96,14 +96,17 @@ export const handleSubmitTimer = async (timeInput: string, message: string, chan
       })
     }
 
+    // メッセージが未入力の場合のデフォルト値
+    const notificationMessage = message || "タイマーが作動しました"
+
     // QStashにスケジュール登録
-    const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL}/api/timer/execute`
+    const callbackUrl = `${process.env.APP_URL}/api/web/timer/execute`
 
     await qstashClient.publishJSON({
       url: callbackUrl,
       body: {
         channelId,
-        message,
+        message: notificationMessage,
         guildId,
         createdBy: userId,
       },
@@ -115,7 +118,7 @@ export const handleSubmitTimer = async (timeInput: string, message: string, chan
     return NextResponse.json({
       type: 4,
       data: {
-        content: `⏰ タイマーを設定しました\n時刻: ${timeString}\nメッセージ: ${message}`,
+        content: `⏰ タイマーを設定しました\n時刻: ${timeString}\nメッセージ: ${notificationMessage}`,
         flags: 64, // Ephemeral
       },
     })

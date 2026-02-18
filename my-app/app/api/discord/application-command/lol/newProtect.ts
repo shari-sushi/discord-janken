@@ -2,7 +2,7 @@ import { CLIENT_ACTIONS } from "@/app/util/commands"
 import { newId } from "@/app/util/newId"
 import { NextResponse } from "next/server"
 import { redisSet, redisGet, redisMGet, redisDelete } from "@/app/libs/redis/redis"
-import { createProtectComponents } from "../util/protectMessageComponents"
+import { createProtectComponents } from "../../util/protectMessageComponents"
 import { ProtectTeamData, ProtectMatchMeta, TeamSide } from "@/app/types/match"
 import { getMatchKey } from "@/app/util/redisKeys"
 
@@ -231,7 +231,7 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
     })
   }
 
-  const action = isBlue ? CLIENT_ACTIONS.REGISTER_BLUE_TEAM : CLIENT_ACTIONS.REGISTER_RED_TEAM
+  const action = isBlue ? CLIENT_ACTIONS.LOL.REGISTER_BLUE_TEAM : CLIENT_ACTIONS.LOL.REGISTER_RED_TEAM
   return NextResponse.json({
     type: 9,
     data: {

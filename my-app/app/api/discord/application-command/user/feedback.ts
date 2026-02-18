@@ -18,7 +18,7 @@ export const feedbackCommand = () => {
           components: [
             {
               type: 3, // String Select Menu
-              custom_id: CLIENT_ACTIONS.SELECT_FEEDBACK_TYPE,
+              custom_id: CLIENT_ACTIONS.USER.SELECT_FEEDBACK_TYPE,
               placeholder: "種類を選択...",
               options: [
                 {
@@ -52,7 +52,7 @@ export const handleSelectFeedbackType = (selectedType: FeedBackType) => {
   return NextResponse.json({
     type: 9, // モーダルを開く
     data: {
-      custom_id: `${CLIENT_ACTIONS.SUBMIT_FEEDBACK}?type=${selectedType}`,
+      custom_id: `${CLIENT_ACTIONS.USER.SUBMIT_FEEDBACK}?type=${selectedType}`,
       title: "フィードバック",
       components: [
         {

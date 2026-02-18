@@ -13,8 +13,26 @@ type DiscordBotCommand = {
   options?: { name: string; description: string; type: number; required: boolean }[]
 }
 
-const EchoCommands: DiscordBotCommand = {
-  name: COMMANDS.ECHO,
+const newProtect: DiscordBotCommand = {
+  name: COMMANDS.LOL.NEW_PROTECT,
+  description: "赤チーム・青チーム・確認ボタンを表示します",
+  options: [],
+}
+
+const feedback: DiscordBotCommand = {
+  name: COMMANDS.USER.FEEDBACK,
+  description: "フィードバックを送信します",
+  options: [],
+}
+
+const timer: DiscordBotCommand = {
+  name: COMMANDS.USER.TIMER,
+  description: "指定時刻にメッセージを送信するタイマーを設定します",
+  options: [],
+}
+
+const echo: DiscordBotCommand = {
+  name: COMMANDS.DEV.ECHO,
   description: "入力したテキストをbotがチャットに送信",
   options: [
     {
@@ -26,38 +44,20 @@ const EchoCommands: DiscordBotCommand = {
   ],
 }
 
-const newProtect: DiscordBotCommand = {
-  name: COMMANDS.NEW_PROTECT,
-  description: "赤チーム・青チーム・確認ボタンを表示します",
-  options: [],
+const test: DiscordBotCommand = {
+  name: COMMANDS.DEV.TEST,
+  description: "実装の動作確認コマンド",
+  options: [
+    {
+      name: "number",
+      description: "テスト番号 (1-5)を入力する",
+      type: 4, // INTEGER
+      required: true,
+    },
+  ],
 }
 
-const feedback: DiscordBotCommand = {
-  name: COMMANDS.FEEDBACK,
-  description: "フィードバックを送信します",
-  options: [],
-}
-
-const timer: DiscordBotCommand = {
-  name: COMMANDS.TIMER,
-  description: "指定時刻にメッセージを送信するタイマーを設定します",
-  options: [],
-}
-
-const test: DiscordBotCommand[] = [
-  {
-    name: COMMANDS.TEST.ORIGIN,
-    description: "実装の動作確認コマンド origin",
-    options: [],
-  },
-  {
-    name: COMMANDS.TEST.ONE,
-    description: "実装の動作確認コマンド 1",
-    options: [],
-  },
-]
-
-const commands: DiscordBotCommand[] = [EchoCommands, newProtect, feedback, timer, ...test]
+const commands: DiscordBotCommand[] = [newProtect, feedback, timer, echo, test]
 
 fetch(`https://discord.com/api/v10/applications/${APPLICATION_ID}/commands`, {
   // POSTにすると新規登録のみで古いのは変更されない
