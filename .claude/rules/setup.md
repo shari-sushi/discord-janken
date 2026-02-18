@@ -26,6 +26,14 @@
 - `GOOGLE_SERVICE_ACCOUNT_JSON`: Google サービスアカウントの認証情報 (JSON文字列)
 - `GOOGLE_SHEET_URL`: 保存先のスプレッドシートURL
 
+**アプリURL:**
+
+- `APP_URL`: 本アプリの公開URL（末尾スラッシュなし）
+  - 例: `https://discord-janken.vercel.app`
+  - QStash のコールバック先URL生成に使用（`${APP_URL}/api/web/timer/execute`）
+  - Vercel の環境変数にも設定が必要
+  - ローカル開発でタイマー機能をテストする場合は ngrok 等のトンネルURLを設定する
+
 **QStash (非同期キュー):**
 
 - `QSTASH_URL`: QStash エンドポイントURL
