@@ -27,8 +27,8 @@ export type ProtectMatchMeta = {
 
 export type MatchMembers = {
   // メンバーリスト（isRoleSelect: true の場合に推奨）
-  blueTeam: string[] // 青チームのメンバー（5名）
-  redTeam: string[] // 赤チームのメンバー（5名）
+  blueTeam: string[] // ブルーチームのメンバー（5名）
+  redTeam: string[] // レッドチームのメンバー（5名）
 }
 
 /**

@@ -144,7 +144,7 @@ export function validateMembers(members: any): ValidationResult {
   const allMembers = [...members.blueTeam, ...members.redTeam]
   const allMembersSet = new Set(allMembers)
   if (allMembersSet.size !== allMembers.length) {
-    return { valid: false, error: "青チームと赤チームで同じメンバーが重複しています" }
+    return { valid: false, error: "ブルーチームとレッドチームで同じメンバーが重複しています" }
   }
 
   return { valid: true }

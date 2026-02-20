@@ -15,7 +15,7 @@ type DiscordBotCommand = {
 
 const newProtect: DiscordBotCommand = {
   name: COMMANDS.LOL.NEW_PROTECT,
-  description: "赤チーム・青チーム・確認ボタンを表示します",
+  description: "レッドサイド、ブルーサイドそれぞれのプロテクトやロール選択を行い、同時発表できます",
   options: [],
 }
 
