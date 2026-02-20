@@ -26,6 +26,7 @@ export const CLIENT_ACTIONS = {
     CHECK_REGISTERED: "check-registered",
     RESET_REGISTERED: "reset-registered",
     OPEN_MODAL_TIMER: "open-modal-timer",
+    SUBMIT_TIMER: "submit-timer-lol-new-protect",
   },
   USER: {
     SELECT_FEEDBACK_TYPE: "select-feedback-type",

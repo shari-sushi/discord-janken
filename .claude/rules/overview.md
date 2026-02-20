@@ -62,7 +62,14 @@ my-app/
 │   │       ├── auth/                    # 認証関連
 │   │       │   ├── login/route.ts
 │   │       │   └── logout/route.ts
-│   │       └── timer/                   # QStashコールバック
+│   │       ├── lol/                     # LoL関連Web API
+│   │       │   ├── _validators/         # バリデーション関数
+│   │       │   │   └── discordValidators.ts
+│   │       │   └── matches/             # 試合管理API
+│   │       │       ├── route.ts         # 試合作成
+│   │       │       └── reminder-execute/ # タイマー実行コールバック
+│   │       │           └── route.ts
+│   │       └── timer/                   # QStashコールバック（汎用）
 │   │           └── execute/route.ts
 │   ├── libs/
 │   │   ├── redis/redis.ts               # Redis操作のラッパー

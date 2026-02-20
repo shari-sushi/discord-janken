@@ -104,3 +104,70 @@ ALLOWED_USERS=user1:pass456,user2:pass789
 ## Discord Bot認証
 
 Discord APIへのアクセスは、Bot Token（`DISCORD_BOT_TOKEN`）を使用します。これは Web API認証とは独立しています。
+
+## LoL関連Web APIエンドポイント
+
+### POST `/api/web/lol/matches`
+
+新しい試合を作成し、Discordチャンネルにメッセージを送信します。
+
+**認証**: Basic認証 または Bearer Token認証が必要
+
+**リクエストボディ:**
+
+```typescript
+{
+  guild_id: string        // Discord サーバーID
+  channel_id: string      // Discord チャンネルID
+  isProtect?: boolean     // プロテクト機能を有効化（デフォルト: false）
+  isRoleSelect?: boolean  // ロール選択機能を有効化（デフォルト: false）
+  reminder?: {
+    at: string           // リマインダー時刻（"HH:MM" または "M分後"）
+    message?: string     // リマインダーメッセージ（オプション）
+  }
+}
+```
+
+**レスポンス:**
+
+```typescript
+{
+  success: true
+  match_id: string          // 生成された試合ID
+  message_id: string        // Discord メッセージID
+  reminder_registered?: boolean  // リマインダー登録の成否
+}
+```
+
+### POST `/api/web/lol/matches/reminder-execute`
+
+**認証**: QStash署名検証（自動実行用エンドポイント）
+
+タイマー作動時に試合の現在状況を通知するコールバックエンドポイント。QStashから自動的に呼び出されます。
+
+**重要な仕様:**
+
+- 両チームが記入済みの場合は通知を送らない（無駄な通知を防ぐ）
+- 未記入チームがある場合、試合の現在状況（Embed含む）を表示
+- Discord の仕様上、チャンネル全体に通知される（特定チームのみへの通知は不可）
+
+**ペイロード:**
+
+```typescript
+{
+  matchId: string
+  channelId: string
+  guildId: string
+  message?: string      // タイマー設定時のメッセージ
+  createdBy?: string    // タイマー設定者のユーザーID
+}
+```
+
+**処理フロー:**
+
+1. QStash署名検証
+2. メタデータ取得
+3. 両チームデータ一括取得（MGET使用）
+4. 両チーム完了判定（記入済みの場合は早期リターン）
+5. 試合の現在状況を取得（`getMatchStatusMessage()`）
+6. Discord Webhookでメッセージ送信

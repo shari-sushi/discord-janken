@@ -94,7 +94,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return handleResetRegistered(matchId)
 
         case CLIENT_ACTIONS.LOL.OPEN_MODAL_TIMER:
-          return handleOpenModalTimer(CLIENT_ACTIONS.LOL.OPEN_MODAL_TIMER)
+          return handleOpenModalTimer(CLIENT_ACTIONS.LOL.SUBMIT_TIMER + `?match_id=${matchId}`)
 
         case CLIENT_ACTIONS.USER.SELECT_FEEDBACK_TYPE:
           const selectedType = interaction.data.values?.[0] || ""
@@ -128,6 +128,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         const userId = interaction.member?.user?.id || ""
 
         return handleSubmitTimer(timeInput, message, channelId, guildId, userId)
+      }
+
+      if (customId.startsWith(CLIENT_ACTIONS.LOL.SUBMIT_TIMER)) {
+        const timeInput = getComponentValue("timer_time", interaction.data) ?? ""
+        const message = getComponentValue("timer_message", interaction.data) ?? ""
+        const channelId = interaction.channel_id || ""
+        const guildId = interaction.guild_id || ""
+        const userId = interaction.member?.user?.id || ""
+
+        
+        const params = new URLSearchParams(customId.split("?")[1] || "")
+        const matchId = params.get("match_id") || ""
+
+        return handleSubmitTimer(timeInput, message, channelId, guildId, userId, matchId)
       }
 
       // match_id を取得（複数の方法で取得を試みる）

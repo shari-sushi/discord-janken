@@ -128,7 +128,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       let reminderRegistered = false
       if (reminderDate && reminder) {
         try {
-          await qstashPublishJSON(`${process.env.APP_URL}/api/web/lol/matches/reminder`, { matchId, channelId, guildId, message: reminder.message }, Math.floor(reminderDate.getTime() / 1000))
+          await qstashPublishJSON(`${process.env.APP_URL}/api/web/lol/matches/reminder-execute`, { matchId, channelId, guildId, message: reminder.message }, Math.floor(reminderDate.getTime() / 1000))
           reminderRegistered = true
         } catch (e) {
           console.error("Reminder registration failed:", e)

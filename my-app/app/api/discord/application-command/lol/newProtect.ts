@@ -22,7 +22,7 @@ export const newProtectCommand = async () => {
   return NextResponse.json({
     type: 4,
     data: {
-      content: "チームを選択してください",
+      content: "自分のチームのプロテクトを入力してください",
       components: createProtectComponents(matchId),
     },
   })
@@ -57,9 +57,9 @@ function getValue(customId: string, data: any): string | undefined {
 }
 
 /**
- * 両チーム完了時のEmbedメッセージを生成（3カラムテーブル形式）
+ * 両チーム完了時のEmbedデータを生成（3カラムテーブル形式）
  */
-function createCompletionEmbed(meta: ProtectMatchMeta, blueTeamData: ProtectTeamData, redTeamData: ProtectTeamData) {
+function createCompletionEmbedData(meta: ProtectMatchMeta, blueTeamData: ProtectTeamData, redTeamData: ProtectTeamData) {
   // 左カラム（項目名）の値を構築
   const leftColumnLines: string[] = []
 
@@ -109,17 +109,24 @@ function createCompletionEmbed(meta: ProtectMatchMeta, blueTeamData: ProtectTeam
     },
   ]
 
+  return {
+    embeds: [
+      {
+        title: "✅ 結果発表",
+        color: 3447003,
+        fields,
+      },
+    ],
+  }
+}
+
+/**
+ * 両チーム完了時のEmbedメッセージを生成（3カラムテーブル形式）
+ */
+function createCompletionEmbed(meta: ProtectMatchMeta, blueTeamData: ProtectTeamData, redTeamData: ProtectTeamData) {
   return NextResponse.json({
     type: 4,
-    data: {
-      embeds: [
-        {
-          title: "✅ 結果発表",
-          color: 3447003,
-          fields,
-        },
-      ],
-    },
+    data: createCompletionEmbedData(meta, blueTeamData, redTeamData),
   })
 }
 
@@ -361,15 +368,17 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: ha
   }
 }
 
-// 登録状況確認
-export const handleCheckRegistered = async (matchId: string): Promise<NextResponse> => {
+/**
+ * 試合データを取得してメッセージデータを返す
+ * @param matchId - 試合ID
+ * @returns メッセージデータ（content または embeds）、データが見つからない場合は null
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const getMatchStatusMessage = async (matchId: string): Promise<{ content?: string; embeds?: any[] } | null> => {
   // 1. メタデータ取得
   const meta = await redisGet<ProtectMatchMeta>(getMatchKey(matchId, "meta"))
   if (!meta) {
-    return NextResponse.json({
-      type: 4,
-      data: { content: "エラー: 試合情報が見つかりません", flags: 64 },
-    })
+    return null
   }
 
   // 2. 両チームデータ一括取得（MGET使用）
@@ -380,29 +389,37 @@ export const handleCheckRegistered = async (matchId: string): Promise<NextRespon
   const isBothRegistered =
     redTeamData && blueTeamData && (!meta.isProtect || (blueTeamData.protection_champions && redTeamData.protection_champions)) && (!meta.isRoleSelect || (blueTeamData.roster && redTeamData.roster))
 
-  // 4. メッセージ返却
+  // 4. メッセージデータ構築
   if (isBothRegistered) {
     // 両チーム完了時はEmbed形式で表示
-    return createCompletionEmbed(meta, blueTeamData!, redTeamData!)
+    return createCompletionEmbedData(meta, blueTeamData!, redTeamData!)
   } else if (!redTeamData && !blueTeamData) {
     // 両チーム未登録
-    return NextResponse.json({
-      type: 4,
-      data: { content: "🟦 ブルーサイド：✍️未登録\n🟥 レッドサイド：✍️未登録", flags: 64 },
-    })
+    return { content: "🟦 ブルーサイド：✍️未登録\n🟥 レッドサイド：✍️未登録" }
   } else if (!blueTeamData) {
     // ブルーチームのみ未登録
-    return NextResponse.json({
-      type: 4,
-      data: { content: "🟦 ブルーサイド：✅登録済み\n🟥 レッドサイド：✍️未登録", flags: 64 },
-    })
+    return { content: "🟦 ブルーサイド：✅登録済み\n🟥 レッドサイド：✍️未登録" }
   } else {
     // レッドチームのみ未登録
+    return { content: "🟥 レッドサイド：✅登録済み\n🟦 ブルーサイド：✍️未登録" }
+  }
+}
+
+// 登録状況確認
+export const handleCheckRegistered = async (matchId: string): Promise<NextResponse> => {
+  const messageData = await getMatchStatusMessage(matchId)
+
+  if (!messageData) {
     return NextResponse.json({
       type: 4,
-      data: { content: "🟥 レッドサイド：✅登録済み\n🟦 ブルーサイド：✍️未登録", flags: 64 },
+      data: { content: "エラー: 試合情報が見つかりません", flags: 64 },
     })
   }
+
+  return NextResponse.json({
+    type: 4,
+    data: { ...messageData, flags: 64 },
+  })
 }
 
 // 登録のリセット

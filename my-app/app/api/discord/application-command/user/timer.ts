@@ -47,7 +47,7 @@ export const handleOpenModalTimer = (customId: string) => {
 }
 
 // モーダル送信処理
-export const handleSubmitTimer = async (timeInput: string, message: string, channelId: string, guildId: string, userId: string) => {
+export const handleSubmitTimer = async (timeInput: string, message: string, channelId: string, guildId: string, userId: string, matchId?: string) => {
   try {
     const targetDate = parseReminderAt(timeInput)
 
@@ -62,16 +62,15 @@ export const handleSubmitTimer = async (timeInput: string, message: string, chan
     }
 
     // メッセージが未入力の場合のデフォルト値
-    const notificationMessage = message || "タイマーが作動しました"
+    const notificationMessage = message || "タイマーが作動しました\nメッセージは設定されていません"
 
     // QStashにスケジュール登録
-    const callbackUrl = `${process.env.APP_URL}/api/web/timer/execute`
+    // matchId がある場合は LoL 試合用エンドポイントを使用
+    const callbackUrl = matchId ? `${process.env.APP_URL}/api/web/lol/matches/reminder-execute` : `${process.env.APP_URL}/api/web/timer/execute`
 
-    await qstashPublishJSON(
-      callbackUrl,
-      { channelId, message: notificationMessage, guildId, createdBy: userId },
-      Math.floor(targetDate.getTime() / 1000),
-    )
+    const payload = matchId ? { channelId, message: notificationMessage, guildId, createdBy: userId, matchId } : { channelId, message: notificationMessage, guildId, createdBy: userId }
+
+    await qstashPublishJSON(callbackUrl, payload, Math.floor(targetDate.getTime() / 1000))
 
     const timeString = timeInput
 
