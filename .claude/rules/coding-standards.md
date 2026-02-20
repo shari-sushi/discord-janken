@@ -25,10 +25,10 @@
 
 ### 命名規則
 
-- **ファイル名**: camelCase (例: `newProtect.ts`)
+- **ファイル名**: camelCase (例: `newMatch.ts`)
 - **定数**: UPPER_SNAKE_CASE (例: `CLIENT_ACTIONS`, `COMMANDS`)
 - **関数**: camelCase (例: `saveTeamAndCheckOther`)
-- **コマンド名のプレフィックス**: `lol-` を使用 (例: `/lol-new-protect`)
+- **コマンド名のプレフィックス**: `lol-` を使用 (例: `/lol-new-match`)
 
 ## ファイル構造の原則
 
@@ -36,7 +36,7 @@
 
 - **原則**: 1つの Discord コマンド機能 = 1ファイル
 - **場所**: `app/api/discord/application-command/` 配下
-- **命名**: コマンド名と同じ (例: `/lol-new-protect` → `newProtect.ts`)
+- **命名**: コマンド名と同じ (例: `/lol-new-match` → `newMatch.ts`)
 
 ### 2. 1ファイル内に含める処理
 

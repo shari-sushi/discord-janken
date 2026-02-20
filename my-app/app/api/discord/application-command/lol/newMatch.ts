@@ -7,7 +7,7 @@ import { ProtectTeamData, ProtectMatchMeta, TeamSide } from "@/app/types/match"
 import { getMatchKey } from "@/app/util/redisKeys"
 
 // コマンド初期表示
-export const newProtectCommand = async () => {
+export const newMatchCommand = async () => {
   const matchId = newId()
 
   // メタデータを作成・保存

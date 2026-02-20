@@ -4,7 +4,7 @@ const USER_PREF = "user-"
 
 export const COMMANDS = {
   LOL: {
-    NEW_PROTECT: LOL_PREF + "new-protect",
+    NEW_MATCH: LOL_PREF + "new-match",
   },
   USER: {
     FEEDBACK: USER_PREF + "feedback",
@@ -26,7 +26,7 @@ export const CLIENT_ACTIONS = {
     CHECK_REGISTERED: "check-registered",
     RESET_REGISTERED: "reset-registered",
     OPEN_MODAL_TIMER: "open-modal-timer",
-    SUBMIT_TIMER: "submit-timer-lol-new-protect",
+    SUBMIT_TIMER: "submit-timer-lol-new-match",
   },
   USER: {
     SELECT_FEEDBACK_TYPE: "select-feedback-type",

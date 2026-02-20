@@ -13,8 +13,8 @@ type DiscordBotCommand = {
   options?: { name: string; description: string; type: number; required: boolean }[]
 }
 
-const newProtect: DiscordBotCommand = {
-  name: COMMANDS.LOL.NEW_PROTECT,
+const newMatch: DiscordBotCommand = {
+  name: COMMANDS.LOL.NEW_MATCH,
   description: "レッドサイド、ブルーサイドそれぞれのプロテクトやロール選択を行い、同時発表できます",
   options: [],
 }
@@ -57,7 +57,7 @@ const test: DiscordBotCommand = {
   ],
 }
 
-const commands: DiscordBotCommand[] = [newProtect, feedback, timer, echo, test]
+const commands: DiscordBotCommand[] = [newMatch, feedback, timer, echo, test]
 
 fetch(`https://discord.com/api/v10/applications/${APPLICATION_ID}/commands`, {
   // POSTにすると新規登録のみで古いのは変更されない

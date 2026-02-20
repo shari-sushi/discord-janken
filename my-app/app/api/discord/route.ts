@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyKey } from "discord-interactions"
 import { echoCommand } from "./application-command/dev/echo"
-import { newProtectCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole, handleResetRegistered } from "./application-command/lol/newProtect"
+import { newMatchCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole, handleResetRegistered } from "./application-command/lol/newMatch"
 import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./application-command/user/feedback"
 import { timerCommand, handleSubmitTimer, handleOpenModalTimer } from "./application-command/user/timer"
 import { CLIENT_ACTIONS, COMMANDS, DISCORD_INTERACTION_TYPE } from "@/app/util/commands"
@@ -50,8 +50,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       console.log("command:", commandName)
 
       switch (commandName) {
-        case COMMANDS.LOL.NEW_PROTECT:
-          return newProtectCommand()
+        case COMMANDS.LOL.NEW_MATCH:
+          return newMatchCommand()
         case COMMANDS.USER.TIMER:
           return timerCommand()
         case COMMANDS.USER.FEEDBACK:

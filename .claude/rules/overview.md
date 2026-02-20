@@ -6,7 +6,7 @@ League of Legends（LoL）のカスタムゲームを円滑に運営するため
 
 ## 現在実装されている機能
 
-- **LTKプロテクトルール機能** (`/lol-new-protect`)
+- **LTKプロテクトルール機能** (`/lol-new-match`)
   - ブルーチーム・レッドチームがそれぞれプロテクトするチャンピオンを入力し、同時発表
   - Redis に試合ID単位でデータを保存
 
@@ -19,7 +19,7 @@ League of Legends（LoL）のカスタムゲームを円滑に運営するため
 
 ## 今後実装予定の機能
 
-- `lol-new-protect`はprotect専用にし、web api`lol/matches`と同じコマンド
+- `lol-new-match`はprotect専用にし、web api`lol/matches`と同じコマンド
 - 格ゲー用の先方、中堅、大将みたいなロースター同時発表コマンド
 - メッセージを複数人で編集できるコマンド
 - メンバー管理(メンバー登録、メンバーのレート確認、メンバーのカスタム参加希望申請、ツール内レート確認)
@@ -50,7 +50,7 @@ my-app/
 │   │   │   │   │   ├── echo.ts
 │   │   │   │   │   └── developers-test.ts
 │   │   │   │   ├── lol/                 # LoL関連コマンド
-│   │   │   │   │   └── newProtect.ts
+│   │   │   │   │   └── newMatch.ts
 │   │   │   │   ├── user/                # ユーザー向け汎用コマンド
 │   │   │   │   │   ├── feedback.ts
 │   │   │   │   │   └── timer.ts
