@@ -9,12 +9,3 @@ import { MatchKeyType } from "@/app/types/match"
 export const getMatchKey = (matchId: string, keyType: MatchKeyType): string => {
   return `lol:matches:${matchId}:${keyType}`
 }
-
-/**
- * プロテクト機能用のRedisキープレフィックスを生成する
- * @param matchId 試合ID（UUID v4）
- * @returns Redisキープレフィックス（例: "lol:matches:abc123:"）
- */
-export const getMatchKeyPrefix = (matchId: string): string => {
-  return `lol:matches:${matchId}:`
-}
