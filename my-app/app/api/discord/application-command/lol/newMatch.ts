@@ -316,7 +316,7 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: ha
       }
     }
 
-    const teamMembers = meta.members.redTeam
+    const teamMembers = teamSide === "blue_team" ? meta.members.blueTeam : meta.members.redTeam
 
     // 残り1人をsupとして自動割り当て
     const supMember = teamMembers.find((m) => !selectedMembers.includes(m))
