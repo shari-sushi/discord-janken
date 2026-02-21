@@ -59,7 +59,7 @@ function getValue(customId: string, data: any): string | undefined {
 /**
  * 両チーム完了時のEmbedデータを生成（3カラムテーブル形式）
  */
-function createCompletionEmbedData(meta: ProtectMatchMeta, blueTeamData: ProtectTeamData, redTeamData: ProtectTeamData) {
+function createCompletionEmbedData(meta: ProtectMatchMeta, teamsData: { blue: ProtectTeamData; red: ProtectTeamData }) {
   // 左カラム（項目名）の値を構築
   const leftColumnLines: string[] = []
 
@@ -70,10 +70,10 @@ function createCompletionEmbedData(meta: ProtectMatchMeta, blueTeamData: Protect
   const redColumnLines: string[] = []
 
   // プロテクト行（isProtect が true の場合のみ）
-  if (meta.isProtect && blueTeamData.protection_champions && redTeamData.protection_champions) {
+  if (meta.isProtect && teamsData.blue.protection_champions && teamsData.red.protection_champions) {
     leftColumnLines.push("プロテクト    ")
-    blueColumnLines.push(blueTeamData.protection_champions)
-    redColumnLines.push(redTeamData.protection_champions)
+    blueColumnLines.push(teamsData.blue.protection_champions)
+    redColumnLines.push(teamsData.red.protection_champions)
 
     // protectとroleの間に改行を入れる
     if (meta.isRoleSelect) {
@@ -84,10 +84,10 @@ function createCompletionEmbedData(meta: ProtectMatchMeta, blueTeamData: Protect
   }
 
   // ロール行（isRoleSelect が true の場合のみ）
-  if (meta.isRoleSelect && blueTeamData.roster && redTeamData.roster) {
+  if (meta.isRoleSelect && teamsData.blue.roster && teamsData.red.roster) {
     leftColumnLines.push("TOP", "JG", "MID", "ADC", "SUP")
-    blueColumnLines.push(blueTeamData.roster.top, blueTeamData.roster.jg, blueTeamData.roster.mid, blueTeamData.roster.adc, blueTeamData.roster.sup)
-    redColumnLines.push(redTeamData.roster.top, redTeamData.roster.jg, redTeamData.roster.mid, redTeamData.roster.adc, redTeamData.roster.sup)
+    blueColumnLines.push(teamsData.blue.roster.top, teamsData.blue.roster.jg, teamsData.blue.roster.mid, teamsData.blue.roster.adc, teamsData.blue.roster.sup)
+    redColumnLines.push(teamsData.red.roster.top, teamsData.red.roster.jg, teamsData.red.roster.mid, teamsData.red.roster.adc, teamsData.red.roster.sup)
   }
 
   // fieldsを構築
@@ -123,10 +123,10 @@ function createCompletionEmbedData(meta: ProtectMatchMeta, blueTeamData: Protect
 /**
  * 両チーム完了時のEmbedメッセージを生成（3カラムテーブル形式）
  */
-function createCompletionEmbed(meta: ProtectMatchMeta, blueTeamData: ProtectTeamData, redTeamData: ProtectTeamData) {
+function createCompletionEmbed(meta: ProtectMatchMeta, teamsData: { blue: ProtectTeamData; red: ProtectTeamData }) {
   return NextResponse.json({
     type: 4,
-    data: createCompletionEmbedData(meta, blueTeamData, redTeamData),
+    data: createCompletionEmbedData(meta, teamsData),
   })
 }
 
@@ -358,7 +358,12 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: ha
   if (isBothRegistered) {
     console.log(teamSide, "- Returning completion embed")
     // 両チーム完了時はEmbed形式で結果を表示
-    return { response: createCompletionEmbed(meta, otherTeamData!, usTeamData), isBothTeamsRegistered: true }
+    // teamSideに応じてblue/redを正しい順序で渡す
+    const teamsData = {
+      blue: teamSide === "blue_team" ? usTeamData : otherTeamData!,
+      red: teamSide === "blue_team" ? otherTeamData! : usTeamData,
+    }
+    return { response: createCompletionEmbed(meta, teamsData), isBothTeamsRegistered: true }
   } else {
     console.log(teamSide, "- Returning single team completion message")
     return {
@@ -389,10 +394,15 @@ export const getMatchStatusMessage = async (matchId: string): Promise<{ content?
   const isBothRegistered =
     redTeamData && blueTeamData && (!meta.isProtect || (blueTeamData.protection_champions && redTeamData.protection_champions)) && (!meta.isRoleSelect || (blueTeamData.roster && redTeamData.roster))
 
+  const teamsData = {
+    blue: blueTeamData!,
+    red: redTeamData!,
+  }
+
   // 4. メッセージデータ構築
   if (isBothRegistered) {
     // 両チーム完了時はEmbed形式で表示
-    return createCompletionEmbedData(meta, blueTeamData!, redTeamData!)
+    return createCompletionEmbedData(meta, teamsData)
   } else if (!redTeamData && !blueTeamData) {
     // 両チーム未登録
     return { content: "🟦 ブルーサイド：✍️未登録\n🟥 レッドサイド：✍️未登録" }
