@@ -7,8 +7,9 @@ export const COMMANDS = {
     NEW_MATCH: LOL_PREF + "new-match",
   },
   USER: {
-    FEEDBACK: USER_PREF + "feedback",
     TIMER: USER_PREF + "timer",
+    COMMON_MESSAGE: USER_PREF + "common-message",
+    FEEDBACK: USER_PREF + "feedback",
   },
   // 開発者用
   DEV: {
@@ -30,8 +31,12 @@ export const CLIENT_ACTIONS = {
   },
   USER: {
     SELECT_FEEDBACK_TYPE: "select-feedback-type",
-    SUBMIT_FEEDBACK: "submit-feedback",
     SUBMIT_TIMER: "submit-timer",
+    SUBMIT_NEW_COMMON_MESSAGE: "submit-new-common-message",
+    OPEN_MODAL_EDIT_COMMON_MESSAGE: "open-modal-edit-common-message",
+    SUBMIT_COMMON_MESSAGE: "submit-common-message",
+    FORCE_END_EDITING_COMMON_MESSAGE: "force-end-editing-common-message",
+    SUBMIT_FEEDBACK: "submit-feedback",
   },
 }
 

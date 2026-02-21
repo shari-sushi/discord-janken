@@ -4,6 +4,7 @@ import { echoCommand } from "./application-command/dev/echo"
 import { newMatchCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole, handleResetRegistered } from "./application-command/lol/newMatch"
 import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./application-command/user/feedback"
 import { timerCommand, handleSubmitTimer, handleOpenModalTimer } from "./application-command/user/timer"
+import { commonMessageCommand, handleSubmitNewCommonMessage, handleOpenModalEditCommonMessage, handleSubmitCommonMessage, handleForceEndEditingCommonMessage } from "./application-command/user/commonMessage"
 import { CLIENT_ACTIONS, COMMANDS, DISCORD_INTERACTION_TYPE } from "@/app/util/commands"
 import { developersTestCommand } from "./application-command/dev/developers-test"
 import { editDiscordMessage } from "@/app/libs/discord/api"
@@ -56,6 +57,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return timerCommand()
         case COMMANDS.USER.FEEDBACK:
           return feedbackCommand()
+        case COMMANDS.USER.COMMON_MESSAGE:
+          return commonMessageCommand()
         case COMMANDS.DEV.ECHO:
           return echoCommand(options)
         case COMMANDS.DEV.TEST: {
@@ -100,6 +103,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           const selectedType = interaction.data.values?.[0] || ""
           return handleSelectFeedbackType(selectedType)
 
+        case CLIENT_ACTIONS.USER.OPEN_MODAL_EDIT_COMMON_MESSAGE:
+          return handleOpenModalEditCommonMessage(interaction)
+
+        case CLIENT_ACTIONS.USER.FORCE_END_EDITING_COMMON_MESSAGE:
+          return handleForceEndEditingCommonMessage(interaction)
+
         default:
           return NextResponse.json({
             type: 4,
@@ -118,6 +127,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       if (customId.startsWith(CLIENT_ACTIONS.USER.SUBMIT_FEEDBACK)) {
         return handleSubmitFeedback(interaction)
+      }
+
+      if (customId === CLIENT_ACTIONS.USER.SUBMIT_NEW_COMMON_MESSAGE) {
+        return handleSubmitNewCommonMessage(interaction)
+      }
+
+      if (customId.startsWith(CLIENT_ACTIONS.USER.SUBMIT_COMMON_MESSAGE)) {
+        return handleSubmitCommonMessage(interaction)
       }
 
       if (customId === CLIENT_ACTIONS.USER.SUBMIT_TIMER) {
