@@ -67,3 +67,37 @@
 - ❌ ビジネスロジック
 - ❌ Discord レスポンスの組み立て
 - ❌ データベース操作
+
+## 型安全性とエラーハンドリング
+
+### 採用設計：型ナローイング（Type Narrowing）
+
+**採用理由:**
+
+- TypeScript公式が推奨する型の絞り込みパターン(type narrowing)
+- コンパイル時の型安全性を最大限活用
+- 単一責任の原則に従う（呼び出し側が条件判定、関数は処理のみ）
+- 例外を使わない通常のフロー制御
+
+**実装例:**
+
+```typescript
+// 型ガード関数
+const isOrderedTeamData = (team: TeamData | undefined): team is OrderedTeamData => {
+  return !!team?.order && !!team?.updatedAt
+}
+
+// 呼び出し側で型ナローイング
+if (isOrderedTeamData(team1) && isOrderedTeamData(team2)) {
+  // ここでは team1, team2 は OrderedTeamData 型として扱われる
+  const content = createCompletionMessage({ meta, teams: { team1, team2 } })
+} else {
+  const content = createPartialMessage({ meta, teams: { team1, team2 } })
+}
+```
+
+**今のところ不採用とした設計パターン:**
+
+1. **Result型パターン**: TypeScript標準ではなく、外部ライブラリ（neverthrow等）が必要。TypeScriptコミュニティでは一般的でない。
+2. **例外ベース検証**: 関数内で `throw` してエラーを投げる方式。TypeScriptでは型ナローイングの方が推奨される。
+3. **null返却パターン**: シンプルだが、型ガードに比べて型安全性が低い。
