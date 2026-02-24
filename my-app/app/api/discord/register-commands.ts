@@ -63,7 +63,38 @@ const test: DiscordBotCommand = {
   ],
 }
 
-const commands: DiscordBotCommand[] = [newMatch, feedback, timer, commonMessage, echo, test]
+const fightingTeamOrder: DiscordBotCommand = {
+  name: COMMANDS.FIGHTING.TEAM_ORDER,
+  description: "格ゲーチーム戦の出場順を両チーム同時に発表します",
+  options: [
+    {
+      name: "format",
+      description: "チーム戦の形式",
+      type: 3, // STRING (choice)
+      required: true,
+      // @ts-expect-error - choices is valid but not in base type
+      choices: [
+        { name: "2v2", value: "2v2" },
+        { name: "3v3", value: "3v3" },
+        { name: "5v5", value: "5v5" },
+      ],
+    },
+    {
+      name: "team1_name",
+      description: "チーム1の名前",
+      type: 3, // STRING
+      required: false,
+    },
+    {
+      name: "team2_name",
+      description: "チーム2の名前",
+      type: 3, // STRING
+      required: false,
+    },
+  ],
+}
+
+const commands: DiscordBotCommand[] = [newMatch, feedback, timer, commonMessage, fightingTeamOrder, echo, test]
 
 fetch(`https://discord.com/api/v10/applications/${APPLICATION_ID}/commands`, {
   // POSTにすると新規登録のみで古いのは変更されない
