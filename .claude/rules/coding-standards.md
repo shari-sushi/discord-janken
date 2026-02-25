@@ -24,6 +24,26 @@
   - try-catch で適切にエラーを処理し、ユーザーにわかりやすいメッセージを返す
   - 認証認可ではリソースの存在を隠匿するために、必要に応じてクライアントには404を返す
 
+### Discord型定義パッケージの使用方針
+
+**採用パッケージ:**
+
+- `discord-interactions` (v4.4.0以降)
+  - Discord公式チームが提供するパッケージ
+  - 署名検証機能（`verifyKey`）を使用
+  - 基本的なenum型（`InteractionType`, `InteractionResponseType`, `MessageComponentTypes` など）を使用
+  - コンポーネント型（`MessageComponent`, `ActionRow`, `Button` など）を使用
+
+**独自型定義:**
+
+- `discord-interactions` に含まれないため独自定義が必要
+- `app/api/discord/types.ts` で必要最小限の型を独自定義
+
+**将来的な検討事項:**
+
+- `discord-api-types` の導入を再検討する際は、以下のデメリットに注意する
+  - enum の重複によるエラーの可能性
+
 ### 命名規則
 
 - **ファイル名**: camelCase (例: `newMatch.ts`)

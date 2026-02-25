@@ -1,5 +1,5 @@
 import { CLIENT_ACTIONS } from "@/app/util/commands"
-import { MessageComponent } from "discord-interactions"
+import { MessageComponent, MessageComponentTypes, ButtonStyleTypes } from "discord-interactions"
 
 /**
  * プロテクト機能用のボタンコンポーネントを生成
@@ -10,37 +10,37 @@ import { MessageComponent } from "discord-interactions"
 export function createProtectComponents(matchId: string, isDisabledTeamButtons = false): MessageComponent[] {
   return [
     {
-      type: 1, // Action Row
+      type: MessageComponentTypes.ACTION_ROW,
       components: [
         {
-          type: 2, // Button
-          style: 1, // Primary (青)
+          type: MessageComponentTypes.BUTTON,
+          style: ButtonStyleTypes.PRIMARY,
           label: "ブルーサイド",
           custom_id: CLIENT_ACTIONS.LOL.OPEN_MODAL_BLUE_TEAM_REGISTER + `?match_id=${matchId}`,
           disabled: isDisabledTeamButtons,
         },
         {
-          type: 2, // Button
-          style: 4, // Danger (赤)
+          type: MessageComponentTypes.BUTTON,
+          style: ButtonStyleTypes.DANGER,
           label: "レッドサイド",
           custom_id: CLIENT_ACTIONS.LOL.OPEN_MODAL_RED_TEAM_REGISTER + `?match_id=${matchId}`,
           disabled: isDisabledTeamButtons,
         },
         {
-          type: 2, // Button
-          style: 2, // Secondary (グレー)
+          type: MessageComponentTypes.BUTTON,
+          style: ButtonStyleTypes.SECONDARY,
           label: "確認",
           custom_id: CLIENT_ACTIONS.LOL.CHECK_REGISTERED + `?match_id=${matchId}`,
         },
         {
-          type: 2, // Button
-          style: 2, // Secondary (グレー)
+          type: MessageComponentTypes.BUTTON,
+          style: ButtonStyleTypes.SECONDARY,
           label: "リセット",
           custom_id: CLIENT_ACTIONS.LOL.RESET_REGISTERED + `?match_id=${matchId}`,
         },
         {
-          type: 2, // Button
-          style: 2, // Secondary (グレー)
+          type: MessageComponentTypes.BUTTON,
+          style: ButtonStyleTypes.SECONDARY,
           label: "タイマーセット",
           custom_id: CLIENT_ACTIONS.LOL.OPEN_MODAL_TIMER + `?match_id=${matchId}`,
         },

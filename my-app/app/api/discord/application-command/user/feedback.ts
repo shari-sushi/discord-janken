@@ -1,7 +1,8 @@
 import { CLIENT_ACTIONS } from "@/app/util/commands"
 import { NextResponse } from "next/server"
 import { appendFeedbackToSheet } from "@/app/libs/googleSheets"
-import { StringSelectOption } from "discord-interactions"
+import { StringSelectOption, InteractionResponseType, InteractionResponseFlags, MessageComponentTypes, TextStyleTypes } from "discord-interactions"
+import { DiscordInteraction, extractInteractionData } from "@/app/api/discord/types"
 
 // フィードバック種類
 type FeedBackType = "bugs" | "opinion" | "miss-operation" | "other"
@@ -9,15 +10,15 @@ type FeedBackType = "bugs" | "opinion" | "miss-operation" | "other"
 // コマンド初期表示
 export const feedbackCommand = () => {
   return NextResponse.json({
-    type: 4, // メッセージを返す
+    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
     data: {
       content: "フィードバックの種類を選択してください",
       components: [
         {
-          type: 1, // Action Row
+          type: MessageComponentTypes.ACTION_ROW,
           components: [
             {
-              type: 3, // String Select Menu
+              type: MessageComponentTypes.STRING_SELECT,
               custom_id: CLIENT_ACTIONS.USER.SELECT_FEEDBACK_TYPE,
               placeholder: "種類を選択...",
               options: [
@@ -42,7 +43,7 @@ export const feedbackCommand = () => {
           ],
         },
       ],
-      flags: 64, // EPHEMERAL - 送信者のみに表示
+      flags: InteractionResponseFlags.EPHEMERAL,
     },
   })
 }
@@ -50,32 +51,32 @@ export const feedbackCommand = () => {
 // フィードバック種類選択処理
 export const handleSelectFeedbackType = (selectedType: FeedBackType) => {
   return NextResponse.json({
-    type: 9, // モーダルを開く
+    type: InteractionResponseType.MODAL,
     data: {
       custom_id: `${CLIENT_ACTIONS.USER.SUBMIT_FEEDBACK}?type=${selectedType}`,
       title: "フィードバック",
       components: [
         {
-          type: 1,
+          type: MessageComponentTypes.ACTION_ROW,
           components: [
             {
-              type: 4,
+              type: MessageComponentTypes.INPUT_TEXT,
               custom_id: "feedback_name",
               label: "お名前（任意）",
-              style: 1, // 短いテキスト
+              style: TextStyleTypes.SHORT,
               required: false,
               placeholder: "例：太郎",
             },
           ],
         },
         {
-          type: 1,
+          type: MessageComponentTypes.ACTION_ROW,
           components: [
             {
-              type: 4,
+              type: MessageComponentTypes.INPUT_TEXT,
               custom_id: "feedback_content",
               label: "内容（必須）",
-              style: 2, // 長いテキスト（パラグラフ）
+              style: TextStyleTypes.PARAGRAPH,
               required: true,
               placeholder: "フィードバック内容を入力してください",
             },
@@ -87,21 +88,16 @@ export const handleSelectFeedbackType = (selectedType: FeedBackType) => {
 }
 
 // フィードバック送信処理
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const handleSubmitFeedback = async (interaction: any) => {
-  const customId = interaction.data.custom_id
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const components = interaction.data.components as any[]
+export const handleSubmitFeedback = async (interaction: DiscordInteraction) => {
+  const { customId, components } = extractInteractionData(interaction)
 
   // custom_idからフィードバックの種類を取得
   const customIdParams = new URLSearchParams(customId.split("?")[1] || "")
   const type = customIdParams.get("type") || ""
 
   // componentsからお名前と内容を取得
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const name = components.find((c: any) => c.components[0]?.custom_id === "feedback_name")?.components[0]?.value || ""
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const content = components.find((c: any) => c.components[0]?.custom_id === "feedback_content")?.components[0]?.value || ""
+  const name = components.find((c) => c.components?.[0]?.custom_id === "feedback_name")?.components?.[0]?.value || ""
+  const content = components.find((c) => c.components?.[0]?.custom_id === "feedback_content")?.components?.[0]?.value || ""
 
   const guildId = interaction.guild_id || ""
   const memberId = interaction.member?.user?.id || interaction.user?.id || ""
@@ -116,19 +112,19 @@ export const handleSubmitFeedback = async (interaction: any) => {
     })
 
     return NextResponse.json({
-      type: 4,
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: {
         content: "フィードバックを送信しました。ありがとうございます！",
-        flags: 64, // EPHEMERAL - 送信者のみに表示
+        flags: InteractionResponseFlags.EPHEMERAL,
       },
     })
   } catch (error) {
     console.error("Error submitting feedback:", error)
     return NextResponse.json({
-      type: 4,
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: {
         content: "フィードバックの送信に失敗しました。もう一度お試しください。",
-        flags: 64, // EPHEMERAL
+        flags: InteractionResponseFlags.EPHEMERAL,
       },
     })
   }

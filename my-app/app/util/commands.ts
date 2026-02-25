@@ -50,11 +50,3 @@ export const CLIENT_ACTIONS = {
     RESET_TEAM_ORDER: "fighting-reset-team-order",
   },
 }
-
-export const DISCORD_INTERACTION_TYPE = {
-  PING: 1,
-  APPLICATION_COMMAND: 2,
-  MESSAGE_COMPONENT: 3, // ボタンクリックとか
-  APPLICATION_COMMAND_AUTOCOMPLETE: 4,
-  MODAL_SUBMIT: 5,
-}

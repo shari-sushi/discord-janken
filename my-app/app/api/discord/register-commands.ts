@@ -1,8 +1,9 @@
 import { COMMANDS } from "@/app/util/commands"
+import { ApplicationCommandOptionType } from "@/app/api/discord/types"
 import "dotenv/config"
 
 // npx tsx app/api/discord/register-commands.ts でコマンド登録(完全置き換え)できる
-// ただし、本番環境でビルド時に実行させているので、通常は手動で実行する必要は無い
+// ただし、本番環境のビルド時に実行しているので、通常は手動で実行する必要は無い
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN!
 const APPLICATION_ID = process.env.DISCORD_APPLICATION_ID!
@@ -10,7 +11,7 @@ const APPLICATION_ID = process.env.DISCORD_APPLICATION_ID!
 type DiscordBotCommand = {
   name: string
   description: string
-  options?: { name: string; description: string; type: number; required: boolean }[]
+  options?: { name: string; description: string; type: ApplicationCommandOptionType; required: boolean }[]
 }
 
 const newMatch: DiscordBotCommand = {
@@ -44,7 +45,7 @@ const echo: DiscordBotCommand = {
     {
       name: "text",
       description: "送信するテキスト",
-      type: 3,
+      type: ApplicationCommandOptionType.STRING,
       required: true,
     },
   ],
@@ -57,7 +58,7 @@ const test: DiscordBotCommand = {
     {
       name: "number",
       description: "テスト番号 (1-5)を入力する",
-      type: 4, // INTEGER
+      type: ApplicationCommandOptionType.INTEGER,
       required: true,
     },
   ],
@@ -70,7 +71,7 @@ const fightingTeamOrder: DiscordBotCommand = {
     {
       name: "format",
       description: "チーム戦の形式",
-      type: 3, // STRING (choice)
+      type: ApplicationCommandOptionType.STRING,
       required: true,
       // @ts-expect-error - choices is valid but not in base type
       choices: [
@@ -82,13 +83,13 @@ const fightingTeamOrder: DiscordBotCommand = {
     {
       name: "team1_name",
       description: "チーム1の名前",
-      type: 3, // STRING
+      type: ApplicationCommandOptionType.STRING,
       required: false,
     },
     {
       name: "team2_name",
       description: "チーム2の名前",
-      type: 3, // STRING
+      type: ApplicationCommandOptionType.STRING,
       required: false,
     },
   ],

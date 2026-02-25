@@ -2,6 +2,8 @@ import { CLIENT_ACTIONS } from "@/app/util/commands"
 import { newId } from "@/app/util/newId"
 import { NextResponse } from "next/server"
 import { redisSet, redisGet } from "@/app/libs/redis/redis"
+import { InteractionResponseType, InteractionResponseFlags, MessageComponent, MessageComponentTypes, ButtonStyleTypes, TextStyleTypes } from "discord-interactions"
+import { InteractionData, MessageComponentData } from "@/app/api/discord/types"
 
 // フォーマットごとの出場順ポジション定義
 const TEAM_FORMAT_POSITIONS: Record<TeamFormat, Array<keyof TeamOrderData>> = {
@@ -68,21 +70,21 @@ const getPositionLabel = (position: keyof TeamOrderData): string => {
 }
 
 // フォーマットに応じた入力ボタンコンポーネントを生成
-const createTeamOrderButtons = (matchId: string, disabled: boolean = false) => {
+const createTeamOrderButtons = (matchId: string, disabled: boolean = false): MessageComponent[] => {
   return [
     {
-      type: 1, // Action Row
+      type: MessageComponentTypes.ACTION_ROW,
       components: [
         {
-          type: 2, // Button
-          style: 1, // Primary
+          type: MessageComponentTypes.BUTTON,
+          style: ButtonStyleTypes.PRIMARY,
           label: "チーム1 出場順を入力",
           custom_id: `${CLIENT_ACTIONS.FIGHTING.OPEN_MODAL_TEAM1_ORDER}?match_id=${matchId}`,
           disabled,
         },
         {
-          type: 2, // Button
-          style: 1, // Primary
+          type: MessageComponentTypes.BUTTON,
+          style: ButtonStyleTypes.PRIMARY,
           label: "チーム2 出場順を入力",
           custom_id: `${CLIENT_ACTIONS.FIGHTING.OPEN_MODAL_TEAM2_ORDER}?match_id=${matchId}`,
           disabled,
@@ -93,14 +95,14 @@ const createTeamOrderButtons = (matchId: string, disabled: boolean = false) => {
 }
 
 // リセットボタンコンポーネントを生成
-const createResetButton = (matchId: string) => {
+const createResetButton = (matchId: string): MessageComponent[] => {
   return [
     {
-      type: 1, // Action Row
+      type: MessageComponentTypes.ACTION_ROW,
       components: [
         {
-          type: 2, // Button
-          style: 4, // Danger
+          type: MessageComponentTypes.BUTTON,
+          style: ButtonStyleTypes.DANGER,
           label: "リセット",
           custom_id: `${CLIENT_ACTIONS.FIGHTING.RESET_TEAM_ORDER}?match_id=${matchId}`,
         },
@@ -178,8 +180,8 @@ export const handleFightingTeamOrderCommand = async (options: { name: string; va
 
   if (!format) {
     return NextResponse.json({
-      type: 4,
-      data: { content: "エラー: フォーマットを選択してください", flags: 64 },
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { content: "エラー: フォーマットを選択してください", flags: InteractionResponseFlags.EPHEMERAL },
     })
   }
 
@@ -200,7 +202,7 @@ export const handleFightingTeamOrderCommand = async (options: { name: string; va
     await Promise.all([redisSet(getMetaKey(matchId), meta, 86400), redisSet(getTeamKey(matchId, 1), team1, 86400), redisSet(getTeamKey(matchId, 2), team2, 86400)])
 
     return NextResponse.json({
-      type: 4,
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: {
         content: createInitialMessage({ meta, teams: { team1, team2 } }),
         components: createTeamOrderButtons(matchId),
@@ -209,8 +211,8 @@ export const handleFightingTeamOrderCommand = async (options: { name: string; va
   } catch (error) {
     console.error("Error in handleFightingTeamOrderCommand:", error)
     return NextResponse.json({
-      type: 4,
-      data: { content: "⚠️ 一時的なエラーが発生しました。しばらくしてからもう一度お試しください。", flags: 64 },
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { content: "⚠️ 一時的なエラーが発生しました。しばらくしてからもう一度お試しください。", flags: InteractionResponseFlags.EPHEMERAL },
     })
   }
 }
@@ -221,8 +223,8 @@ export const handleOpenModalFightingTeamOrder = async (matchId: string, teamNumb
     const meta = await redisGet<FightingTeamOrderMeta>(getMetaKey(matchId))
     if (!meta) {
       return NextResponse.json({
-        type: 4,
-        data: { content: "エラー: 試合情報が見つかりません", flags: 64 },
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: { content: "エラー: 試合情報が見つかりません", flags: InteractionResponseFlags.EPHEMERAL },
       })
     }
 
@@ -230,8 +232,8 @@ export const handleOpenModalFightingTeamOrder = async (matchId: string, teamNumb
   } catch (error) {
     console.error("Error in handleOpenModalFightingTeamOrder:", error)
     return NextResponse.json({
-      type: 4,
-      data: { content: "⚠️ 一時的なエラーが発生しました。しばらくしてからもう一度お試しください。", flags: 64 },
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { content: "⚠️ 一時的なエラーが発生しました。しばらくしてからもう一度お試しください。", flags: InteractionResponseFlags.EPHEMERAL },
     })
   }
 }
@@ -242,13 +244,13 @@ const createTeamOrderModal = (matchId: string, format: TeamFormat, teamNumber: 1
 
   // フォーマットに応じたポジションの入力フィールドを生成
   const components = positions.map((position) => ({
-    type: 1, // Action Row
+    type: MessageComponentTypes.ACTION_ROW,
     components: [
       {
-        type: 4, // Text Input
+        type: MessageComponentTypes.INPUT_TEXT,
         custom_id: `${position}?match_id=${matchId}`,
         label: getPositionLabel(position),
-        style: 1, // Short
+        style: TextStyleTypes.SHORT,
         required: true,
         placeholder: `例：プレイヤー${position.charAt(0).toUpperCase()}`,
       },
@@ -258,7 +260,7 @@ const createTeamOrderModal = (matchId: string, format: TeamFormat, teamNumber: 1
   const action = teamNumber === 1 ? CLIENT_ACTIONS.FIGHTING.REGISTER_TEAM1_ORDER : CLIENT_ACTIONS.FIGHTING.REGISTER_TEAM2_ORDER
 
   return NextResponse.json({
-    type: 9, // Modal
+    type: InteractionResponseType.MODAL,
     data: {
       custom_id: `${action}?match_id=${matchId}`,
       title: `チーム${teamNumber} 出場順入力`,
@@ -267,27 +269,24 @@ const createTeamOrderModal = (matchId: string, format: TeamFormat, teamNumber: 1
   })
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const getValue = (customId: string, data: any): string | undefined => {
-  const component = data.components
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .flatMap((row: any) => row.components || [])
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .find((c: any) => c?.custom_id?.startsWith(customId))
+const getValue = (customId: string, data: InteractionData): string | undefined => {
+  const components = data.components as MessageComponentData[] | undefined
+  if (!components) return undefined
+
+  const component = components.flatMap((row) => row.components || []).find((c) => c?.custom_id?.startsWith(customId))
 
   return component?.value
 }
 
 // モーダル送信処理（チーム1・チーム2共通）
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const handleFightingRegisterTeamOrder = async (matchId: string, teamNumber: 1 | 2, data: any): Promise<NextResponse> => {
+export const handleFightingRegisterTeamOrder = async (matchId: string, teamNumber: 1 | 2, data: InteractionData): Promise<NextResponse> => {
   // メタデータと両チームのデータを取得
   const [meta, team1, team2] = await Promise.all([redisGet<FightingTeamOrderMeta>(getMetaKey(matchId)), redisGet<TeamData>(getTeamKey(matchId, 1)), redisGet<TeamData>(getTeamKey(matchId, 2))])
 
   if (!meta || !team1 || !team2) {
     return NextResponse.json({
-      type: 4,
-      data: { content: "エラー: 試合情報が見つかりません", flags: 64 },
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { content: "エラー: 試合情報が見つかりません", flags: InteractionResponseFlags.EPHEMERAL },
     })
   }
 
@@ -309,8 +308,8 @@ export const handleFightingRegisterTeamOrder = async (matchId: string, teamNumbe
 
   if (!teamOrder.vanguard || !teamOrder.general) {
     return NextResponse.json({
-      type: 4,
-      data: { content: "エラー: 先鋒と大将は必須です", flags: 64 },
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { content: "エラー: 先鋒と大将は必須です", flags: InteractionResponseFlags.EPHEMERAL },
     })
   }
 
@@ -328,7 +327,7 @@ export const handleFightingRegisterTeamOrder = async (matchId: string, teamNumbe
 
   if (isOrderedTeamData(updatedTeam1) && isOrderedTeamData(updatedTeam2)) {
     return NextResponse.json({
-      type: 7, // UPDATE_MESSAGE
+      type: InteractionResponseType.UPDATE_MESSAGE,
       data: {
         content: createCompletionMessage({ meta, teams: { team1: updatedTeam1, team2: updatedTeam2 } }),
         components: createResetButton(matchId),
@@ -336,7 +335,7 @@ export const handleFightingRegisterTeamOrder = async (matchId: string, teamNumbe
     })
   } else {
     return NextResponse.json({
-      type: 7, // UPDATE_MESSAGE
+      type: InteractionResponseType.UPDATE_MESSAGE,
       data: {
         content: createPartialMessage({ meta, teams: { team1: updatedTeam1, team2: updatedTeam2 } }),
         components: createTeamOrderButtons(matchId),
@@ -352,8 +351,8 @@ export const handleFightingResetTeamOrder = async (matchId: string): Promise<Nex
 
     if (!meta || !team1 || !team2) {
       return NextResponse.json({
-        type: 4,
-        data: { content: "エラー: 試合情報が見つかりません", flags: 64 },
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: { content: "エラー: 試合情報が見つかりません", flags: InteractionResponseFlags.EPHEMERAL },
       })
     }
 
@@ -364,7 +363,7 @@ export const handleFightingResetTeamOrder = async (matchId: string): Promise<Nex
     await Promise.all([redisSet(getTeamKey(matchId, 1), resetTeam1, 86400), redisSet(getTeamKey(matchId, 2), resetTeam2, 86400)])
 
     return NextResponse.json({
-      type: 7, // UPDATE_MESSAGE
+      type: InteractionResponseType.UPDATE_MESSAGE,
       data: {
         content: createInitialMessage({ meta, teams: { team1: resetTeam1, team2: resetTeam2 } }),
         components: createTeamOrderButtons(matchId),
@@ -373,8 +372,8 @@ export const handleFightingResetTeamOrder = async (matchId: string): Promise<Nex
   } catch (error) {
     console.error("Error in handleFightingResetTeamOrder:", error)
     return NextResponse.json({
-      type: 4,
-      data: { content: "⚠️ 一時的なエラーが発生しました。しばらくしてからもう一度お試しください。", flags: 64 },
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { content: "⚠️ 一時的なエラーが発生しました。しばらくしてからもう一度お試しください。", flags: InteractionResponseFlags.EPHEMERAL },
     })
   }
 }
