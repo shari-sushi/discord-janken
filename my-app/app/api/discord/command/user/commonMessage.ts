@@ -1,6 +1,6 @@
-import { CLIENT_ACTIONS } from "@/app/util/commands"
+import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { NextResponse } from "next/server"
-import { editDiscordMessage, sendDiscordMessage } from "@/app/libs/discord/api"
+import { editDiscordMessage, sendDiscordMessage } from "@/app/_server/lib/discord/api"
 import { ActionRow, MessageComponentTypes, ButtonStyleTypes, TextStyleTypes, InteractionResponseType, InteractionResponseFlags } from "discord-interactions"
 import { DiscordInteraction, extractInteractionData } from "@/app/api/discord/types"
 

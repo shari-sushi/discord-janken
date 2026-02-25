@@ -16,17 +16,21 @@ paths: [my-app/app/api/discord/**/*.ts]
 
 2. **コマンド実行**
    - `/lol-new-match`: 試合IDを生成し、ブルーサイド・レッドサイドにプロテクトやロールを入力、同時公表できるボタンを表示
-   - `/lol-feedback`: フィードバック種類選択メニューを表示
-   - `/lol-echo`: 入力をそのまま返す
+   - `/fighting-team-order`: 格ゲーチーム戦の出場順を両チーム同時に発表
+   - `/user-feedback`: フィードバック種類選択メニューを表示
+   - `/user-timer`: 指定時刻にメッセージを送信するタイマーを設定
+   - `/user-common-message`: 複数人で編集できる共有メッセージを投稿
+   - `/dev-echo`: 入力をそのまま返す
    - `/dev-test`: 開発者用の動作確認コマンド
 
 ## Discord API 仕様
 
-公式ドキュメントが正ではあるが、あまりにAIが古い情報等に惑わされてミスするので、一部をここに記載する。
+公式ドキュメントが正ではあるが、AIが古い情報等に惑わされてミスすることが多いものを記載した。
 
 ### インタラクションタイプ
 
-`DISCORD_INTERACTION_TYPE` で定義。[公式ドキュメント](https://discord.com/developers/docs/interactions/receiving-and-responding#interaction-object-interaction-type)
+`DISCORD_INTERACTION_TYPE` で定義。
+[公式ドキュメント](https://discord.com/developers/docs/interactions/receiving-and-responding#interaction-object-interaction-type)
 
 ### レスポンスタイプ
 
@@ -56,9 +60,9 @@ paths: [my-app/app/api/discord/**/*.ts]
 
 Redis のキー体系・データ型はコードを確認する。
 
-| 用途                 | 参照先ファイル                   |
-| -------------------- | -------------------------------- |
-| Redisキー定義        | `my-app/app/util/redisKeys.ts`   |
-| 試合・チームデータ型 | `my-app/app/types/match.ts`      |
-| Redis操作ラッパー    | `my-app/app/libs/redis/redis.ts` |
-| セッション管理       | `my-app/app/libs/session.ts`     |
+| 用途                 | 参照先ファイル                          |
+| -------------------- | --------------------------------------- |
+| Redisキー定義        | `my-app/app/_server/util/redisKeys.ts`  |
+| 試合・チームデータ型 | `my-app/app/types/match.ts`             |
+| Redis操作ラッパー    | `my-app/app/_server/lib/redis/redis.ts` |
+| セッション管理       | `my-app/app/_server/lib/session.ts`     |

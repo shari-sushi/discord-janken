@@ -8,7 +8,7 @@ import type {
   GetResponse,
   UpdateResponse,
   DeleteResponse,
-} from "@/types/api"
+} from "./types"
 
 const API_BASE = "/api/web/crud"
 

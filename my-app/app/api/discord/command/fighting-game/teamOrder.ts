@@ -1,7 +1,7 @@
-import { CLIENT_ACTIONS } from "@/app/util/commands"
-import { newId } from "@/app/util/newId"
+import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
+import { newId } from "@/app/_server/util/newId"
 import { NextResponse } from "next/server"
-import { redisSet, redisGet } from "@/app/libs/redis/redis"
+import { redisSet, redisGet } from "@/app/_server/lib/redis/redis"
 import { InteractionResponseType, InteractionResponseFlags, MessageComponent, MessageComponentTypes, ButtonStyleTypes, TextStyleTypes } from "discord-interactions"
 import { InteractionData, MessageComponentData } from "@/app/api/discord/types"
 

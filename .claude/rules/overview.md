@@ -6,81 +6,125 @@ League of Legends（LoL）のカスタムゲームを円滑に運営するため
 
 ## 現在実装されている機能
 
+### League of Legends用: `/lol-`
+
 - **LTKプロテクトルール機能** (`/lol-new-match`)
   - ブルーチーム・レッドチームがそれぞれプロテクトするチャンピオンを入力し、同時発表
   - Redis に試合ID単位でデータを保存
 
-- **フィードバック機能** (`/lol-feedback`)
+### 格ゲー用：`/fighting-`
+
+- **格ゲーチーム順同時発表機能** (`/fighting-team-order`)
+  - 格ゲーチーム戦の出場順を両チーム同時に発表（2v2, 3v3, 5v5対応）
+
+### ユーザー汎用機能：`/user-`
+
+- **タイマー機能** (`/user-timer`)
+  - 指定時刻にメッセージを送信するタイマーを設定
+  - QStashで遅延実行を実現
+
+- **共有メッセージ編集機能** (`/user-common-message`)
+  - 複数人で編集できる共有メッセージを投稿
+
+- **フィードバック機能** (`/user-feedback`)
   - ユーザーからのフィードバック（不具合、意見・要望、操作ミスの体験、その他）を収集
   - Google Sheets に保存
 
-- **エコーコマンド** (`/lol-echo`)
+### 開発者汎用機能:`/dev-`
+
+- **エコーコマンド** (`/dev-echo`)
   - 開発・テスト用コマンド
 
-## 今後実装予定の機能
-
-- `lol-new-match`はprotect専用にし、web api`lol/matches`と同じコマンド
-- 格ゲー用の先方、中堅、大将みたいなロースター同時発表コマンド
-- メッセージを複数人で編集できるコマンド
-- メンバー管理(メンバー登録、メンバーのレート確認、メンバーのカスタム参加希望申請、ツール内レート確認)
-- チーム振り分け（自動割り当て、振り分け後にvc移動ボタン）
-- レーティングシステム
-- 試合結果送信機能
-- 個人戦績確認機能
+- **開発者テストコマンド** (`/dev-test`)
+  - 実装の動作確認用コマンド
 
 ## 技術スタック
 
 - **フレームワーク**: Next.js 16 (App Router)
 - **言語**: TypeScript
 - **Discord API**: `discord-interactions` ライブラリ
-- **データベース**: Redis (旧Vercel KV)
+- **データベース**: Redis
 - **データ保存**: Google Sheets API (フィードバック用)
+- **非同期キュー**: QStash (タイマー機能)
 - **デプロイ先**: Vercel
-- **その他**: uuidv4 (ID生成), dotenv (環境変数管理)
+- **その他**: uuid (ID生成), dotenv (環境変数管理)
 
 ## プロジェクト構造
 
 ```txt
 my-app/
 ├── app/
+│   ├── _client/                      # クライアント専用（ルーティング対象外）
+│   │   └── lib/
+│   │       └── apiClient/
+│   │           ├── crud.ts           # Web API クライアント
+│   │           └── types.ts          # API型定義
+│   │
+│   ├── _server/                      # サーバー専用（ルーティング対象外）
+│   │   ├── lib/                      # 外部サービス統合ライブラリ
+│   │   │   ├── auth.ts               # 認証ヘッダー検証
+│   │   │   ├── discord/
+│   │   │   │   └── api.ts            # Discord REST API通信
+│   │   │   ├── googleSheets.ts       # Google Sheets API操作
+│   │   │   ├── qstash/
+│   │   │   │   └── qstash.ts         # QStash操作
+│   │   │   ├── redis/
+│   │   │   │   └── redis.ts          # Redis操作ラッパー
+│   │   │   └── session.ts            # セッション管理
+│   │   └── util/                     # ユーティリティ関数・定数
+│   │       ├── commands.ts           # コマンド名・アクション定数
+│   │       ├── newId.ts              # UUID生成
+│   │       └── redisKeys.ts          # Redisキー生成
+│   │
 │   ├── api/
-│   │   ├── discord/
-│   │   │   ├── application-command/     # Discordコマンドの実装
-│   │   │   │   ├── dev/                 # 開発・テスト用コマンド
+│   │   ├── discord/                  # Discord Bot API
+│   │   │   ├── command/              # Discordコマンド実装
+│   │   │   │   ├── register.ts      # コマンド登録スクリプト
+│   │   │   │   ├── dev/              # 開発・テスト用
 │   │   │   │   │   ├── echo.ts
 │   │   │   │   │   └── developers-test.ts
-│   │   │   │   ├── lol/                 # LoL関連コマンド
+│   │   │   │   ├── lol/              # LoL関連
 │   │   │   │   │   └── newMatch.ts
-│   │   │   │   ├── user/                # ユーザー向け汎用コマンド
+│   │   │   │   ├── user/             # ユーザー向け汎用
 │   │   │   │   │   ├── feedback.ts
-│   │   │   │   │   └── timer.ts
-│   │   │   │   └── fighting-game/       # 格ゲー関連コマンド（未実装）
-│   │   │   ├── register-commands.ts     # Discord側へのコマンド登録スクリプト
-│   │   │   ├── route.ts                 # メインのDiscord Interaction受信エンドポイント
-│   │   │   └── types.ts                 # Discord関連の型定義
-│   │   └── web/                         # Web API (CRUD操作・認証など)
-│   │       ├── auth/                    # 認証関連
+│   │   │   │   │   ├── timer.ts
+│   │   │   │   │   └── commonMessage.ts
+│   │   │   │   └── fighting-game/    # 格ゲー関連
+│   │   │   │       └── teamOrder.ts
+│   │   │   ├── util/                 # Discord専用ユーティリティ
+│   │   │   │   ├── getComponentValue.ts
+│   │   │   │   └── protectMessageComponents.ts
+│   │   │   ├── route.ts              # Interaction受信エンドポイント
+│   │   │   └── types.ts              # Discord型定義
+│   │   │
+│   │   └── web/                      # Web API（ブラウザ・外部連携用）
+│   │       ├── _handlers/            # 共通ハンドラー
+│   │       │   └── redisOperations.ts
+│   │       ├── auth/                 # 認証
 │   │       │   ├── login/route.ts
 │   │       │   └── logout/route.ts
-│   │       ├── lol/                     # LoL関連Web API
-│   │       │   ├── _validators/         # バリデーション関数
+│   │       ├── crud/                 # Redis CRUD操作（開発者用）
+│   │       │   ├── create/route.ts
+│   │       │   ├── get/route.ts
+│   │       │   ├── update/route.ts
+│   │       │   └── delete/route.ts
+│   │       ├── lol/                  # LoL関連Web API
+│   │       │   ├── _validators/
 │   │       │   │   └── discordValidators.ts
-│   │       │   └── matches/             # 試合管理API
-│   │       │       ├── route.ts         # 試合作成
-│   │       │       └── reminder-execute/ # タイマー実行コールバック
-│   │       │           └── route.ts
-│   │       └── timer/                   # QStashコールバック（汎用）
+│   │       │   └── matches/
+│   │       │       ├── route.ts      # 試合作成
+│   │       │       └── reminder-execute/
+│   │       │           └── route.ts  # タイマーコールバック
+│   │       └── timer/                # 汎用タイマーコールバック
 │   │           └── execute/route.ts
-│   ├── libs/
-│   │   ├── redis/redis.ts               # Redis操作のラッパー
-│   │   ├── discord/Api.ts               # Discord へのリクエスト処理（メッセージ送信・編集など）
-│   │   ├── googleSheets.ts              # Google Sheets API操作
-│   │   └── session.ts                   # セッション管理
-│   ├── util/
-│   │   ├── commands.ts                  # コマンド名や定数定義
-│   │   └── newId.ts                     # UUID生成ユーティリティ
-│   ├── page.tsx                         # フロントページ 今は開発者用
+│   │
+│   ├── login/                        # ログインページ
+│   │   └── page.tsx
+│   ├── types/                        # アプリ共通型定義
+│   │   └── match.ts
+│   ├── page.tsx                      # トップページ（開発者用Redis管理UI）
 │   └── layout.tsx
+│
 └── package.json
 ```
 

@@ -1,9 +1,9 @@
 import { Receiver } from "@upstash/qstash"
 import { NextRequest, NextResponse } from "next/server"
-import { redisGet, redisMGet } from "@/app/libs/redis/redis"
-import { getMatchKey } from "@/app/util/redisKeys"
+import { redisGet, redisMGet } from "@/app/_server/lib/redis/redis"
+import { getMatchKey } from "@/app/_server/util/redisKeys"
 import { ProtectTeamData, ProtectMatchMeta } from "@/app/types/match"
-import { getMatchStatusMessage } from "@/app/api/discord/application-command/lol/newMatch"
+import { getMatchStatusMessage } from "@/app/api/discord/command/lol/newMatch"
 
 interface ReminderPayload {
   matchId: string

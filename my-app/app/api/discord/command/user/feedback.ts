@@ -1,6 +1,6 @@
-import { CLIENT_ACTIONS } from "@/app/util/commands"
+import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { NextResponse } from "next/server"
-import { appendFeedbackToSheet } from "@/app/libs/googleSheets"
+import { appendFeedbackToSheet } from "@/app/_server/lib/googleSheets"
 import { StringSelectOption, InteractionResponseType, InteractionResponseFlags, MessageComponentTypes, TextStyleTypes } from "discord-interactions"
 import { DiscordInteraction, extractInteractionData } from "@/app/api/discord/types"
 

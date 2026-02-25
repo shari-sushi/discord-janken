@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from "next/server"
 import { InteractionType, InteractionResponseType, verifyKey } from "discord-interactions"
-import { echoCommand } from "./application-command/dev/echo"
-import { newMatchCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole, handleResetRegistered } from "./application-command/lol/newMatch"
-import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./application-command/user/feedback"
-import { timerCommand, handleSubmitTimer, handleOpenModalTimer } from "./application-command/user/timer"
+import { echoCommand } from "./command/dev/echo"
+import { newMatchCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole, handleResetRegistered } from "./command/lol/newMatch"
+import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./command/user/feedback"
+import { timerCommand, handleSubmitTimer, handleOpenModalTimer } from "./command/user/timer"
 import {
   commonMessageCommand,
   handleSubmitNewCommonMessage,
   handleOpenModalEditCommonMessage,
   handleSubmitCommonMessage,
   handleForceEndEditingCommonMessage,
-} from "./application-command/user/commonMessage"
-import { handleFightingTeamOrderCommand, handleOpenModalFightingTeamOrder, handleFightingRegisterTeamOrder, handleFightingResetTeamOrder } from "./application-command/fighting-game/teamOrder"
-import { CLIENT_ACTIONS, COMMANDS } from "@/app/util/commands"
-import { developersTestCommand } from "./application-command/dev/developers-test"
-import { editDiscordMessage } from "@/app/libs/discord/api"
-import { getComponentValue } from "@/app/libs/discord/getComponentValue"
+} from "./command/user/commonMessage"
+import { handleFightingTeamOrderCommand, handleOpenModalFightingTeamOrder, handleFightingRegisterTeamOrder, handleFightingResetTeamOrder } from "./command/fighting-game/teamOrder"
+import { CLIENT_ACTIONS, COMMANDS } from "@/app/_server/util/commands"
+import { developersTestCommand } from "./command/dev/developers-test"
+import { editDiscordMessage } from "@/app/_server/lib/discord/api"
+import { getComponentValue } from "./util/getComponentValue"
 import { createProtectComponents } from "./util/protectMessageComponents"
 
 const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY!

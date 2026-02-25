@@ -49,14 +49,14 @@
 - **ファイル名**: camelCase (例: `newMatch.ts`)
 - **定数**: UPPER_SNAKE_CASE (例: `CLIENT_ACTIONS`, `COMMANDS`)
 - **関数**: camelCase (例: `saveTeamAndCheckOther`)
-- **コマンド名のプレフィックス**: `lol-` を使用 (例: `/lol-new-match`)
+- **コマンド名のプレフィックス**: `lol-`, `user-`, `dev-`, `fighting-`
 
 ## ファイル構造の原則
 
 ### 1. 機能単位でのファイル分割
 
 - **原則**: 1つの Discord コマンド機能 = 1ファイル
-- **場所**: `app/api/discord/application-command/` 配下
+- **場所**: `app/api/discord/command/` 配下
 - **命名**: コマンド名と同じ (例: `/lol-new-match` → `newMatch.ts`)
 
 ### 2. 1ファイル内に含める処理

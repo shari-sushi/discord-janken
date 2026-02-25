@@ -1,6 +1,6 @@
-import { CLIENT_ACTIONS } from "@/app/util/commands"
+import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { NextResponse } from "next/server"
-import { qstashPublishJSON } from "@/app/libs/qstash/qstash"
+import { qstashPublishJSON } from "@/app/_server/lib/qstash/qstash"
 import { parseReminderAt } from "@/app/api/web/lol/_validators/discordValidators"
 import { InteractionResponseType, InteractionResponseFlags, MessageComponentTypes, TextStyleTypes } from "discord-interactions"
 
