@@ -2,6 +2,8 @@
  * Discord REST API 通信用のヘルパー関数
  */
 
+import { MessageComponent } from "discord-interactions"
+
 const DISCORD_API_BASE_URL = "https://discord.com/api/v10"
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN!
 
@@ -9,20 +11,23 @@ export interface DiscordMessageResponse {
   id: string
   channel_id: string
   content: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export class DiscordApiError extends Error {
   constructor(
     public status: number,
     public statusText: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    public details?: any,
+    public details?: unknown,
   ) {
     super(`Discord API Error: ${status} ${statusText}`)
     this.name = "DiscordApiError"
   }
+}
+
+interface DiscordMessageBody {
+  content: string
+  components?: MessageComponent[]
 }
 
 /**
@@ -32,12 +37,10 @@ export class DiscordApiError extends Error {
  * @param components - ボタンなどのコンポーネント配列
  * @returns Discord APIからのレスポンス（message_id等）
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function sendDiscordMessage(channelId: string, content: string, components?: any[]): Promise<DiscordMessageResponse> {
+export async function sendDiscordMessage(channelId: string, content: string, components?: MessageComponent[]): Promise<DiscordMessageResponse> {
   const url = `${DISCORD_API_BASE_URL}/channels/${channelId}/messages`
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const body: any = {
+  const body: DiscordMessageBody = {
     content,
   }
 
@@ -77,12 +80,10 @@ export async function sendDiscordMessage(channelId: string, content: string, com
  * @param content - 新しいメッセージ本文
  * @param components - 新しいコンポーネント配列
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function editDiscordMessage(channelId: string, messageId: string, content: string, components?: any[]): Promise<void> {
+export async function editDiscordMessage(channelId: string, messageId: string, content: string, components?: MessageComponent[]): Promise<void> {
   const url = `${DISCORD_API_BASE_URL}/channels/${channelId}/messages/${messageId}`
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const body: any = { content }
+  const body: DiscordMessageBody = { content }
 
   if (components && components.length > 0) {
     body.components = components

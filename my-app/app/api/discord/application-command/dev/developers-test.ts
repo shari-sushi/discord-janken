@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { InteractionResponseType, InteractionResponseFlags, MessageComponentTypes, TextStyleTypes } from "discord-interactions"
 
 export const developersTestCommand = (number: number): NextResponse => {
   switch (number) {
@@ -14,8 +15,8 @@ export const developersTestCommand = (number: number): NextResponse => {
       return handleTestDevelop5()
     default:
       return NextResponse.json({
-        type: 4,
-        data: { content: `テスト番号 ${number} は存在しません`, flags: 64 },
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: { content: `テスト番号 ${number} は存在しません`, flags: InteractionResponseFlags.EPHEMERAL },
       })
   }
 }
@@ -23,15 +24,15 @@ export const developersTestCommand = (number: number): NextResponse => {
 const handleTestDevelop1 = (): NextResponse => {
   // モーダルなしでString Selectを表示（通常のメッセージとして）
   return NextResponse.json({
-    type: 4, // メッセージ返信
+    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
     data: {
       content: "String Selectのテスト（モーダルなし）",
       components: [
         {
-          type: 1, // Action Row
+          type: MessageComponentTypes.ACTION_ROW,
           components: [
             {
-              type: 3, // String Select
+              type: MessageComponentTypes.STRING_SELECT,
               custom_id: "favorite_bug",
               placeholder: "Favorite bug?",
               options: [
@@ -56,7 +57,7 @@ const handleTestDevelop1 = (): NextResponse => {
           ],
         },
       ],
-      flags: 64, // Ephemeral（送信者のみに表示）
+      flags: InteractionResponseFlags.EPHEMERAL,
     },
   })
 }
@@ -65,19 +66,19 @@ const handleTestDevelop2 = (): NextResponse => {
   // モーダル内でString Selectを使用（Labelなし・従来の方法）
   // 注意: Discordはモーダル内でのString Select使用時にLabelコンポーネントを推奨
   return NextResponse.json({
-    type: 9, // Modal
+    type: InteractionResponseType.MODAL,
     data: {
       custom_id: "modal-test-2",
       title: "Modal with String Select",
       components: [
         {
-          type: 1, // Action Row
+          type: MessageComponentTypes.ACTION_ROW,
           components: [
             {
-              type: 4, // Text Input
+              type: MessageComponentTypes.INPUT_TEXT,
               custom_id: "text_input_test",
               label: "テキスト入力",
-              style: 1, // Short
+              style: TextStyleTypes.SHORT,
               required: false,
               placeholder: "何か入力してください",
             },
@@ -92,17 +93,17 @@ const handleTestDevelop3 = (): NextResponse => {
   // Discord公式ドキュメント準拠: https://docs.discord.com/developers/components/reference#label
   // Modal内でString Selectを使用する場合は、Labelコンポーネント（type: 18）内に配置する必要がある
   return NextResponse.json({
-    type: 9, // Modal
+    type: InteractionResponseType.MODAL,
     data: {
       custom_id: "modal-test-3",
       title: "Label + String Select Test",
       components: [
         // パターン1: Label + String Select（公式ドキュメント推奨構造）
         {
-          type: 18, // Label
+          type: MessageComponentTypes.LABEL,
           label: "好きな虫を選択してください",
           component: {
-            type: 3, // String Select
+            type: MessageComponentTypes.STRING_SELECT,
             custom_id: "favorite_bug",
             placeholder: "虫を選んでください",
             options: [
@@ -123,10 +124,10 @@ const handleTestDevelop3 = (): NextResponse => {
         },
         // パターン2: Label + String Select（複数選択オプション付き）
         {
-          type: 18, // Label
+          type: MessageComponentTypes.LABEL,
           label: "好きな色を選択",
           component: {
-            type: 3, // String Select
+            type: MessageComponentTypes.STRING_SELECT,
             custom_id: "favorite_color",
             placeholder: "色を選んでください",
             min_values: 1,
@@ -147,20 +148,20 @@ const handleTestDevelop3 = (): NextResponse => {
 const handleTestDevelop4 = (): NextResponse => {
   // Text Input 1つ + Label + String Select 4つの組み合わせテスト
   return NextResponse.json({
-    type: 9, // Modal
+    type: InteractionResponseType.MODAL,
     data: {
       custom_id: "test-label-component-4",
       title: "Text Input + 4 Selectors",
       components: [
         // Text Input（従来のAction Row構造）
         {
-          type: 1, // Action Row
+          type: MessageComponentTypes.ACTION_ROW,
           components: [
             {
-              type: 4, // Text Input
+              type: MessageComponentTypes.INPUT_TEXT,
               custom_id: "text_input_name",
               label: "名前を入力",
-              style: 1, // Short
+              style: TextStyleTypes.SHORT,
               required: true,
               placeholder: "あなたの名前",
               max_length: 50,
@@ -169,10 +170,10 @@ const handleTestDevelop4 = (): NextResponse => {
         },
         // Label + String Select 1
         {
-          type: 18, // Label
+          type: MessageComponentTypes.LABEL,
           label: "好きな虫を選択",
           component: {
-            type: 3, // String Select
+            type: MessageComponentTypes.STRING_SELECT,
             custom_id: "favorite_bug",
             placeholder: "虫を選んでください",
             options: [
@@ -184,10 +185,10 @@ const handleTestDevelop4 = (): NextResponse => {
         },
         // Label + String Select 2
         {
-          type: 18, // Label
+          type: MessageComponentTypes.LABEL,
           label: "好きな色を選択",
           component: {
-            type: 3, // String Select
+            type: MessageComponentTypes.STRING_SELECT,
             custom_id: "favorite_color",
             placeholder: "色を選んでください",
             options: [
@@ -199,10 +200,10 @@ const handleTestDevelop4 = (): NextResponse => {
         },
         // Label + String Select 3
         {
-          type: 18, // Label
+          type: MessageComponentTypes.LABEL,
           label: "好きな果物を選択",
           component: {
-            type: 3, // String Select
+            type: MessageComponentTypes.STRING_SELECT,
             custom_id: "favorite_fruit",
             placeholder: "果物を選んでください",
             options: [
@@ -214,10 +215,10 @@ const handleTestDevelop4 = (): NextResponse => {
         },
         // Label + String Select 4
         {
-          type: 18, // Label
+          type: MessageComponentTypes.LABEL,
           label: "好きな動物を選択",
           component: {
-            type: 3, // String Select
+            type: MessageComponentTypes.STRING_SELECT,
             custom_id: "favorite_animal",
             placeholder: "動物を選んでください",
             options: [
@@ -235,10 +236,10 @@ const handleTestDevelop4 = (): NextResponse => {
 const handleTestDevelop5 = (): NextResponse => {
   // TODO: 実装予定
   return NextResponse.json({
-    type: 4, // メッセージ返信
+    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
     data: {
       content: "handleTestDevelop5 (未実装)",
-      flags: 64, // Ephemeral
+      flags: InteractionResponseFlags.EPHEMERAL,
     },
   })
 }

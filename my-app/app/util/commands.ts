@@ -1,6 +1,7 @@
 const LOL_PREF = "lol-"
 const DEV_PREF = "dev-"
 const USER_PREF = "user-"
+const FIGHTING_PREF = "fighting-"
 
 export const COMMANDS = {
   LOL: {
@@ -10,6 +11,9 @@ export const COMMANDS = {
     TIMER: USER_PREF + "timer",
     COMMON_MESSAGE: USER_PREF + "common-message",
     FEEDBACK: USER_PREF + "feedback",
+  },
+  FIGHTING: {
+    TEAM_ORDER: FIGHTING_PREF + "team-order",
   },
   // 開発者用
   DEV: {
@@ -38,13 +42,11 @@ export const CLIENT_ACTIONS = {
     FORCE_END_EDITING_COMMON_MESSAGE: "force-end-editing-common-message",
     SUBMIT_FEEDBACK: "submit-feedback",
   },
-}
-
-// https://discord.com/developers/docs/interactions/receiving-and-responding#interaction-object-interaction-type
-export const DISCORD_INTERACTION_TYPE = {
-  PING: 1,
-  APPLICATION_COMMAND: 2,
-  MESSAGE_COMPONENT: 3, // ボタンクリックとか
-  APPLICATION_COMMAND_AUTOCOMPLETE: 4,
-  MODAL_SUBMIT: 5,
+  FIGHTING: {
+    OPEN_MODAL_TEAM1_ORDER: "fighting-open-modal-team1-order",
+    OPEN_MODAL_TEAM2_ORDER: "fighting-open-modal-team2-order",
+    REGISTER_TEAM1_ORDER: "fighting-register-team1-order",
+    REGISTER_TEAM2_ORDER: "fighting-register-team2-order",
+    RESET_TEAM_ORDER: "fighting-reset-team-order",
+  },
 }

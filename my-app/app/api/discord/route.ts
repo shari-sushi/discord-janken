@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server"
-import { verifyKey } from "discord-interactions"
+import { InteractionType, InteractionResponseType, verifyKey } from "discord-interactions"
 import { echoCommand } from "./application-command/dev/echo"
 import { newMatchCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole, handleResetRegistered } from "./application-command/lol/newMatch"
 import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./application-command/user/feedback"
 import { timerCommand, handleSubmitTimer, handleOpenModalTimer } from "./application-command/user/timer"
-import { commonMessageCommand, handleSubmitNewCommonMessage, handleOpenModalEditCommonMessage, handleSubmitCommonMessage, handleForceEndEditingCommonMessage } from "./application-command/user/commonMessage"
-import { CLIENT_ACTIONS, COMMANDS, DISCORD_INTERACTION_TYPE } from "@/app/util/commands"
+import {
+  commonMessageCommand,
+  handleSubmitNewCommonMessage,
+  handleOpenModalEditCommonMessage,
+  handleSubmitCommonMessage,
+  handleForceEndEditingCommonMessage,
+} from "./application-command/user/commonMessage"
+import { handleFightingTeamOrderCommand, handleOpenModalFightingTeamOrder, handleFightingRegisterTeamOrder, handleFightingResetTeamOrder } from "./application-command/fighting-game/teamOrder"
+import { CLIENT_ACTIONS, COMMANDS } from "@/app/util/commands"
 import { developersTestCommand } from "./application-command/dev/developers-test"
 import { editDiscordMessage } from "@/app/libs/discord/api"
 import { getComponentValue } from "@/app/libs/discord/getComponentValue"
@@ -41,12 +48,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const interaction = JSON.parse(rawBody)
 
     // PING
-    if (interaction.type === DISCORD_INTERACTION_TYPE.PING) {
-      return NextResponse.json({ type: 1 })
+    if (interaction.type === InteractionType.PING) {
+      return NextResponse.json({ type: InteractionResponseType.PONG })
     }
 
     // discord-botのコマンド
-    if (interaction.type === DISCORD_INTERACTION_TYPE.APPLICATION_COMMAND) {
+    if (interaction.type === InteractionType.APPLICATION_COMMAND) {
       const { name: commandName, options } = interaction.data
       console.log("command:", commandName)
 
@@ -59,6 +66,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return feedbackCommand()
         case COMMANDS.USER.COMMON_MESSAGE:
           return commonMessageCommand()
+        case COMMANDS.FIGHTING.TEAM_ORDER:
+          return handleFightingTeamOrderCommand(options || [])
         case COMMANDS.DEV.ECHO:
           return echoCommand(options)
         case COMMANDS.DEV.TEST: {
@@ -67,7 +76,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
         default:
           return NextResponse.json({
-            type: 4,
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
               content: "不明なコマンドです" + commandName,
             },
@@ -75,8 +84,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
     }
 
-    // ボタン押された時とか
-    if (interaction.type === DISCORD_INTERACTION_TYPE.MESSAGE_COMPONENT) {
+    if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
       const customId = interaction.data.custom_id
       console.log("MESSAGE_COMPONENT custom_id:", customId)
       const [actionId, matchIdParam] = customId.split("?")
@@ -109,9 +117,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         case CLIENT_ACTIONS.USER.FORCE_END_EDITING_COMMON_MESSAGE:
           return handleForceEndEditingCommonMessage(interaction)
 
+        case CLIENT_ACTIONS.FIGHTING.OPEN_MODAL_TEAM1_ORDER:
+          return handleOpenModalFightingTeamOrder(matchId, 1)
+
+        case CLIENT_ACTIONS.FIGHTING.OPEN_MODAL_TEAM2_ORDER:
+          return handleOpenModalFightingTeamOrder(matchId, 2)
+
+        case CLIENT_ACTIONS.FIGHTING.RESET_TEAM_ORDER:
+          return handleFightingResetTeamOrder(matchId)
+
         default:
           return NextResponse.json({
-            type: 4,
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
               content: "不明な操作です" + actionId,
             },
@@ -120,7 +137,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     // モーダルで送信したとき
-    if (interaction.type === DISCORD_INTERACTION_TYPE.MODAL_SUBMIT) {
+    if (interaction.type === InteractionType.MODAL_SUBMIT) {
       const { custom_id: customId, components } = interaction.data
       console.log("MODAL_SUBMIT custom_id:", customId)
       console.log("MODAL_SUBMIT components:", JSON.stringify(components, null, 2))
@@ -154,7 +171,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         const guildId = interaction.guild_id || ""
         const userId = interaction.member?.user?.id || ""
 
-        
         const params = new URLSearchParams(customId.split("?")[1] || "")
         const matchId = params.get("match_id") || ""
 
@@ -192,6 +208,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           await disableRegisterButtonsMessage(messageId, channelId, matchId)
         }
         return response
+      }
+
+      if (modalActionId === CLIENT_ACTIONS.FIGHTING.REGISTER_TEAM1_ORDER) {
+        return handleFightingRegisterTeamOrder(matchId, 1, interaction.data)
+      }
+
+      if (modalActionId === CLIENT_ACTIONS.FIGHTING.REGISTER_TEAM2_ORDER) {
+        return handleFightingRegisterTeamOrder(matchId, 2, interaction.data)
       }
     }
 
