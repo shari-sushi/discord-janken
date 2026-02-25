@@ -38,10 +38,14 @@ export const newMatchCommand = async (): Promise<NextResponse> => {
  */
 function getValue(customId: string, data: InteractionData): string | undefined {
   const components = data.components as MessageComponentData[] | undefined
-  if (!components) return undefined
+  if (!components) {
+    console.error(`[getValue] custom_id="${customId}" 取得失敗: data.components が存在しません`, `data:`, JSON.stringify(data, null, 2))
+    return undefined
+  }
 
   const component = components
-    .flatMap((row) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .flatMap((row: any) => {
       // Text Input の場合: row.components (配列)
       if (row.components) {
         return row.components
@@ -53,6 +57,11 @@ function getValue(customId: string, data: InteractionData): string | undefined {
       return []
     })
     .find((c) => c?.custom_id?.startsWith(customId))
+
+  if (!component) {
+    console.error(`[getValue] custom_id="${customId}" 取得失敗: コンポーネントが見つかりません`, `data.components:`, JSON.stringify(components, null, 2))
+    return undefined
+  }
 
   // Text Input の場合は value、Select Menu の場合は values[0]
   return component?.value ?? component?.values?.[0]
