@@ -3,8 +3,8 @@ import { newId } from "@/app/_server/util/newId"
 import { NextResponse } from "next/server"
 import { redisSet, redisGet, redisMGet, redisDelete } from "@/app/_server/lib/redis/redis"
 import { createProtectComponents } from "../../util/protectMessageComponents"
-import { ProtectTeamData, ProtectMatchMeta, TeamSide } from "@/app/types/match"
-import { getMatchKey } from "@/app/_server/util/redisKeys"
+import { ProtectTeamData, ProtectMatchMeta, TeamSide } from "@/app/domains/lol/types"
+import { getMatchKey } from "@/app/domains/lol/_server/redisKeys"
 import { InteractionResponseType, InteractionResponseFlags, MessageComponentTypes, TextStyleTypes } from "discord-interactions"
 import { InteractionData, MessageComponentData } from "@/app/api/discord/types"
 
@@ -60,6 +60,11 @@ function getValue(customId: string, data: InteractionData): string | undefined {
   console.log(`[getValue] custom_id="${customId}" - flatMapped components:`, JSON.stringify(flatMapped, null, 2))
 
   const component = flatMapped.find((c) => c?.custom_id?.startsWith(customId))
+
+  if (!component) {
+    console.error(`[getValue] custom_id="${customId}" 取得失敗: コンポーネントが見つかりません`, `data.components:`, JSON.stringify(components, null, 2))
+    return undefined
+  }
 
   if (!component) {
     console.error(`[getValue] custom_id="${customId}" 取得失敗: コンポーネントが見つかりません`, `data.components:`, JSON.stringify(components, null, 2))
@@ -303,7 +308,7 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: ha
 
     // バリデーション: 全てのロールが選択されていることを確認
     if (!top || !jg || !mid || !adc) {
-      console.error("ロール選択エラー: top:", top, ", jg", jg, ", mid:", mid, " adc:", adc)
+      console.error("ロール選択エラー")
       return {
         response: NextResponse.json({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
