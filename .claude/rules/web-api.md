@@ -1,5 +1,5 @@
 ---
-paths: [my-app/app/api/web/**/*.ts, my-app/app/api/auth/**/*.ts]
+paths: [my-app/app/api/web/**/*.ts]
 ---
 
 # Web API・認証ルール
@@ -58,7 +58,7 @@ function createMatch() {
 
 **認証フロー:**
 
-1. `/api/auth/login` にユーザー名とパスワードを送信
+1. `/api/web/auth/login` にユーザー名とパスワードを送信
 2. セッショントークン（64文字の16進数）を取得
 3. 以降のリクエストで `Authorization: Bearer {token}` ヘッダーに付与
 
@@ -73,7 +73,7 @@ function createMatch() {
 
 ```bash
 # 1. ログイン
-curl -X POST https://your-app.vercel.app/api/auth/login \
+curl -X POST https://your-app.vercel.app/api/web/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"password123"}'
 # → {"success":true,"token":"abc123..."}
@@ -85,7 +85,7 @@ curl -X POST https://your-app.vercel.app/api/web/lol/matches \
   -d '{"guild_id":"123","channel_id":"456","isProtect":true}'
 
 # 3. ログアウト
-curl -X POST https://your-app.vercel.app/api/auth/logout \
+curl -X POST https://your-app.vercel.app/api/web/auth/logout \
   -H "Authorization: Bearer abc123..."
 ```
 

@@ -13,9 +13,10 @@
 
 ## よくある問題と解決策
 
-### コマンドが表示されない
+### コマンドが表示されない/削除されない
 
-→ `register-commands.ts` を実行してDiscord側にコマンドを登録
+- `command/register.ts` を実行してDiscord側にコマンドを登録
+- 1時間待つ
 
 ### Redisエラー
 

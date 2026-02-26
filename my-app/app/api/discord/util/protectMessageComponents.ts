@@ -1,4 +1,4 @@
-import { CLIENT_ACTIONS } from "@/app/util/commands"
+import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { MessageComponent, MessageComponentTypes, ButtonStyleTypes } from "discord-interactions"
 
 /**

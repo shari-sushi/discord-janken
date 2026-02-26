@@ -49,14 +49,14 @@
 - **ファイル名**: camelCase (例: `newMatch.ts`)
 - **定数**: UPPER_SNAKE_CASE (例: `CLIENT_ACTIONS`, `COMMANDS`)
 - **関数**: camelCase (例: `saveTeamAndCheckOther`)
-- **コマンド名のプレフィックス**: `lol-` を使用 (例: `/lol-new-match`)
+- **コマンド名のプレフィックス**: `lol-`, `user-`, `dev-`, `fighting-`
 
 ## ファイル構造の原則
 
 ### 1. 機能単位でのファイル分割
 
 - **原則**: 1つの Discord コマンド機能 = 1ファイル
-- **場所**: `app/api/discord/application-command/` 配下
+- **場所**: `app/api/discord/command/` 配下
 - **命名**: コマンド名と同じ (例: `/lol-new-match` → `newMatch.ts`)
 
 ### 2. 1ファイル内に含める処理
@@ -87,6 +87,44 @@
 - ❌ ビジネスロジック
 - ❌ Discord レスポンスの組み立て
 - ❌ データベース操作
+
+## ドメイン知識の配置
+
+### ドメイン知識とは
+
+以下をドメイン知識として扱います：
+
+- **型定義**: ビジネスドメインのデータ構造（`ProtectMatchMeta`, `TeamOrderData` など）
+- **Redisキー生成**: ドメイン固有のキー設計（`lol:matches:*`, `fighting:team-order:*` など）
+- **バリデーション・型ガード**: ドメイン固有の制約・ルール
+- **定数・設定値**: フォーマット定義、ポジション名、制限値など
+
+### 配置ルール
+
+**型定義（フロント/サーバー共通）:**
+- 配置: `app/domains/{domain}/types.ts`
+- 例: `app/domains/lol/types.ts`, `app/domains/fighting/types.ts`
+- 将来的にWebダッシュボードを作成する可能性を考慮
+
+**サーバー専用ロジック:**
+- 配置: `app/domains/{domain}/_server/`
+- ファイル例:
+  - `redisKeys.ts`: Redisキー生成関数
+  - `validators.ts`: バリデーション・型ガード
+  - `constants.ts`: ドメイン固有の定数・設定値
+
+**ドメイン分類:**
+- `lol/`: LoL関連機能（`/lol-*` コマンド）
+- `fighting/`: 格ゲー関連機能（`/fighting-*` コマンド）
+- `user/{feature}/`: ユーザー向け汎用機能（`/user-*` コマンド）
+  - `feedback/`, `timer/`, `commonMessage/` など機能ごとに分割
+- `dev/`: 開発者向け機能（`/dev-*` コマンド）
+
+### 横断的ユーティリティ
+
+以下は `app/_server/util/` に配置（全ドメイン共通）：
+- `commands.ts`: 全コマンド名・アクション定数
+- `newId.ts`: UUID生成
 
 ## 型安全性とエラーハンドリング
 

@@ -6,7 +6,7 @@
 - **自動デプロイ**: main ブランチへのプッシュで自動デプロイ
 - **コマンド登録**:
   - ビルド時に `VERCEL_ENV=production` の場合のみ自動実行
-  - ローカルで即時実行したい場合は `npx tsx app/api/discord/register-commands.ts`
+  - ローカルで即時実行したい場合は `npx tsx app/api/discord/command/register.ts`
 
 ## 注意事項
 

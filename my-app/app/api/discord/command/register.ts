@@ -1,8 +1,8 @@
-import { COMMANDS } from "@/app/util/commands"
-import { ApplicationCommandOptionType } from "@/app/api/discord/types"
+import { COMMANDS } from "@/app/_server/util/commands"
+import { ApplicationCommandOptionType } from "@/app/_server/lib/discord/types"
 import "dotenv/config"
 
-// npx tsx app/api/discord/register-commands.ts でコマンド登録(完全置き換え)できる
+// npx tsx app/api/discord/command/register.ts でコマンド登録(完全置き換え)できる
 // ただし、本番環境のビルド時に実行しているので、通常は手動で実行する必要は無い
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN!

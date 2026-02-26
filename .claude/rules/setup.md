@@ -51,7 +51,7 @@ npm run dev
 npm run build
 
 # Discordコマンドを手動登録
-npx tsx app/api/discord/register-commands.ts
+npx tsx app/api/discord/command/register.ts
 
 # ESLint実行
 npm run lint

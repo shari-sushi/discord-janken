@@ -1,73 +1,14 @@
-import { CLIENT_ACTIONS } from "@/app/util/commands"
-import { newId } from "@/app/util/newId"
+import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
+import { newId } from "@/app/_server/util/newId"
 import { NextResponse } from "next/server"
-import { redisSet, redisGet } from "@/app/libs/redis/redis"
+import { redisSet, redisGet } from "@/app/_server/lib/redis/redis"
 import { InteractionResponseType, InteractionResponseFlags, MessageComponent, MessageComponentTypes, ButtonStyleTypes, TextStyleTypes } from "discord-interactions"
-import { InteractionData, MessageComponentData } from "@/app/api/discord/types"
-
-// フォーマットごとの出場順ポジション定義
-const TEAM_FORMAT_POSITIONS: Record<TeamFormat, Array<keyof TeamOrderData>> = {
-  "2v2": ["vanguard", "general"],
-  "3v3": ["vanguard", "middle", "general"],
-  "5v5": ["vanguard", "second", "middle", "fourth", "general"],
-}
-
-// フォーマット型
-type TeamFormat = "2v2" | "3v3" | "5v5"
-
-// 出場順データ型
-type TeamOrderData = {
-  vanguard: string // 先鋒
-  second?: string // 次鋒
-  middle?: string // 中堅
-  fourth?: string // 副将
-  general: string // 大将
-}
-
-// メタデータ型（試合全体の管理情報のみ）redis管理
-type FightingTeamOrderMeta = {
-  matchId: string
-  format: TeamFormat
-  createdAt: string
-  channelId?: string
-  messageId?: string
-  guildId?: string
-}
-
-// チームデータ型（チーム名 + 登録状況）redis管理
-type TeamData = {
-  teamName: string
-  updatedAt?: string // 登録済みの場合のみ
-  order?: TeamOrderData // 登録済みの場合のみ
-}
-
-// 登録済みチームデータ型
-type OrderedTeamData = Required<TeamData>
-
-const isOrderedTeamData = (team: TeamData | undefined): team is OrderedTeamData => {
-  return !!team?.order && !!team?.updatedAt
-}
-
-// Redisキーを生成
-const getMetaKey = (matchId: string): string => {
-  return `fighting:team-order:${matchId}:meta`
-}
-
-const getTeamKey = (matchId: string, teamNumber: 1 | 2): string => {
-  return `fighting:team-order:${matchId}:team:${teamNumber}`
-}
-
-// ポジション名を日本語表記で取得
-const getPositionLabel = (position: keyof TeamOrderData): string => {
-  const labels: Record<keyof TeamOrderData, string> = {
-    vanguard: "先鋒",
-    second: "次鋒",
-    middle: "中堅",
-    fourth: "副将",
-    general: "大将",
-  }
-  return labels[position]
-}
+import { InteractionData } from "@/app/_server/lib/discord/types"
+import { TeamFormat, TeamOrderData, FightingTeamOrderMeta, TeamData, OrderedTeamData } from "@/app/domains/fighting/types"
+import { getMetaKey, getTeamKey } from "@/app/domains/fighting/_server/redisKeys"
+import { isOrderedTeamData } from "@/app/domains/fighting/_server/validators"
+import { TEAM_FORMAT_POSITIONS, getPositionLabel } from "@/app/domains/fighting/_server/constants"
+import { getValue } from "../../util/getComponentValue"
 
 // フォーマットに応じた入力ボタンコンポーネントを生成
 const createTeamOrderButtons = (matchId: string, disabled: boolean = false): MessageComponent[] => {
@@ -267,15 +208,6 @@ const createTeamOrderModal = (matchId: string, format: TeamFormat, teamNumber: 1
       components,
     },
   })
-}
-
-const getValue = (customId: string, data: InteractionData): string | undefined => {
-  const components = data.components as MessageComponentData[] | undefined
-  if (!components) return undefined
-
-  const component = components.flatMap((row) => row.components || []).find((c) => c?.custom_id?.startsWith(customId))
-
-  return component?.value
 }
 
 // モーダル送信処理（チーム1・チーム2共通）

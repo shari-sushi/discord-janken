@@ -1,8 +1,11 @@
-import { CLIENT_ACTIONS } from "@/app/util/commands"
+import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { NextResponse } from "next/server"
-import { editDiscordMessage, sendDiscordMessage } from "@/app/libs/discord/api"
+import { editDiscordMessage, sendDiscordMessage } from "@/app/_server/lib/discord/api"
 import { ActionRow, MessageComponentTypes, ButtonStyleTypes, TextStyleTypes, InteractionResponseType, InteractionResponseFlags } from "discord-interactions"
-import { DiscordInteraction, extractInteractionData } from "@/app/api/discord/types"
+import { getValue } from "@/app/api/discord/util/getComponentValue"
+import { DISCORD_MESSAGE_MAX_LENGTH } from "@/app/domains/user/commonMessage/_server/constants"
+import { extractInteractionData } from "../../util/extractInteractionData"
+import { DiscordInteraction } from "@/app/_server/lib/discord/types"
 
 // コマンド初期表示（モーダルを表示）
 export const commonMessageCommand = () => {
@@ -17,7 +20,7 @@ export const commonMessageCommand = () => {
           label: "メッセージ内容",
           style: TextStyleTypes.PARAGRAPH,
           required: true,
-          max_length: 2000, // Discord メッセージの上限
+          max_length: DISCORD_MESSAGE_MAX_LENGTH,
           placeholder: "メッセージを入力してください",
         },
       ],
@@ -37,10 +40,9 @@ export const commonMessageCommand = () => {
 // 初回投稿用モーダル送信処理
 export const handleSubmitNewCommonMessage = async (interaction: DiscordInteraction) => {
   const channelId = interaction.channel_id || ""
-  const { components } = extractInteractionData(interaction)
 
   // components から新しいテキストを取得
-  const content = components.find((c) => c.components?.[0]?.custom_id === "common_message_content")?.components?.[0]?.value || ""
+  const content = getValue("common_message_content", interaction.data) || ""
 
   // バリデーション
   if (!channelId) {
@@ -53,11 +55,11 @@ export const handleSubmitNewCommonMessage = async (interaction: DiscordInteracti
     })
   }
 
-  if (content.length > 2000) {
+  if (content.length > DISCORD_MESSAGE_MAX_LENGTH) {
     return NextResponse.json({
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: {
-        content: "エラー: メッセージが長すぎます（2000文字以下にしてください）\n\nDiscordおよびDiscord Botに課金すると文字数制限を緩められる場合があります。",
+        content: `エラー: メッセージが長すぎます（${DISCORD_MESSAGE_MAX_LENGTH}文字以下にしてください）\n\nDiscordおよびDiscord Botに課金すると文字数制限を緩められる場合があります。`,
         flags: InteractionResponseFlags.EPHEMERAL,
       },
     })
@@ -174,7 +176,7 @@ export const handleOpenModalEditCommonMessage = async (interaction: DiscordInter
           style: TextStyleTypes.PARAGRAPH,
           required: true,
           value: currentContent, // 現在のテキストをデフォルト値としてセット
-          max_length: 2000, // Discord メッセージの上限
+          max_length: DISCORD_MESSAGE_MAX_LENGTH,
           placeholder: "メッセージを入力してください",
         },
       ],
@@ -193,14 +195,24 @@ export const handleOpenModalEditCommonMessage = async (interaction: DiscordInter
 
 // モーダル送信処理（メッセージ編集）
 export const handleSubmitCommonMessage = async (interaction: DiscordInteraction) => {
-  const { customId, components } = extractInteractionData(interaction)
+  const { customId } = extractInteractionData(interaction)
+  if (!customId) {
+    console.error("custom_id is not found")
+    return NextResponse.json({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: {
+        content: "エラー: メッセージの編集に失敗しました。もう一度お試しください。",
+        flags: InteractionResponseFlags.EPHEMERAL,
+      },
+    })
+  }
 
   const params = new URLSearchParams(customId.split("?")[1] || "")
   const messageId = params.get("message_id") || ""
   const channelId = interaction.channel_id || ""
 
   // components から新しいテキストを取得
-  const newContent = components.find((c) => c.components?.[0]?.custom_id === "common_message_content")?.components?.[0]?.value || ""
+  const newContent = getValue("common_message_content", interaction.data) || ""
 
   // バリデーション
   if (!messageId || !channelId) {

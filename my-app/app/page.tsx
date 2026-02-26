@@ -1,7 +1,7 @@
 "use client"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { createData, getData, updateData, deleteData } from "@/libs/redisCrudApi"
+import { createData, getData, updateData, deleteData } from "@/app/_client/lib/apiClient/crud"
 
 export default function Home() {
   const [key, setKey] = useState("")

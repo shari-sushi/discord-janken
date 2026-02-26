@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { validateKey, handleDelete } from "../../_handlers/redisOperations"
-import { validateSession } from "@/app/libs/session"
+import { validateSession } from "@/app/_server/lib/session"
 
 export async function POST(req: NextRequest) {
   try {

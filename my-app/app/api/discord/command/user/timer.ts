@@ -1,7 +1,7 @@
-import { CLIENT_ACTIONS } from "@/app/util/commands"
+import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { NextResponse } from "next/server"
-import { qstashPublishJSON } from "@/app/libs/qstash/qstash"
-import { parseReminderAt } from "@/app/api/web/lol/_validators/discordValidators"
+import { qstashPublishJSON } from "@/app/_server/lib/qstash/qstash"
+import { parseReminderAt } from "@/app/domains/lol/_server/validators"
 import { InteractionResponseType, InteractionResponseFlags, MessageComponentTypes, TextStyleTypes } from "discord-interactions"
 
 // コマンド初期表示（モーダル表示）
@@ -47,8 +47,17 @@ export const handleOpenModalTimer = (customId: string) => {
   })
 }
 
+type HandleSubmitTimerArgs = {
+  guildId: string
+  channelId: string
+  userId: string
+  timeInput: string
+  message?: string
+  matchId?: string
+}
+
 // モーダル送信処理
-export const handleSubmitTimer = async (timeInput: string, message: string, channelId: string, guildId: string, userId: string, matchId?: string): Promise<NextResponse> => {
+export const handleSubmitTimer = async ({ guildId, channelId, timeInput, userId, matchId, message }: HandleSubmitTimerArgs): Promise<NextResponse> => {
   try {
     const targetDate = parseReminderAt(timeInput)
 

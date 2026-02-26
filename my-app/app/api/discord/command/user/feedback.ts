@@ -1,11 +1,11 @@
-import { CLIENT_ACTIONS } from "@/app/util/commands"
+import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { NextResponse } from "next/server"
-import { appendFeedbackToSheet } from "@/app/libs/googleSheets"
+import { appendFeedbackToSheet } from "@/app/_server/lib/googleSheets"
 import { StringSelectOption, InteractionResponseType, InteractionResponseFlags, MessageComponentTypes, TextStyleTypes } from "discord-interactions"
-import { DiscordInteraction, extractInteractionData } from "@/app/api/discord/types"
-
-// フィードバック種類
-type FeedBackType = "bugs" | "opinion" | "miss-operation" | "other"
+import { DiscordInteraction } from "@/app/_server/lib/discord/types"
+import { getValue } from "@/app/api/discord/util/getComponentValue"
+import { FeedBackType } from "@/app/domains/user/feedback/types"
+import { extractInteractionData } from "../../util/extractInteractionData"
 
 // コマンド初期表示
 export const feedbackCommand = () => {
@@ -89,15 +89,33 @@ export const handleSelectFeedbackType = (selectedType: FeedBackType) => {
 
 // フィードバック送信処理
 export const handleSubmitFeedback = async (interaction: DiscordInteraction) => {
-  const { customId, components } = extractInteractionData(interaction)
+  const { customId } = extractInteractionData(interaction)
+  if (!customId) {
+    return NextResponse.json({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: {
+        content: "フィードバックの送信に失敗しました。もう一度お試しください。",
+        flags: InteractionResponseFlags.EPHEMERAL,
+      },
+    })
+  }
 
   // custom_idからフィードバックの種類を取得
   const customIdParams = new URLSearchParams(customId.split("?")[1] || "")
   const type = customIdParams.get("type") || ""
 
   // componentsからお名前と内容を取得
-  const name = components.find((c) => c.components?.[0]?.custom_id === "feedback_name")?.components?.[0]?.value || ""
-  const content = components.find((c) => c.components?.[0]?.custom_id === "feedback_content")?.components?.[0]?.value || ""
+  const name = getValue("feedback_name", interaction.data)
+  const content = getValue("feedback_content", interaction.data)
+  if (!content) {
+    return NextResponse.json({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: {
+        content: "本文が必要です",
+        flags: InteractionResponseFlags.EPHEMERAL,
+      },
+    })
+  }
 
   const guildId = interaction.guild_id || ""
   const memberId = interaction.member?.user?.id || interaction.user?.id || ""

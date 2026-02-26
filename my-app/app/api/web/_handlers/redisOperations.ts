@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { redisGet, redisSet, redisUpdate, redisDelete, redisExists } from "@/app/libs/redis/redis"
+import { redisGet, redisSet, redisUpdate, redisDelete, redisExists } from "@/app/_server/lib/redis/redis"
 
 interface ValidationResult {
   valid: boolean

@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "npm run register-commands && next build",
-    "register-commands": "if [ \"$VERCEL_ENV\" = \"production\" ]; then npx tsx app/api/discord/register-commands.ts; fi",
+    "register-commands": "if [ \"$VERCEL_ENV\" = \"production\" ]; then npx tsx app/api/discord/command/register.ts; fi",
     "start": "next start",
     "lint": "eslint"
   },
