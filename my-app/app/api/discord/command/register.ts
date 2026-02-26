@@ -1,5 +1,5 @@
 import { COMMANDS } from "@/app/_server/util/commands"
-import { ApplicationCommandOptionType } from "../types"
+import { ApplicationCommandOptionType } from "@/app/_server/lib/discord/types"
 import "dotenv/config"
 
 // npx tsx app/api/discord/command/register.ts でコマンド登録(完全置き換え)できる

@@ -3,11 +3,12 @@ import { newId } from "@/app/_server/util/newId"
 import { NextResponse } from "next/server"
 import { redisSet, redisGet } from "@/app/_server/lib/redis/redis"
 import { InteractionResponseType, InteractionResponseFlags, MessageComponent, MessageComponentTypes, ButtonStyleTypes, TextStyleTypes } from "discord-interactions"
-import { InteractionData, MessageComponentData } from "@/app/api/discord/types"
+import { InteractionData } from "@/app/_server/lib/discord/types"
 import { TeamFormat, TeamOrderData, FightingTeamOrderMeta, TeamData, OrderedTeamData } from "@/app/domains/fighting/types"
 import { getMetaKey, getTeamKey } from "@/app/domains/fighting/_server/redisKeys"
 import { isOrderedTeamData } from "@/app/domains/fighting/_server/validators"
 import { TEAM_FORMAT_POSITIONS, getPositionLabel } from "@/app/domains/fighting/_server/constants"
+import { getValue } from "../../util/getComponentValue"
 
 // フォーマットに応じた入力ボタンコンポーネントを生成
 const createTeamOrderButtons = (matchId: string, disabled: boolean = false): MessageComponent[] => {
@@ -207,15 +208,6 @@ const createTeamOrderModal = (matchId: string, format: TeamFormat, teamNumber: 1
       components,
     },
   })
-}
-
-const getValue = (customId: string, data: InteractionData): string | undefined => {
-  const components = data.components as MessageComponentData[] | undefined
-  if (!components) return undefined
-
-  const component = components.flatMap((row) => row.components || []).find((c) => c?.custom_id?.startsWith(customId))
-
-  return component?.value
 }
 
 // モーダル送信処理（チーム1・チーム2共通）

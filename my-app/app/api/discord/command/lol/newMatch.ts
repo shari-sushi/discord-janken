@@ -6,7 +6,8 @@ import { createProtectComponents } from "../../util/protectMessageComponents"
 import { ProtectTeamData, ProtectMatchMeta, TeamSide } from "@/app/domains/lol/types"
 import { getMatchKey } from "@/app/domains/lol/_server/redisKeys"
 import { InteractionResponseType, InteractionResponseFlags, MessageComponentTypes, TextStyleTypes } from "discord-interactions"
-import { InteractionData, MessageComponentData } from "@/app/api/discord/types"
+import { InteractionData } from "@/app/_server/lib/discord/types"
+import { getValue } from "../../util/getComponentValue"
 
 // コマンド初期表示
 export const newMatchCommand = async (): Promise<NextResponse> => {
@@ -28,53 +29,6 @@ export const newMatchCommand = async (): Promise<NextResponse> => {
       components: createProtectComponents(matchId),
     },
   })
-}
-
-/**
- * モーダル送信データから custom_id で値を取得
- * @param customId - 検索する custom_id（前方一致）
- * @param data - モーダル送信データ
- * @returns 取得した値（Text Input の value または Select Menu の values[0]）
- * https://docs.discord.com/developers/interactions/receiving-and-responding#interaction-object-modal-submit-data-structure
- */
-function getValue(customId: string, data: InteractionData): string | undefined {
-  const components = data.components as MessageComponentData[] | undefined
-  if (!components) {
-    console.error(`[getValue] custom_id="${customId}" 取得失敗: data.components が存在しません`, `data:`, JSON.stringify(data, null, 2))
-    return undefined
-  }
-
-  const flatMapped = components
-    .flatMap((row) => {
-      // Text Input の場合: row.components (配列)
-      if (row.components) {
-        return row.components
-      }
-      // Select Menu の場合: row.component (単数形オブジェクト)
-      if (row.component) {
-        return [row.component]
-      }
-      return []
-    })
-
-  console.log(`[getValue] custom_id="${customId}" - flatMapped components:`, JSON.stringify(flatMapped, null, 2))
-
-  const component = flatMapped.find((c) => c?.custom_id?.startsWith(customId))
-
-  if (!component) {
-    console.error(`[getValue] custom_id="${customId}" 取得失敗: コンポーネントが見つかりません`, `data.components:`, JSON.stringify(components, null, 2))
-    return undefined
-  }
-
-  if (!component) {
-    console.error(`[getValue] custom_id="${customId}" 取得失敗: コンポーネントが見つかりません`, `data.components:`, JSON.stringify(components, null, 2))
-    return undefined
-  }
-
-  // Text Input の場合は value、Select Menu の場合は values[0]
-  const value = component?.value ?? component?.values?.[0]
-  console.log(`[getValue] custom_id="${customId}" 取得成功: value="${value}"`)
-  return value
 }
 
 /**
@@ -300,13 +254,11 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: ha
   let roster: { top: string; jg: string; mid: string; adc: string; sup: string } | undefined
 
   if (meta.isRoleSelect) {
-    // getValue関数を使用してcustom_idベースで取得
     const top = getValue("role_top", data)
     const jg = getValue("role_jg", data)
     const mid = getValue("role_mid", data)
     const adc = getValue("role_adc", data)
 
-    // バリデーション: 全てのロールが選択されていることを確認
     if (!top || !jg || !mid || !adc) {
       console.error("ロール選択エラー")
       return {
@@ -318,10 +270,8 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: ha
       }
     }
 
-    // 選択された4人を配列化
     const selectedMembers = [top, jg, mid, adc]
 
-    // 重複チェック
     const uniqueMembers = new Set(selectedMembers)
     if (uniqueMembers.size !== 4) {
       return {
@@ -358,7 +308,6 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: ha
       }
     }
 
-    // 最終的なroster
     roster = { top, jg, mid, adc, sup: supMember }
   }
 

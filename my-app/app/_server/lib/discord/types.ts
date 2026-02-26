@@ -84,22 +84,3 @@ export interface DiscordInteraction {
   }
 }
 
-/**
- * Extracted Interaction Data
- */
-export interface InteractionDataExtracted {
-  customId: string
-  components: MessageComponentData[]
-}
-
-/**
- * Interactionからcustom_idとcomponentsを抽出する
- * @param interaction - Discord Interaction オブジェクト
- * @returns 抽出されたデータ（customId と components）
- */
-export function extractInteractionData(interaction: DiscordInteraction): InteractionDataExtracted {
-  return {
-    customId: interaction.data?.custom_id ?? "",
-    components: (interaction.data?.components ?? []) as MessageComponentData[],
-  }
-}

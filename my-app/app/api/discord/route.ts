@@ -4,19 +4,14 @@ import { echoCommand } from "./command/dev/echo"
 import { newMatchCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole, handleResetRegistered } from "./command/lol/newMatch"
 import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./command/user/feedback"
 import { timerCommand, handleSubmitTimer, handleOpenModalTimer } from "./command/user/timer"
-import {
-  commonMessageCommand,
-  handleSubmitNewCommonMessage,
-  handleOpenModalEditCommonMessage,
-  handleSubmitCommonMessage,
-  handleForceEndEditingCommonMessage,
-} from "./command/user/commonMessage"
+import { commonMessageCommand, handleSubmitNewCommonMessage, handleOpenModalEditCommonMessage, handleSubmitCommonMessage, handleForceEndEditingCommonMessage } from "./command/user/commonMessage"
 import { handleFightingTeamOrderCommand, handleOpenModalFightingTeamOrder, handleFightingRegisterTeamOrder, handleFightingResetTeamOrder } from "./command/fighting-game/teamOrder"
 import { CLIENT_ACTIONS, COMMANDS } from "@/app/_server/util/commands"
 import { developersTestCommand } from "./command/dev/developers-test"
 import { editDiscordMessage } from "@/app/_server/lib/discord/api"
-import { getComponentValue } from "./util/getComponentValue"
+import { getValue } from "./util/getComponentValue"
 import { createProtectComponents } from "./util/protectMessageComponents"
+import { extractInteractionData } from "./util/extractInteractionData"
 
 const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY!
 
@@ -155,18 +150,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       if (customId === CLIENT_ACTIONS.USER.SUBMIT_TIMER) {
-        const timeInput = getComponentValue("timer_time", interaction.data) ?? ""
-        const message = getComponentValue("timer_message", interaction.data) ?? ""
-        const channelId = interaction.channel_id || ""
-        const guildId = interaction.guild_id || ""
-        const userId = interaction.member?.user?.id || ""
+        const message = getValue("timer_message", interaction.data)
+        const timeInput = getValue("timer_time", interaction.data) || ""
+        if (!timeInput) {
+          console.error("timeInputが空です") // modalでrequired指定してるので通常あり得ない
+        }
 
-        return handleSubmitTimer(timeInput, message, channelId, guildId, userId)
+        const { channelId, guildId, userId } = extractInteractionData(interaction)
+        if (!channelId || !guildId || !userId) {
+          // 通常あり得ない
+          console.error("以下は全て必要です。guild_id:", guildId, ", channel_id:", channelId, ", user_id", userId)
+          return NextResponse.json({ error: "不明なエラーです。再度お試し下さい。" }, { status: 500 })
+        }
+
+        return handleSubmitTimer({ timeInput, message, channelId, guildId, userId })
       }
 
       if (customId.startsWith(CLIENT_ACTIONS.LOL.SUBMIT_TIMER)) {
-        const timeInput = getComponentValue("timer_time", interaction.data) ?? ""
-        const message = getComponentValue("timer_message", interaction.data) ?? ""
+        const timeInput = getValue("timer_time", interaction.data) ?? ""
+        const message = getValue("timer_message", interaction.data) ?? ""
         const channelId = interaction.channel_id || ""
         const guildId = interaction.guild_id || ""
         const userId = interaction.member?.user?.id || ""
@@ -174,7 +176,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         const params = new URLSearchParams(customId.split("?")[1] || "")
         const matchId = params.get("match_id") || ""
 
-        return handleSubmitTimer(timeInput, message, channelId, guildId, userId, matchId)
+        return handleSubmitTimer({ timeInput, message, channelId, guildId, userId, matchId })
       }
 
       // match_id を取得（複数の方法で取得を試みる）

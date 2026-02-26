@@ -47,8 +47,17 @@ export const handleOpenModalTimer = (customId: string) => {
   })
 }
 
+type HandleSubmitTimerArgs = {
+  guildId: string
+  channelId: string
+  userId: string
+  timeInput: string
+  message?: string
+  matchId?: string
+}
+
 // モーダル送信処理
-export const handleSubmitTimer = async (timeInput: string, message: string, channelId: string, guildId: string, userId: string, matchId?: string): Promise<NextResponse> => {
+export const handleSubmitTimer = async ({ guildId, channelId, timeInput, userId, matchId, message }: HandleSubmitTimerArgs): Promise<NextResponse> => {
   try {
     const targetDate = parseReminderAt(timeInput)
 
