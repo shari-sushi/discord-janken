@@ -1,7 +1,7 @@
 import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { NextResponse } from "next/server"
 import { qstashPublishJSON } from "@/app/_server/lib/qstash/qstash"
-import { parseReminderAt } from "@/app/api/web/lol/_validators/discordValidators"
+import { parseReminderAt } from "@/app/domains/lol/_server/validators"
 import { InteractionResponseType, InteractionResponseFlags, MessageComponentTypes, TextStyleTypes } from "discord-interactions"
 
 // コマンド初期表示（モーダル表示）

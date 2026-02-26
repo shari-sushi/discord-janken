@@ -3,9 +3,7 @@ import { NextResponse } from "next/server"
 import { appendFeedbackToSheet } from "@/app/_server/lib/googleSheets"
 import { StringSelectOption, InteractionResponseType, InteractionResponseFlags, MessageComponentTypes, TextStyleTypes } from "discord-interactions"
 import { DiscordInteraction, extractInteractionData } from "@/app/api/discord/types"
-
-// フィードバック種類
-type FeedBackType = "bugs" | "opinion" | "miss-operation" | "other"
+import { FeedBackType } from "@/app/domains/user/feedback/types"
 
 // コマンド初期表示
 export const feedbackCommand = () => {

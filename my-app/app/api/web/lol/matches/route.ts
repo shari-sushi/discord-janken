@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { validateAuthHeader } from "@/app/_server/lib/auth"
-import { validateDiscordId, validateIsProtect, validateIsRoleSelect, validateMembers, parseReminderAt } from "../_validators/discordValidators"
+import { validateDiscordId, validateIsProtect, validateIsRoleSelect, validateMembers, parseReminderAt } from "@/app/domains/lol/_server/validators"
 import { newId } from "@/app/_server/util/newId"
 import { sendDiscordMessage, DiscordApiError } from "@/app/_server/lib/discord/api"
 import { createProtectComponents } from "@/app/api/discord/util/protectMessageComponents"
 import { redisSet } from "@/app/_server/lib/redis/redis"
-import { ProtectMatchMeta } from "@/app/types/match"
-import { getMatchKey } from "@/app/_server/util/redisKeys"
+import { ProtectMatchMeta } from "@/app/domains/lol/types"
+import { getMatchKey } from "@/app/domains/lol/_server/redisKeys"
 import { qstashPublishJSON } from "@/app/_server/lib/qstash/qstash"
 
 type RequestBody = {

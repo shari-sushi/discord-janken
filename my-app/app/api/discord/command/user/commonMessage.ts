@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { editDiscordMessage, sendDiscordMessage } from "@/app/_server/lib/discord/api"
 import { ActionRow, MessageComponentTypes, ButtonStyleTypes, TextStyleTypes, InteractionResponseType, InteractionResponseFlags } from "discord-interactions"
 import { DiscordInteraction, extractInteractionData } from "@/app/api/discord/types"
+import { DISCORD_MESSAGE_MAX_LENGTH } from "@/app/domains/user/commonMessage/_server/constants"
 
 // コマンド初期表示（モーダルを表示）
 export const commonMessageCommand = () => {
@@ -17,7 +18,7 @@ export const commonMessageCommand = () => {
           label: "メッセージ内容",
           style: TextStyleTypes.PARAGRAPH,
           required: true,
-          max_length: 2000, // Discord メッセージの上限
+          max_length: DISCORD_MESSAGE_MAX_LENGTH,
           placeholder: "メッセージを入力してください",
         },
       ],
@@ -53,11 +54,11 @@ export const handleSubmitNewCommonMessage = async (interaction: DiscordInteracti
     })
   }
 
-  if (content.length > 2000) {
+  if (content.length > DISCORD_MESSAGE_MAX_LENGTH) {
     return NextResponse.json({
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: {
-        content: "エラー: メッセージが長すぎます（2000文字以下にしてください）\n\nDiscordおよびDiscord Botに課金すると文字数制限を緩められる場合があります。",
+        content: `エラー: メッセージが長すぎます（${DISCORD_MESSAGE_MAX_LENGTH}文字以下にしてください）\n\nDiscordおよびDiscord Botに課金すると文字数制限を緩められる場合があります。`,
         flags: InteractionResponseFlags.EPHEMERAL,
       },
     })
@@ -174,7 +175,7 @@ export const handleOpenModalEditCommonMessage = async (interaction: DiscordInter
           style: TextStyleTypes.PARAGRAPH,
           required: true,
           value: currentContent, // 現在のテキストをデフォルト値としてセット
-          max_length: 2000, // Discord メッセージの上限
+          max_length: DISCORD_MESSAGE_MAX_LENGTH,
           placeholder: "メッセージを入力してください",
         },
       ],

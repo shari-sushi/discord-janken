@@ -54,6 +54,25 @@ League of Legends（LoL）のカスタムゲームを円滑に運営するため
 ```txt
 my-app/
 ├── app/
+│   ├── domains/                      # ドメイン知識（型定義 + サーバー専用ロジック）
+│   │   ├── lol/
+│   │   │   ├── types.ts              # 型定義（フロント/サーバー共通）
+│   │   │   └── _server/              # サーバー専用ロジック
+│   │   │       ├── redisKeys.ts      # Redisキー生成
+│   │   │       └── validators.ts     # バリデーション・パース
+│   │   ├── fighting/
+│   │   │   ├── types.ts              # 型定義（フロント/サーバー共通）
+│   │   │   └── _server/              # サーバー専用ロジック
+│   │   │       ├── redisKeys.ts      # Redisキー生成
+│   │   │       ├── validators.ts     # 型ガード
+│   │   │       └── constants.ts      # フォーマット定義・ラベル
+│   │   └── user/
+│   │       ├── feedback/
+│   │       │   └── types.ts          # フィードバック型定義
+│   │       └── commonMessage/
+│   │           └── _server/
+│   │               └── constants.ts  # Discord制限値
+│   │
 │   ├── _client/                      # クライアント専用（ルーティング対象外）
 │   │   └── lib/
 │   │       └── apiClient/
@@ -71,10 +90,10 @@ my-app/
 │   │   │   ├── redis/
 │   │   │   │   └── redis.ts          # Redis操作ラッパー
 │   │   │   └── session.ts            # セッション管理
-│   │   └── util/                     # ユーティリティ関数・定数
-│   │       ├── commands.ts           # コマンド名・アクション定数
+│   │   └── util/                     # 横断的ユーティリティ
+│   │       ├── commands.ts           # 全コマンド名・アクション定数
 │   │       ├── newId.ts              # UUID生成
-│   │       └── redisKeys.ts          # Redisキー生成
+│   │       └── redisKeys.ts          # 後方互換用（削除予定）
 │   │
 │   ├── api/
 │   │   ├── discord/                  # Discord Bot API
@@ -109,8 +128,6 @@ my-app/
 │   │       │   ├── update/route.ts
 │   │       │   └── delete/route.ts
 │   │       ├── lol/                  # LoL関連Web API
-│   │       │   ├── _validators/
-│   │       │   │   └── discordValidators.ts
 │   │       │   └── matches/
 │   │       │       ├── route.ts      # 試合作成
 │   │       │       └── reminder-execute/
@@ -120,8 +137,6 @@ my-app/
 │   │
 │   ├── login/                        # ログインページ
 │   │   └── page.tsx
-│   ├── types/                        # アプリ共通型定義
-│   │   └── match.ts
 │   ├── page.tsx                      # トップページ（開発者用Redis管理UI）
 │   └── layout.tsx
 │
