@@ -26,8 +26,10 @@ export enum ApplicationCommandOptionType {
  */
 export interface MessageComponentData {
   custom_id?: string
-  component_type?: number
-  components?: MessageComponentData[]
+  type?: number
+  id?: number
+  components?: MessageComponentData[] // Type 1 (Text Input) uses this
+  component?: MessageComponentData // Type 18 (Select Menu in Modal) uses this
   value?: string
   values?: string[]
 }

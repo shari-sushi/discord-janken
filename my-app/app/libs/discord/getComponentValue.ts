@@ -16,9 +16,8 @@ export function getComponentValue(customId: string, data: InteractionData): stri
         return row.components
       }
       // Select Menu の場合: row.component (単数形オブジェクト)
-      // Note: この場合は行自体がコンポーネント
-      if (row.component_type) {
-        return [row]
+      if (row.component) {
+        return [row.component]
       }
       return []
     })

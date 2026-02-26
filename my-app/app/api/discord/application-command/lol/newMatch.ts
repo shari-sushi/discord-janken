@@ -35,6 +35,7 @@ export const newMatchCommand = async (): Promise<NextResponse> => {
  * @param customId - 検索する custom_id（前方一致）
  * @param data - モーダル送信データ
  * @returns 取得した値（Text Input の value または Select Menu の values[0]）
+ * https://docs.discord.com/developers/interactions/receiving-and-responding#interaction-object-modal-submit-data-structure
  */
 function getValue(customId: string, data: InteractionData): string | undefined {
   const components = data.components as MessageComponentData[] | undefined
@@ -43,20 +44,22 @@ function getValue(customId: string, data: InteractionData): string | undefined {
     return undefined
   }
 
-  const component = components
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .flatMap((row: any) => {
+  const flatMapped = components
+    .flatMap((row) => {
       // Text Input の場合: row.components (配列)
       if (row.components) {
         return row.components
       }
       // Select Menu の場合: row.component (単数形オブジェクト)
-      if (row.component_type) {
-        return [row]
+      if (row.component) {
+        return [row.component]
       }
       return []
     })
-    .find((c) => c?.custom_id?.startsWith(customId))
+
+  console.log(`[getValue] custom_id="${customId}" - flatMapped components:`, JSON.stringify(flatMapped, null, 2))
+
+  const component = flatMapped.find((c) => c?.custom_id?.startsWith(customId))
 
   if (!component) {
     console.error(`[getValue] custom_id="${customId}" 取得失敗: コンポーネントが見つかりません`, `data.components:`, JSON.stringify(components, null, 2))
@@ -64,7 +67,9 @@ function getValue(customId: string, data: InteractionData): string | undefined {
   }
 
   // Text Input の場合は value、Select Menu の場合は values[0]
-  return component?.value ?? component?.values?.[0]
+  const value = component?.value ?? component?.values?.[0]
+  console.log(`[getValue] custom_id="${customId}" 取得成功: value="${value}"`)
+  return value
 }
 
 /**
