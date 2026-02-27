@@ -65,7 +65,7 @@ my-app/
 │   │   │   └── _server/              # サーバー専用ロジック
 │   │   │       ├── redisKeys.ts      # Redisキー生成
 │   │   │       ├── validators.ts     # 型ガード
-│   │   │       └── constants.ts      # フォーマット定義・ラベル
+│   │   │       └── ...               # その他（定数定義等）
 │   │   └── user/
 │   │       ├── feedback/
 │   │       │   └── types.ts          # フィードバック型定義
@@ -84,16 +84,10 @@ my-app/
 │   │   │   ├── auth.ts               # 認証ヘッダー検証
 │   │   │   ├── discord/
 │   │   │   │   └── api.ts            # Discord REST API通信
-│   │   │   ├── googleSheets.ts       # Google Sheets API操作
-│   │   │   ├── qstash/
-│   │   │   │   └── qstash.ts         # QStash操作
-│   │   │   ├── redis/
-│   │   │   │   └── redis.ts          # Redis操作ラッパー
-│   │   │   └── session.ts            # セッション管理
+│   │   │   └── ...                   # その他（Google Sheets, QStash, Redis, セッション管理等）
 │   │   └── util/                     # 横断的ユーティリティ
 │   │       ├── commands.ts           # 全コマンド名・アクション定数
-│   │       ├── newId.ts              # UUID生成
-│   │       └── redisKeys.ts          # 後方互換用（削除予定）
+│   │       └── newId.ts              # UUID生成
 │   │
 │   ├── api/
 │   │   ├── discord/                  # Discord Bot API
@@ -107,7 +101,7 @@ my-app/
 │   │   │   │   ├── user/             # ユーザー向け汎用
 │   │   │   │   │   ├── feedback.ts
 │   │   │   │   │   ├── timer.ts
-│   │   │   │   │   └── commonMessage.ts
+│   │   │   │   │   └── ...           # その他（共有メッセージ等）
 │   │   │   │   └── fighting-game/    # 格ゲー関連
 │   │   │   │       └── teamOrder.ts
 │   │   │   ├── util/                 # Discord専用ユーティリティ
@@ -125,8 +119,7 @@ my-app/
 │   │       ├── crud/                 # Redis CRUD操作（開発者用）
 │   │       │   ├── create/route.ts
 │   │       │   ├── get/route.ts
-│   │       │   ├── update/route.ts
-│   │       │   └── delete/route.ts
+│   │       │   └── ...               # その他（update, delete）
 │   │       ├── lol/                  # LoL関連Web API
 │   │       │   └── matches/
 │   │       │       ├── route.ts      # 試合作成
