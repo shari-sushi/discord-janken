@@ -9,6 +9,8 @@ import { InteractionResponseType, InteractionResponseFlags, MessageComponentType
 import { InteractionData } from "@/app/_server/lib/discord/types"
 import { getValue } from "../../util/getComponentValue"
 import { customId } from "../../util/customId"
+import { createCompletionEmbedData } from "./util/createCompletionEmbedData"
+import { getMatchStatusMessage } from "./util/getMatchStatusMessage"
 
 // コマンド初期表示
 export const newMatchCommand = async (): Promise<NextResponse> => {
@@ -30,70 +32,6 @@ export const newMatchCommand = async (): Promise<NextResponse> => {
       components: createProtectComponents(matchId),
     },
   })
-}
-
-/**
- * 両チーム完了時のEmbedデータを生成（3カラムテーブル形式）
- */
-function createCompletionEmbedData(meta: ProtectMatchMeta, teamsData: { blue: ProtectTeamData; red: ProtectTeamData }) {
-  // 左カラム（項目名）の値を構築
-  const leftColumnLines: string[] = []
-
-  // 中央カラム（ブルーチーム）の値を構築
-  const blueColumnLines: string[] = []
-
-  // 右カラム（レッドチーム）の値を構築
-  const redColumnLines: string[] = []
-
-  // プロテクト行（isProtect が true の場合のみ）
-  if (meta.isProtect && teamsData.blue.protection_champions && teamsData.red.protection_champions) {
-    leftColumnLines.push("プロテクト    ")
-    blueColumnLines.push(teamsData.blue.protection_champions)
-    redColumnLines.push(teamsData.red.protection_champions)
-
-    // protectとroleの間に改行を入れる
-    if (meta.isRoleSelect) {
-      leftColumnLines.push("\u200B")
-      blueColumnLines.push("\u200B")
-      redColumnLines.push("\u200B")
-    }
-  }
-
-  // ロール行（isRoleSelect が true の場合のみ）
-  if (meta.isRoleSelect && teamsData.blue.roster && teamsData.red.roster) {
-    leftColumnLines.push("TOP", "JG", "MID", "ADC", "SUP")
-    blueColumnLines.push(teamsData.blue.roster.top, teamsData.blue.roster.jg, teamsData.blue.roster.mid, teamsData.blue.roster.adc, teamsData.blue.roster.sup)
-    redColumnLines.push(teamsData.red.roster.top, teamsData.red.roster.jg, teamsData.red.roster.mid, teamsData.red.roster.adc, teamsData.red.roster.sup)
-  }
-
-  // fieldsを構築
-  const fields: Array<{ name: string; value: string; inline: boolean }> = [
-    {
-      name: "\u200B",
-      value: leftColumnLines.join("\n"),
-      inline: true,
-    },
-    {
-      name: "🟦ブルーサイド",
-      value: blueColumnLines.join("\n"),
-      inline: true,
-    },
-    {
-      name: "🟥レッドサイド",
-      value: redColumnLines.join("\n"),
-      inline: true,
-    },
-  ]
-
-  return {
-    embeds: [
-      {
-        title: "✅ 結果発表",
-        color: 3447003,
-        fields,
-      },
-    ],
-  }
 }
 
 /**
@@ -354,47 +292,6 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: ha
       }),
       isBothTeamsRegistered: false,
     }
-  }
-}
-
-/**
- * 試合データを取得してメッセージデータを返す
- * @param matchId - 試合ID
- * @returns メッセージデータ（content または embeds）、データが見つからない場合は null
- */
-export const getMatchStatusMessage = async (matchId: string): Promise<{ content?: string; embeds?: Array<Record<string, unknown>> } | null> => {
-  // 1. メタデータ取得
-  const meta = await redisGet<ProtectMatchMeta>(getMatchKey(matchId, "meta"))
-  if (!meta) {
-    return null
-  }
-
-  // 2. 両チームデータ一括取得（MGET使用）
-  const teamKeys = [getMatchKey(matchId, "blue_team"), getMatchKey(matchId, "red_team")]
-  const [blueTeamData, redTeamData] = await redisMGet<ProtectTeamData>(teamKeys)
-
-  // 3. 両チーム完了判定
-  const isBothRegistered =
-    redTeamData && blueTeamData && (!meta.isProtect || (blueTeamData.protection_champions && redTeamData.protection_champions)) && (!meta.isRoleSelect || (blueTeamData.roster && redTeamData.roster))
-
-  const teamsData = {
-    blue: blueTeamData!,
-    red: redTeamData!,
-  }
-
-  // 4. メッセージデータ構築
-  if (isBothRegistered) {
-    // 両チーム完了時はEmbed形式で表示
-    return createCompletionEmbedData(meta, teamsData)
-  } else if (!redTeamData && !blueTeamData) {
-    // 両チーム未登録
-    return { content: "🟦 ブルーサイド：✍️未登録\n🟥 レッドサイド：✍️未登録" }
-  } else if (!blueTeamData) {
-    // ブルーチームのみ未登録
-    return { content: "🟦 ブルーサイド：✅登録済み\n🟥 レッドサイド：✍️未登録" }
-  } else {
-    // レッドチームのみ未登録
-    return { content: "🟥 レッドサイド：✅登録済み\n🟦 ブルーサイド：✍️未登録" }
   }
 }
 

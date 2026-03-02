@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { redisGet, redisMGet } from "@/app/_server/lib/redis/redis"
 import { getMatchKey } from "@/app/domains/lol/_server/redisKeys"
 import { ProtectTeamData, ProtectMatchMeta } from "@/app/domains/lol/types"
-import { getMatchStatusMessage } from "@/app/api/discord/command/lol/newMatch"
 import { QSTASH_CURRENT_SIGNING_KEY, QSTASH_NEXT_SIGNING_KEY, DISCORD_BOT_TOKEN, DISCORD_API_BASE_URL } from "@/app/_server/lib/env"
+import { getMatchStatusMessage } from "@/app/api/discord/command/lol/util/getMatchStatusMessage"
 
 interface ReminderPayload {
   matchId: string
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
 
     // 4. 試合の現在状況を取得
     const matchStatusData = await getMatchStatusMessage(matchId)
-    if (!matchStatusData) {
+    if (matchStatusData == null) {
       console.error("Match status data could not be generated for matchId:", matchId)
       return NextResponse.json({ error: "Match status data not found" }, { status: 404 })
     }
