@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. メッセージを構築
-    let messageContent = `⏰ タイマーが作動しました\n`
+    let messageContent = `ーーー⏰ タイマー通知ーーー\n`
     if (payload.message) {
       messageContent += `メッセージ：${payload.message}\n`
     } else {
@@ -93,8 +93,10 @@ export async function POST(req: NextRequest) {
 
     // 試合の現在状況を追加
     if (matchStatusData.content) {
-      messageContent += `\n\n${matchStatusData.content}`
+      messageContent += `\n${matchStatusData.content}`
     }
+
+    messageContent += "ーーーーーーーーーーーーーー"
 
     // 6. Discord Webhookでメッセージ送信
     const webhookUrl = `https://discord.com/api/v10/channels/${channelId}/messages`
