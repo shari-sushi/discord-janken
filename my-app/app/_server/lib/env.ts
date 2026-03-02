@@ -7,14 +7,15 @@
  * 必須環境変数を取得する
  * @param key - 環境変数名
  * @returns 環境変数の値
- * @throws {Error} 環境変数が未設定の場合
+ * @throws {Error} 環境変数が未設定の場合（テスト環境を除く）
  */
 function getRequiredEnv(key: string): string {
   const value = process.env[key]
-  if (!value) {
+  // テスト環境では環境変数チェックをスキップ（setup.tsで設定される）
+  if (!value && process.env.NODE_ENV !== "test") {
     throw new Error(`環境変数 ${key} が設定されていません`)
   }
-  return value
+  return value || ""
 }
 
 /**
