@@ -8,6 +8,7 @@ import { getMatchKey } from "@/app/domains/lol/_server/redisKeys"
 import { InteractionResponseType, InteractionResponseFlags, MessageComponentTypes, TextStyleTypes } from "discord-interactions"
 import { InteractionData } from "@/app/_server/lib/discord/types"
 import { getValue } from "../../util/getComponentValue"
+import { customId } from "../../util/customId"
 
 // コマンド初期表示
 export const newMatchCommand = async (): Promise<NextResponse> => {
@@ -137,7 +138,7 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
       components: [
         {
           type: MessageComponentTypes.INPUT_TEXT,
-          custom_id: `protection_champions?match_id=${matchId}`,
+          custom_id: customId("protection_champions").matchId(matchId),
           label: "プロテクトするチャンプを入力",
           style: TextStyleTypes.SHORT,
           required: true,
@@ -165,7 +166,7 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
       label: "Top",
       component: {
         type: MessageComponentTypes.STRING_SELECT,
-        custom_id: `role_top?match_id=${matchId}`,
+        custom_id: customId("role_top").matchId(matchId),
         placeholder: "Topを選択",
         options: roleOptions,
         required: true,
@@ -178,7 +179,7 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
       label: "Jungle",
       component: {
         type: MessageComponentTypes.STRING_SELECT,
-        custom_id: `role_jg?match_id=${matchId}`,
+        custom_id: customId("role_jg").matchId(matchId),
         placeholder: "Jungleを選択",
         options: roleOptions,
         required: true,
@@ -191,7 +192,7 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
       label: "Mid",
       component: {
         type: MessageComponentTypes.STRING_SELECT,
-        custom_id: `role_mid?match_id=${matchId}`,
+        custom_id: customId("role_mid").matchId(matchId),
         placeholder: "Midを選択",
         options: roleOptions,
         required: true,
@@ -204,7 +205,7 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
       label: "ADC",
       component: {
         type: MessageComponentTypes.STRING_SELECT,
-        custom_id: `role_adc?match_id=${matchId}`,
+        custom_id: customId("role_adc").matchId(matchId),
         placeholder: "ADCを選択",
         options: roleOptions,
         required: true,
@@ -216,7 +217,7 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
   return NextResponse.json({
     type: InteractionResponseType.MODAL,
     data: {
-      custom_id: action + `?message_id=${messageId}`,
+      custom_id: customId(action).messageId(messageId),
       title: isBlue ? "ブルーサイド" : "レッドサイド",
       components,
     },

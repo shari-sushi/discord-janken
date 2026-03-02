@@ -6,6 +6,8 @@ import { DiscordInteraction } from "@/app/_server/lib/discord/types"
 import { getValue } from "@/app/api/discord/util/getComponentValue"
 import { FeedBackType } from "@/app/domains/user/feedback/types"
 import { extractInteractionData } from "../../util/extractInteractionData"
+import { extractType } from "../../util/extractCustomIdParam"
+import { customId } from "../../util/customId"
 
 // コマンド初期表示
 export const feedbackCommand = () => {
@@ -53,7 +55,7 @@ export const handleSelectFeedbackType = (selectedType: FeedBackType) => {
   return NextResponse.json({
     type: InteractionResponseType.MODAL,
     data: {
-      custom_id: `${CLIENT_ACTIONS.USER.SUBMIT_FEEDBACK}?type=${selectedType}`,
+      custom_id: customId(CLIENT_ACTIONS.USER.SUBMIT_FEEDBACK).type(selectedType),
       title: "フィードバック",
       components: [
         {
@@ -101,8 +103,7 @@ export const handleSubmitFeedback = async (interaction: DiscordInteraction) => {
   }
 
   // custom_idからフィードバックの種類を取得
-  const customIdParams = new URLSearchParams(customId.split("?")[1] || "")
-  const type = customIdParams.get("type") || ""
+  const type = extractType(customId) || ""
 
   // componentsからお名前と内容を取得
   const name = getValue("feedback_name", interaction.data)
