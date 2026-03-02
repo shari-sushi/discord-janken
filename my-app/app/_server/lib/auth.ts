@@ -1,4 +1,5 @@
 import { validateSession } from "./session"
+import { ALLOWED_USERS } from "./env"
 
 /**
  * Authorizationヘッダーを検証する
@@ -44,15 +45,8 @@ export async function validateAuthHeader(authHeader: string | null): Promise<{
       return { valid: false, error: "ユーザー名とパスワードが必要です" }
     }
 
-    const allowedUsers = process.env.ALLOWED_USERS
-
-    if (!allowedUsers) {
-      console.error("ALLOWED_USERS is not configured")
-      return { valid: false, error: "サーバー設定エラー" }
-    }
-
     // ALLOWED_USERS をパース: "user1:pass1,user2:pass2" の形式
-    const users = allowedUsers.split(",").map((entry) => {
+    const users = ALLOWED_USERS.split(",").map((entry) => {
       const [u, p] = entry.split(":")
       return { username: u.trim(), password: p.trim() }
     })

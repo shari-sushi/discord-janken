@@ -3,9 +3,7 @@
  */
 
 import { MessageComponent } from "discord-interactions"
-
-const DISCORD_API_BASE_URL = "https://discord.com/api/v10"
-const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN!
+import { DISCORD_API_BASE_URL, DISCORD_BOT_TOKEN, DISCORD_APPLICATION_ID } from "@/app/_server/lib/env"
 
 export interface DiscordMessageResponse {
   id: string

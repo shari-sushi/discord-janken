@@ -1,14 +1,10 @@
 import { google } from "googleapis"
+import { GOOGLE_SERVICE_ACCOUNT_JSON, GOOGLE_SHEET_URL } from "./env"
 
 // Google Sheets APIの認証
 const getAuth = () => {
-  const credentials = process.env.GOOGLE_SERVICE_ACCOUNT_JSON
-  if (!credentials) {
-    throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is not set")
-  }
-
   const auth = new google.auth.GoogleAuth({
-    credentials: JSON.parse(credentials),
+    credentials: JSON.parse(GOOGLE_SERVICE_ACCOUNT_JSON),
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   })
 
@@ -17,14 +13,9 @@ const getAuth = () => {
 
 // スプレッドシートIDを取得
 const getSpreadsheetId = () => {
-  const url = process.env.GOOGLE_SHEET_URL
-  if (!url) {
-    throw new Error("GOOGLE_SHEET_URL is not set")
-  }
-
   // URLからスプレッドシートIDを抽出
   // https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit...
-  const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)
+  const match = GOOGLE_SHEET_URL.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)
   if (!match) {
     throw new Error("Invalid Google Sheet URL")
   }

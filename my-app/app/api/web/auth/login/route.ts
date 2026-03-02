@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSession } from "@/app/_server/lib/session"
+import { ALLOWED_USERS } from "@/app/_server/lib/env"
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,14 +11,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Username and password are required" }, { status: 400 })
     }
 
-    const allowedUsers = process.env.ALLOWED_USERS
-    if (!allowedUsers) {
-      console.error("ALLOWED_USERS is not configured")
-      return NextResponse.json({ success: false, error: "Server configuration error" }, { status: 500 })
-    }
-
     // ALLOWED_USERS をパース: "user1:pass1,user2:pass2" の形式
-    const users = allowedUsers.split(",").map((entry) => {
+    const users = ALLOWED_USERS.split(",").map((entry) => {
       const [u, p] = entry.split(":")
       return { username: u.trim(), password: p.trim() }
     })

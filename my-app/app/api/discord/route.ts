@@ -13,8 +13,7 @@ import { getValue } from "./util/getComponentValue"
 import { createProtectComponents } from "./util/protectMessageComponents"
 import { extractInteractionData } from "./util/extractInteractionData"
 import { extractMatchId, extractMessageId } from "./util/extractCustomIdParam"
-
-const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY!
+import { DISCORD_PUBLIC_KEY } from "@/app/_server/lib/env"
 
 async function disableRegisterButtonsMessage(messageId: string, channelId: string, matchId: string) {
   try {
@@ -35,7 +34,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Missing headers" }, { status: 401 })
     }
 
-    const isValid = await verifyKey(rawBody, signature, timestamp, PUBLIC_KEY)
+    const isValid = await verifyKey(rawBody, signature, timestamp, DISCORD_PUBLIC_KEY)
     if (!isValid) {
       console.error("Invalid signature")
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 })

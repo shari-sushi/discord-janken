@@ -1,12 +1,10 @@
 import { COMMANDS } from "@/app/_server/util/commands"
 import { ApplicationCommandOptionType } from "@/app/_server/lib/discord/types"
+import { DISCORD_BOT_TOKEN, DISCORD_APPLICATION_ID } from "@/app/_server/lib/env"
 import "dotenv/config"
 
 // npx tsx app/api/discord/command/register.ts でコマンド登録(完全置き換え)できる
 // ただし、本番環境のビルド時に実行しているので、通常は手動で実行する必要は無い
-
-const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN!
-const APPLICATION_ID = process.env.DISCORD_APPLICATION_ID!
 
 type DiscordBotCommand = {
   name: string
@@ -97,7 +95,7 @@ const fightingTeamOrder: DiscordBotCommand = {
 
 const commands: DiscordBotCommand[] = [newMatch, feedback, timer, commonMessage, fightingTeamOrder, echo, test]
 
-fetch(`https://discord.com/api/v10/applications/${APPLICATION_ID}/commands`, {
+fetch(`https://discord.com/api/v10/applications/${DISCORD_APPLICATION_ID}/commands`, {
   // POSTにすると新規登録のみで古いのは変更されない
   method: "PUT", // POST → PUT に変更
   headers: {

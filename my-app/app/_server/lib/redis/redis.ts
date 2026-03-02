@@ -1,11 +1,12 @@
 import { createClient, RedisClientType } from "redis"
+import { REDIS_URL } from "../env"
 
 let redis: RedisClientType | null = null
 
 const getRedisClient = async (): Promise<RedisClientType> => {
   if (!redis) {
     redis = createClient({
-      url: process.env.REDIS_URL || "redis://localhost:6379",
+      url: REDIS_URL,
       socket: {
         connectTimeout: 5000, // 5秒でタイムアウト
         reconnectStrategy: (retries) => {

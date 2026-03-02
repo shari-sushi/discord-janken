@@ -4,6 +4,7 @@ import { redisGet, redisMGet } from "@/app/_server/lib/redis/redis"
 import { getMatchKey } from "@/app/domains/lol/_server/redisKeys"
 import { ProtectTeamData, ProtectMatchMeta } from "@/app/domains/lol/types"
 import { getMatchStatusMessage } from "@/app/api/discord/command/lol/newMatch"
+import { QSTASH_CURRENT_SIGNING_KEY, QSTASH_NEXT_SIGNING_KEY, DISCORD_BOT_TOKEN, DISCORD_API_BASE_URL } from "@/app/_server/lib/env"
 
 interface ReminderPayload {
   matchId: string
@@ -27,8 +28,8 @@ export async function POST(req: NextRequest) {
   try {
     // QStash署名検証
     const receiver = new Receiver({
-      currentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY!,
-      nextSigningKey: process.env.QSTASH_NEXT_SIGNING_KEY!,
+      currentSigningKey: QSTASH_CURRENT_SIGNING_KEY,
+      nextSigningKey: QSTASH_NEXT_SIGNING_KEY,
     })
 
     const signature = req.headers.get("upstash-signature")
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest) {
     messageContent += "ーーーーーーーーーーーーーー"
 
     // 6. Discord Webhookでメッセージ送信
-    const webhookUrl = `https://discord.com/api/v10/channels/${channelId}/messages`
+    const webhookUrl = `${DISCORD_API_BASE_URL}/channels/${channelId}/messages`
 
     const requestBody: DiscordMessageRequestBody = {
       content: messageContent,
@@ -113,7 +114,7 @@ export async function POST(req: NextRequest) {
     const response = await fetch(webhookUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+        Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(requestBody),

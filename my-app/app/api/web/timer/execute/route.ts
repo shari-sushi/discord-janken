@@ -1,5 +1,6 @@
 import { Receiver } from "@upstash/qstash"
 import { NextRequest, NextResponse } from "next/server"
+import { QSTASH_CURRENT_SIGNING_KEY, QSTASH_NEXT_SIGNING_KEY, DISCORD_BOT_TOKEN, DISCORD_API_BASE_URL } from "@/app/_server/lib/env"
 
 interface TimerPayload {
   channelId: string
@@ -12,8 +13,8 @@ export async function POST(req: NextRequest) {
   try {
     // QStash署名検証
     const receiver = new Receiver({
-      currentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY!,
-      nextSigningKey: process.env.QSTASH_NEXT_SIGNING_KEY!,
+      currentSigningKey: QSTASH_CURRENT_SIGNING_KEY,
+      nextSigningKey: QSTASH_NEXT_SIGNING_KEY,
     })
 
     const signature = req.headers.get("upstash-signature")
@@ -39,12 +40,12 @@ export async function POST(req: NextRequest) {
     const payload: TimerPayload = JSON.parse(body)
 
     // Discord Webhookでメッセージ送信
-    const webhookUrl = `https://discord.com/api/v10/channels/${payload.channelId}/messages`
+    const webhookUrl = `${DISCORD_API_BASE_URL}/channels/${payload.channelId}/messages`
 
     const response = await fetch(webhookUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+        Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

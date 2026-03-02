@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { qstashPublishJSON } from "@/app/_server/lib/qstash/qstash"
 import { parseReminderAt } from "@/app/domains/lol/_server/validators"
 import { InteractionResponseType, InteractionResponseFlags, MessageComponentTypes, TextStyleTypes } from "discord-interactions"
+import { APP_URL } from "@/app/_server/lib/env"
 
 // コマンド初期表示（モーダル表示）
 export const timerCommand = (): NextResponse => {
@@ -76,7 +77,7 @@ export const handleSubmitTimer = async ({ guildId, channelId, timeInput, userId,
 
     // QStashにスケジュール登録
     // matchId がある場合は LoL 試合用エンドポイントを使用
-    const callbackUrl = matchId ? `${process.env.APP_URL}/api/web/lol/matches/reminder-execute` : `${process.env.APP_URL}/api/web/timer/execute`
+    const callbackUrl = matchId ? `${APP_URL}/api/web/lol/matches/reminder-execute` : `${APP_URL}/api/web/timer/execute`
 
     const payload = matchId ? { channelId, message: notificationMessage, guildId, createdBy: userId, matchId } : { channelId, message: notificationMessage, guildId, createdBy: userId }
 

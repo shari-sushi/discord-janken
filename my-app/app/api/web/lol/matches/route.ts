@@ -8,6 +8,7 @@ import { redisSet } from "@/app/_server/lib/redis/redis"
 import { ProtectMatchMeta } from "@/app/domains/lol/types"
 import { getMatchKey } from "@/app/domains/lol/_server/redisKeys"
 import { qstashPublishJSON } from "@/app/_server/lib/qstash/qstash"
+import { APP_URL } from "@/app/_server/lib/env"
 
 type RequestBody = {
   guild_id: string
@@ -128,7 +129,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       let reminderRegistered = false
       if (reminderDate && reminder) {
         try {
-          await qstashPublishJSON(`${process.env.APP_URL}/api/web/lol/matches/reminder-execute`, { matchId, channelId, guildId, message: reminder.message }, Math.floor(reminderDate.getTime() / 1000))
+          await qstashPublishJSON(`${APP_URL}/api/web/lol/matches/reminder-execute`, { matchId, channelId, guildId, message: reminder.message }, Math.floor(reminderDate.getTime() / 1000))
           reminderRegistered = true
         } catch (e) {
           console.error("Reminder registration failed:", e)
