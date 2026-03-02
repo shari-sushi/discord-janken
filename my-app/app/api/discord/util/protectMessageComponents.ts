@@ -5,10 +5,10 @@ import { customId } from "./customId"
 /**
  * プロテクト機能用のボタンコンポーネントを生成
  * @param matchId - 試合ID
- * @param isDisabledTeamButtons - ブルーサイド・レッドサイドボタンをdisabledにするか
+ * @param disableAllButtons - 全てのボタンをdisabledにするか（両チーム登録完了時に true）
  * @returns Discordコンポーネント配列
  */
-export function createProtectComponents(matchId: string, isDisabledTeamButtons = false): MessageComponent[] {
+export function createProtectComponents(matchId: string, disableAllButtons = false): MessageComponent[] {
   return [
     {
       type: MessageComponentTypes.ACTION_ROW,
@@ -18,14 +18,14 @@ export function createProtectComponents(matchId: string, isDisabledTeamButtons =
           style: ButtonStyleTypes.PRIMARY,
           label: "ブルーサイド",
           custom_id: customId(CLIENT_ACTIONS.LOL.OPEN_MODAL_BLUE_TEAM_REGISTER).matchId(matchId),
-          disabled: isDisabledTeamButtons,
+          disabled: disableAllButtons,
         },
         {
           type: MessageComponentTypes.BUTTON,
           style: ButtonStyleTypes.DANGER,
           label: "レッドサイド",
           custom_id: customId(CLIENT_ACTIONS.LOL.OPEN_MODAL_RED_TEAM_REGISTER).matchId(matchId),
-          disabled: isDisabledTeamButtons,
+          disabled: disableAllButtons,
         },
         {
           type: MessageComponentTypes.BUTTON,
@@ -38,12 +38,14 @@ export function createProtectComponents(matchId: string, isDisabledTeamButtons =
           style: ButtonStyleTypes.SECONDARY,
           label: "リセット",
           custom_id: customId(CLIENT_ACTIONS.LOL.RESET_REGISTERED).matchId(matchId),
+          disabled: disableAllButtons,
         },
         {
           type: MessageComponentTypes.BUTTON,
           style: ButtonStyleTypes.SECONDARY,
           label: "タイマーセット",
           custom_id: customId(CLIENT_ACTIONS.LOL.OPEN_MODAL_TIMER).matchId(matchId),
+          disabled: disableAllButtons,
         },
       ],
     },
