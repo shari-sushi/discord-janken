@@ -7,7 +7,13 @@
     "build": "npm run register-commands && next build",
     "register-commands": "if [ \"$VERCEL_ENV\" = \"production\" ]; then npx tsx app/api/discord/command/register.ts; fi",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:unit": "vitest run --testNamePattern=\"^((?!integration).)*$\"",
+    "test:integration": "vitest run --testNamePattern=\"integration\"",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest watch",
+    "test:ui": "vitest --ui"
   },
   "dependencies": {
     "@upstash/qstash": "^2.9.0",

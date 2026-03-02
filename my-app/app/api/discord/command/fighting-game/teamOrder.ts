@@ -9,6 +9,7 @@ import { getMetaKey, getTeamKey } from "@/app/domains/fighting/_server/redisKeys
 import { isOrderedTeamData } from "@/app/domains/fighting/_server/validators"
 import { TEAM_FORMAT_POSITIONS, getPositionLabel } from "@/app/domains/fighting/_server/constants"
 import { getValue } from "../../util/getComponentValue"
+import { customId } from "../../util/customId"
 
 // フォーマットに応じた入力ボタンコンポーネントを生成
 const createTeamOrderButtons = (matchId: string, disabled: boolean = false): MessageComponent[] => {
@@ -20,14 +21,14 @@ const createTeamOrderButtons = (matchId: string, disabled: boolean = false): Mes
           type: MessageComponentTypes.BUTTON,
           style: ButtonStyleTypes.PRIMARY,
           label: "チーム1 出場順を入力",
-          custom_id: `${CLIENT_ACTIONS.FIGHTING.OPEN_MODAL_TEAM1_ORDER}?match_id=${matchId}`,
+          custom_id: customId(CLIENT_ACTIONS.FIGHTING.OPEN_MODAL_TEAM1_ORDER).matchId(matchId),
           disabled,
         },
         {
           type: MessageComponentTypes.BUTTON,
           style: ButtonStyleTypes.PRIMARY,
           label: "チーム2 出場順を入力",
-          custom_id: `${CLIENT_ACTIONS.FIGHTING.OPEN_MODAL_TEAM2_ORDER}?match_id=${matchId}`,
+          custom_id: customId(CLIENT_ACTIONS.FIGHTING.OPEN_MODAL_TEAM2_ORDER).matchId(matchId),
           disabled,
         },
       ],
@@ -45,7 +46,7 @@ const createResetButton = (matchId: string): MessageComponent[] => {
           type: MessageComponentTypes.BUTTON,
           style: ButtonStyleTypes.DANGER,
           label: "リセット",
-          custom_id: `${CLIENT_ACTIONS.FIGHTING.RESET_TEAM_ORDER}?match_id=${matchId}`,
+          custom_id: customId(CLIENT_ACTIONS.FIGHTING.RESET_TEAM_ORDER).matchId(matchId),
         },
       ],
     },
@@ -189,7 +190,7 @@ const createTeamOrderModal = (matchId: string, format: TeamFormat, teamNumber: 1
     components: [
       {
         type: MessageComponentTypes.INPUT_TEXT,
-        custom_id: `${position}?match_id=${matchId}`,
+        custom_id: customId(position).matchId(matchId),
         label: getPositionLabel(position),
         style: TextStyleTypes.SHORT,
         required: true,
@@ -203,7 +204,7 @@ const createTeamOrderModal = (matchId: string, format: TeamFormat, teamNumber: 1
   return NextResponse.json({
     type: InteractionResponseType.MODAL,
     data: {
-      custom_id: `${action}?match_id=${matchId}`,
+      custom_id: customId(action).matchId(matchId),
       title: `チーム${teamNumber} 出場順入力`,
       components,
     },

@@ -12,6 +12,7 @@ import { editDiscordMessage } from "@/app/_server/lib/discord/api"
 import { getValue } from "./util/getComponentValue"
 import { createProtectComponents } from "./util/protectMessageComponents"
 import { extractInteractionData } from "./util/extractInteractionData"
+import { extractMatchId, extractMessageId } from "./util/extractCustomIdParam"
 
 const PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY!
 
@@ -82,8 +83,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
       const customId = interaction.data.custom_id
       console.log("MESSAGE_COMPONENT custom_id:", customId)
-      const [actionId, matchIdParam] = customId.split("?")
-      const matchId = new URLSearchParams(matchIdParam || "").get("match_id") || ""
+      const [actionId] = customId.split("?")
+      const matchId = extractMatchId(customId) || ""
       console.log("action:", actionId, "matchId:", matchId)
 
       switch (actionId) {
@@ -172,26 +173,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         const channelId = interaction.channel_id || ""
         const guildId = interaction.guild_id || ""
         const userId = interaction.member?.user?.id || ""
-
-        const params = new URLSearchParams(customId.split("?")[1] || "")
-        const matchId = params.get("match_id") || ""
+        const matchId = extractMatchId(customId) || ""
 
         return handleSubmitTimer({ timeInput, message, channelId, guildId, userId, matchId })
       }
 
-      // match_id を取得（複数の方法で取得を試みる）
-      let matchId = ""
-
-      // 最初のコンポーネントのcustom_idから取得を試みる
+      // match_id を取得（最初のコンポーネントのcustom_idから取得を試みる）
       const firstCustomId = components[0]?.components[0]?.custom_id || ""
       console.log("First custom_id:", firstCustomId)
-      if (firstCustomId.includes("match_id")) {
-        matchId = new URLSearchParams(firstCustomId.split("?")[1] || "").get("match_id") || ""
-        console.log("Extracted match_id:", matchId)
-      }
+      const matchId = extractMatchId(firstCustomId) || ""
+      console.log("Extracted match_id:", matchId)
+      const messageId = extractMessageId(customId) || ""
 
-      const modalParams = new URLSearchParams(customId.split("?")[1] || "")
-      const messageId = modalParams.get("message_id") ?? ""
       const channelId = interaction.channel_id || ""
       const userId = interaction.member.user.id ?? ""
 

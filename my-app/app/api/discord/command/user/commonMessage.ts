@@ -6,6 +6,8 @@ import { getValue } from "@/app/api/discord/util/getComponentValue"
 import { DISCORD_MESSAGE_MAX_LENGTH } from "@/app/domains/user/commonMessage/_server/constants"
 import { extractInteractionData } from "../../util/extractInteractionData"
 import { DiscordInteraction } from "@/app/_server/lib/discord/types"
+import { extractMessageId } from "../../util/extractCustomIdParam"
+import { customId } from "../../util/customId"
 
 // コマンド初期表示（モーダルを表示）
 export const commonMessageCommand = () => {
@@ -186,7 +188,7 @@ export const handleOpenModalEditCommonMessage = async (interaction: DiscordInter
   return NextResponse.json({
     type: InteractionResponseType.MODAL,
     data: {
-      custom_id: `${CLIENT_ACTIONS.USER.SUBMIT_COMMON_MESSAGE}?message_id=${messageId}`,
+      custom_id: customId(CLIENT_ACTIONS.USER.SUBMIT_COMMON_MESSAGE).messageId(messageId),
       title: "共有メッセージを編集",
       components: modalComponents,
     },
@@ -207,8 +209,7 @@ export const handleSubmitCommonMessage = async (interaction: DiscordInteraction)
     })
   }
 
-  const params = new URLSearchParams(customId.split("?")[1] || "")
-  const messageId = params.get("message_id") || ""
+  const messageId = extractMessageId(customId) || ""
   const channelId = interaction.channel_id || ""
 
   // components から新しいテキストを取得
