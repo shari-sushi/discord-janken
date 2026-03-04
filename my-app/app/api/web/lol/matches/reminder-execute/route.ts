@@ -5,6 +5,8 @@ import { getMatchKey } from "@/app/domains/lol/_server/redisKeys"
 import { ProtectTeamData, ProtectMatchMeta } from "@/app/domains/lol/types"
 import { QSTASH_CURRENT_SIGNING_KEY, QSTASH_NEXT_SIGNING_KEY, DISCORD_BOT_TOKEN, DISCORD_API_BASE_URL } from "@/app/_server/lib/env"
 import { getMatchStatusMessage } from "@/app/api/discord/command/lol/util/getMatchStatusMessage"
+import { DiscordEmbed } from "@/app/_server/lib/discord/types"
+import { createReminderEmbeds } from "./createEmbeds"
 
 interface ReminderPayload {
   matchId: string
@@ -15,12 +17,8 @@ interface ReminderPayload {
 }
 
 interface DiscordMessageRequestBody {
-  content: string
-  embeds?: Array<{
-    title?: string
-    color?: number
-    fields?: Array<{ name: string; value: string; inline: boolean }>
-  }>
+  content?: string
+  embeds?: DiscordEmbed[]
 }
 
 // リマインダーの通知タイミングで使われるapi。通常は人が直接使うことは無い。
@@ -81,36 +79,12 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. メッセージを構築
-    let messageContent = `ーーーー⏰ タイマー通知ーーーー\n`
-    if (payload.message) {
-      messageContent += `メッセージ：${payload.message}\n`
-    } else {
-      messageContent += `メッセージ：無し\n`
+    const requestBody: DiscordMessageRequestBody = {
+      embeds: createReminderEmbeds({ ...payload, matchStatusContent: matchStatusData.content ?? "" }, []),
     }
-
-    if (payload.createdBy) {
-      messageContent += `（<@${payload.createdBy}>さんが設定）`
-    }
-
-    // 試合の現在状況を追加
-    if (matchStatusData.content) {
-      messageContent += `\n${matchStatusData.content}`
-    }
-
-    messageContent += "\nーーーーーーーーーーーーーーーー"
 
     // 6. Discord Webhookでメッセージ送信
     const webhookUrl = `${DISCORD_API_BASE_URL}/channels/${channelId}/messages`
-
-    const requestBody: DiscordMessageRequestBody = {
-      content: messageContent,
-    }
-
-    // Embed がある場合は追加
-    if (matchStatusData?.embeds) {
-      requestBody.embeds = matchStatusData.embeds
-    }
-
     const response = await fetch(webhookUrl, {
       method: "POST",
       headers: {

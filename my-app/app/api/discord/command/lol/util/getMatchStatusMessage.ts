@@ -2,13 +2,14 @@ import { redisGet, redisMGet } from "@/app/_server/lib/redis/redis"
 import { getMatchKey } from "@/app/domains/lol/_server/redisKeys"
 import { createCompletionEmbedData } from "./createCompletionEmbedData"
 import { ProtectMatchMeta, ProtectTeamData } from "@/app/domains/lol/types"
+import { DiscordEmbed } from "@/app/_server/lib/discord/types"
 
 /**
  * 試合データを取得してメッセージデータを返す
  * @param matchId - 試合ID
  * @returns メッセージデータ（content または embeds）、データが見つからない場合は null
  */
-export const getMatchStatusMessage = async (matchId: string): Promise<{ content?: string; embeds?: Array<Record<string, unknown>> } | undefined> => {
+export const getMatchStatusMessage = async (matchId: string): Promise<{ content?: string; embeds?: DiscordEmbed[] } | undefined> => {
   // 1. メタデータ取得
   const meta = await redisGet<ProtectMatchMeta>(getMatchKey(matchId, "meta"))
   if (!meta) {
