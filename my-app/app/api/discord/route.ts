@@ -14,6 +14,7 @@ import { createProtectComponents } from "./util/createProtectMessageComponents"
 import { extractInteractionData } from "./util/extractInteractionData"
 import { extractMatchId, extractMessageId } from "./util/extractCustomIdParam"
 import { DISCORD_PUBLIC_KEY } from "@/app/_server/lib/env"
+import { userInfoCommand } from "./command/user/info"
 
 async function disableRegisterButtonsMessage(messageId: string, channelId: string, matchId: string) {
   try {
@@ -61,6 +62,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return feedbackCommand()
         case COMMANDS.USER.COMMON_MESSAGE:
           return commonMessageCommand()
+        case COMMANDS.USER.USER_INFO:
+          return userInfoCommand()
         case COMMANDS.FIGHTING.TEAM_ORDER:
           return handleFightingTeamOrderCommand(options || [])
         case COMMANDS.DEV.ECHO:

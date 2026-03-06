@@ -36,6 +36,12 @@ const commonMessage: DiscordBotCommand = {
   options: [],
 }
 
+const userInfo: DiscordBotCommand = {
+  name: COMMANDS.USER.USER_INFO,
+  description: "自分だけにユーザーとディスコードサーバーの情報を表示します",
+  options: [],
+}
+
 const echo: DiscordBotCommand = {
   name: COMMANDS.DEV.ECHO,
   description: "入力したテキストをbotがチャットに送信",
@@ -93,7 +99,7 @@ const fightingTeamOrder: DiscordBotCommand = {
   ],
 }
 
-const commands: DiscordBotCommand[] = [newMatch, feedback, timer, commonMessage, fightingTeamOrder, echo, test]
+const commands: DiscordBotCommand[] = [newMatch, feedback, timer, commonMessage, userInfo, fightingTeamOrder, echo, test]
 
 fetch(`https://discord.com/api/v10/applications/${DISCORD_APPLICATION_ID}/commands`, {
   // POSTにすると新規登録のみで古いのは変更されない
