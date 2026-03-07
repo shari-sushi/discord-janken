@@ -12,6 +12,22 @@ export interface DiscordMessageResponse {
   [key: string]: unknown
 }
 
+export interface DiscordReaction {
+  emoji: {
+    id: string | null
+    name: string | null
+  }
+  count: number
+  me: boolean
+}
+
+export interface DiscordReactor {
+  id: string
+  username: string
+  discriminator: string
+  avatar: string | null
+}
+
 export class DiscordApiError extends Error {
   constructor(
     public status: number,
@@ -100,4 +116,111 @@ export async function editDiscordMessage(channelId: string, messageId: string, c
     const errorData = await response.json().catch(() => ({}))
     throw new DiscordApiError(response.status, response.statusText, errorData)
   }
+}
+
+/**
+ * Discordのメッセージを取得する
+ * @param channelId - チャンネルID
+ * @param messageId - メッセージID
+ * @returns メッセージ情報（content, reactions等を含む）
+ */
+export async function getDiscordMessage(channelId: string, messageId: string): Promise<DiscordMessageResponse & { reactions?: DiscordReaction[] }> {
+  const url = `${DISCORD_API_BASE_URL}/channels/${channelId}/messages/${messageId}`
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new DiscordApiError(response.status, response.statusText, errorData)
+    }
+
+    const data = await response.json()
+    return data
+  } catch (error) {
+    if (error instanceof DiscordApiError) {
+      throw error
+    }
+    throw new Error(`Failed to get Discord message: ${error}`)
+  }
+}
+
+/**
+ * 特定のリアクションをつけたユーザー一覧を取得する（内部使用）
+ * @param channelId - チャンネルID
+ * @param messageId - メッセージID
+ * @param emoji - 絵文字（カスタム絵文字の場合は `name:id` 形式）
+ * @returns リアクションをつけたユーザーの配列
+ */
+async function getMessageReactions(channelId: string, messageId: string, emoji: string): Promise<DiscordReactor[]> {
+  const url = `${DISCORD_API_BASE_URL}/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new DiscordApiError(response.status, response.statusText, errorData)
+    }
+
+    const data = await response.json()
+    return data as DiscordReactor[]
+  } catch (error) {
+    if (error instanceof DiscordApiError) {
+      throw error
+    }
+    throw new Error(`Failed to get message reactions: ${error}`)
+  }
+}
+
+/**
+ * 絵文字をエンコード用文字列に変換する
+ * @param reaction - Discord リアクション情報
+ * @returns エンコードされた絵文字文字列
+ */
+function encodeEmoji(reaction: DiscordReaction): string {
+  // カスタム絵文字の場合は `name:id` 形式
+  if (reaction.emoji.id) {
+    return `${reaction.emoji.name}:${reaction.emoji.id}`
+  }
+  // 通常の絵文字の場合はそのまま
+  return reaction.emoji.name || ""
+}
+
+/**
+ * メッセージの全リアクションについて、ユーザー情報を並列取得する
+ * @param channelId - チャンネルID
+ * @param messageId - メッセージID
+ * @param reactions - リアクション配列
+ * @returns リアクションフィールドデータの配列
+ */
+export async function getAllReactionFields(
+  channelId: string,
+  messageId: string,
+  reactions: DiscordReaction[],
+): Promise<Array<{ emojiName: string; count: number; userIds: string[] }>> {
+  return await Promise.all(
+    reactions.map(async (reaction) => {
+      const emojiEncoded = encodeEmoji(reaction)
+      const users = await getMessageReactions(channelId, messageId, emojiEncoded)
+
+      return {
+        emojiName: reaction.emoji.name || "?",
+        count: reaction.count,
+        userIds: users.map((user) => user.id),
+      }
+    }),
+  )
 }

@@ -36,6 +36,19 @@ const commonMessage: DiscordBotCommand = {
   options: [],
 }
 
+const mentionByReaction: DiscordBotCommand = {
+  name: COMMANDS.USER.MENTION_REACTORS,
+  description: "特定のメッセージに指定のリアクションをつけた人にメンションでメッセージを送れます",
+  options: [
+    {
+      name: "message_link",
+      description: "メッセージのリンク（右クリック→メッセージのリンクをコピー）",
+      type: ApplicationCommandOptionType.STRING,
+      required: true,
+    },
+  ],
+}
+
 const echo: DiscordBotCommand = {
   name: COMMANDS.DEV.ECHO,
   description: "入力したテキストをbotがチャットに送信",
@@ -93,7 +106,7 @@ const fightingTeamOrder: DiscordBotCommand = {
   ],
 }
 
-const commands: DiscordBotCommand[] = [newMatch, feedback, timer, commonMessage, fightingTeamOrder, echo, test]
+const commands: DiscordBotCommand[] = [newMatch, feedback, timer, commonMessage, mentionByReaction, fightingTeamOrder, echo, test]
 
 fetch(`https://discord.com/api/v10/applications/${DISCORD_APPLICATION_ID}/commands`, {
   // POSTにすると新規登録のみで古いのは変更されない

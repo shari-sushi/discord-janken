@@ -62,6 +62,11 @@ export const createEchoCommandPayload = (text: string) => createCommandPayload(C
 export const createDevelopersTestCommandPayload = (testNumber: number = 1) => createCommandPayload(COMMANDS.DEV.TEST, [{ name: "number", value: testNumber }])
 
 /**
+ * /user-mention-reactors コマンド
+ */
+export const createMentionReactorsCommandPayload = (messageLink: string) => createCommandPayload(COMMANDS.USER.MENTION_REACTORS, [{ name: "message_link", value: messageLink }])
+
+/**
  * MESSAGE_COMPONENT インタラクション（ボタンクリック）
  */
 export const createButtonClickPayload = (customId: string, messageId: string = "test-message-id") => ({

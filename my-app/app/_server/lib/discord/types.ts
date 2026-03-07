@@ -41,6 +41,7 @@ export interface InteractionData {
   custom_id?: string
   components?: MessageComponentData[]
   values?: string[]
+  options?: Array<{ name: string; value: string | number | boolean }>
 }
 
 /**
