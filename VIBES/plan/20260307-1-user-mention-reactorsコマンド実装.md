@@ -131,8 +131,11 @@ case COMMANDS.USER.MENTION_REACTORS:
 
 正規表現またはURL解析を使用：
 
+通常のurlの他に、`ptb.discord.com``canary.discord.com`といったサブドメインがあることに注意。
+※canary discordでメッセージリンクをコピーすると`canary.discord`になる
+
 ```typescript
-const messageLinkRegex = /discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/
+const messageLinkRegex = /(?:https?:\/\/)?(?:\w+\.)?discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)/
 ```
 
 ### Embedフォーマット
