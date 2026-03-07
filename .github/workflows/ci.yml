@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  pull_request:
+    branches: ["*"]
+  push:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: my-app/package-lock.json
+
+      - run: npm ci
+        working-directory: my-app
+      - run: npx eslint .
+        working-directory: my-app
+
+  typecheck:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+        working-directory: my-app
+      - run: npx tsc --noEmit
+        working-directory: my-app
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: my-app/package-lock.json
+
+      - run: npm ci
+        working-directory: my-app
+
+      - name: "Run tests (PR: changed only)"
+        if: github.event_name == 'pull_request'
+        run: npx vitest run --changed
+        working-directory: my-app
+
+      - name: "Run tests (main: full)"
+        if: github.event_name != 'pull_request'
+        run: npx vitest run
+        working-directory: my-app
