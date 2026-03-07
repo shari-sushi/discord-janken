@@ -62,7 +62,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return feedbackCommand()
         case COMMANDS.USER.COMMON_MESSAGE:
           return commonMessageCommand()
-        case COMMANDS.USER.USER_INFO:
+        case COMMANDS.USER.INFO:
           return userInfoCommand()
         case COMMANDS.FIGHTING.TEAM_ORDER:
           return handleFightingTeamOrderCommand(options || [])

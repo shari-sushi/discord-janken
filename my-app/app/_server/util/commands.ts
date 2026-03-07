@@ -11,7 +11,7 @@ export const COMMANDS = {
     TIMER: USER_PREF + "timer",
     COMMON_MESSAGE: USER_PREF + "common-message",
     FEEDBACK: USER_PREF + "feedback",
-    USER_INFO: USER_PREF + "user-info"
+    INFO: USER_PREF + "user-info"
   },
   FIGHTING: {
     TEAM_ORDER: FIGHTING_PREF + "team-order",

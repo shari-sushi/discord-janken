@@ -37,7 +37,7 @@ const commonMessage: DiscordBotCommand = {
 }
 
 const userInfo: DiscordBotCommand = {
-  name: COMMANDS.USER.USER_INFO,
+  name: COMMANDS.USER.INFO,
   description: "自分だけにユーザーとディスコードサーバーの情報を表示します",
   options: [],
 }
