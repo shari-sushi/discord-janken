@@ -5,6 +5,7 @@ import { newMatchCommand, handleCheckRegistered, handleRegisterTeam, handleOpenM
 import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./command/user/feedback"
 import { timerCommand, handleSubmitTimer, handleOpenModalTimer } from "./command/user/timer"
 import { commonMessageCommand, handleSubmitNewCommonMessage, handleOpenModalEditCommonMessage, handleSubmitCommonMessage, handleForceEndEditingCommonMessage } from "./command/user/commonMessage"
+import { mentionReactorsCommand } from "./command/user/mentionReactors"
 import { handleFightingTeamOrderCommand, handleOpenModalFightingTeamOrder, handleFightingRegisterTeamOrder, handleFightingResetTeamOrder } from "./command/fighting-game/teamOrder"
 import { CLIENT_ACTIONS, COMMANDS } from "@/app/_server/util/commands"
 import { developersTestCommand } from "./command/dev/developers-test"
@@ -61,6 +62,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return feedbackCommand()
         case COMMANDS.USER.COMMON_MESSAGE:
           return commonMessageCommand()
+        case COMMANDS.USER.MENTION_REACTORS:
+          return mentionReactorsCommand(interaction)
         case COMMANDS.FIGHTING.TEAM_ORDER:
           return handleFightingTeamOrderCommand(options || [])
         case COMMANDS.DEV.ECHO:
