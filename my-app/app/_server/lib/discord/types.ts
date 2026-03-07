@@ -55,6 +55,7 @@ export interface DiscordInteraction {
   guild_id?: string
   channel_id?: string
   member?: {
+    nick?: string
     user?: {
       id: string
       username: string

@@ -49,7 +49,7 @@ export const mentionReactorsCommand = async (interaction: DiscordInteraction) =>
     }
 
     // コマンド実行者の情報を取得
-    const executor = interaction.member?.user?.username || interaction.user?.username || "不明"
+    const executor = interaction.member?.nick || interaction.member?.user?.username || interaction.user?.username || "不明"
 
     // リアクションごとにユーザーリストを取得（並列実行）
     const reactionFields = await getAllReactionFields(parsed.channelId, parsed.messageId, message.reactions)
