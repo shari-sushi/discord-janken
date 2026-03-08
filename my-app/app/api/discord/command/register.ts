@@ -117,6 +117,15 @@ fetch(`https://discord.com/api/v10/applications/${DISCORD_APPLICATION_ID}/comman
   },
   body: JSON.stringify(commands), // 配列で送信
 })
-  .then((res) => res.json())
-  .then(console.log)
-  .catch(console.error)
+  .then(async (res) => {
+    const data = await res.json()
+    if (!res.ok) {
+      console.error("Failed to register commands:", data)
+      process.exit(1)
+    }
+    console.log("Commands registered successfully:", data)
+  })
+  .catch((err) => {
+    console.error(err)
+    process.exit(1)
+  })
