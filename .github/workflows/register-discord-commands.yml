@@ -1,0 +1,45 @@
+name: Register Discord Commands
+
+on:
+  workflow_dispatch:
+
+jobs:
+  register-commands:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_APPLICATION_ID: ${{ secrets.DISCORD_APPLICATION_ID }}
+        run: |
+          if [ -z "$DISCORD_BOT_TOKEN" ]; then
+            echo "Error: DISCORD_BOT_TOKEN secret is not set"
+            exit 1
+          fi
+          if [ -z "$DISCORD_APPLICATION_ID" ]; then
+            echo "Error: DISCORD_APPLICATION_ID secret is not set"
+            exit 1
+          fi
+          echo "All required secrets are configured"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: my-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./my-app
+        run: npm ci
+
+      - name: Register Discord Commands
+        working-directory: ./my-app
+        run: npx tsx app/api/discord/command/register.ts
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_APPLICATION_ID: ${{ secrets.DISCORD_APPLICATION_ID }}
