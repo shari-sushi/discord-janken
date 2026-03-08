@@ -1,0 +1,28 @@
+name: Register Discord Commands
+
+on:
+  workflow_dispatch:
+
+jobs:
+  register-commands:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: ./my-app
+        run: npm ci
+
+      - name: Register Discord Commands
+        working-directory: ./my-app
+        run: npx tsx app/api/discord/command/register.ts
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_APPLICATION_ID: ${{ secrets.DISCORD_APPLICATION_ID }}
