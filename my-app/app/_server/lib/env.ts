@@ -11,8 +11,7 @@
  */
 function getRequiredEnv(key: string): string {
   const value = process.env[key]
-  // テスト環境では環境変数チェックをスキップ（setup.tsで設定される）
-  if (!value && process.env.NODE_ENV !== "test") {
+  if (!value && process.env.NODE_ENV !== "test" && !process.env.GITHUB_ACTIONS) {
     throw new Error(`環境変数 ${key} が設定されていません`)
   }
   return value || ""
