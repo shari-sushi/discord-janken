@@ -6,6 +6,7 @@ on:
 jobs:
   register-commands:
     runs-on: ubuntu-latest
+    environment: production
 
     steps:
       - name: Checkout repository
