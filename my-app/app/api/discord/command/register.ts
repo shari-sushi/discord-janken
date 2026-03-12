@@ -1,6 +1,6 @@
 import { COMMANDS } from "@/app/_server/util/commands"
 import { ApplicationCommandOptionType } from "@/app/_server/lib/discord/types"
-import { DISCORD_BOT_TOKEN, DISCORD_APPLICATION_ID } from "@/app/_server/lib/env"
+import { DISCORD_BOT_TOKEN, DISCORD_APPLICATION_ID, DISCORD_COMMAND_GUILD_ID, ENV } from "@/app/_server/lib/env"
 import "dotenv/config"
 
 // npx tsx app/api/discord/command/register.ts でコマンド登録(完全置き換え)できる
@@ -9,7 +9,16 @@ import "dotenv/config"
 type DiscordBotCommand = {
   name: string
   description: string
-  options?: { name: string; description: string; type: ApplicationCommandOptionType; required: boolean }[]
+  options?: {
+    name: string // spaceを含まないこと
+    description: string
+    type: ApplicationCommandOptionType
+    required: boolean
+    choices?: {
+      name: string
+      value: string | number
+    }[]
+  }[]
 }
 
 const newMatch: DiscordBotCommand = {
@@ -67,10 +76,16 @@ const test: DiscordBotCommand = {
   description: "実装の動作確認コマンド",
   options: [
     {
-      name: "number",
-      description: "テスト番号 (1-5)を入力する",
+      name: "test_number",
+      description: "{test_num}::[url?{url}|num?{num}]",
       type: ApplicationCommandOptionType.INTEGER,
       required: true,
+    },
+    {
+      name: "url_or_num",
+      description: "[url:{url} | num:{num}]",
+      type: ApplicationCommandOptionType.STRING,
+      required: false,
     },
   ],
 }
@@ -84,7 +99,6 @@ const fightingTeamOrder: DiscordBotCommand = {
       description: "チーム戦の形式",
       type: ApplicationCommandOptionType.STRING,
       required: true,
-      // @ts-expect-error - choices is valid but not in base type
       choices: [
         { name: "2v2", value: "2v2" },
         { name: "3v3", value: "3v3" },
@@ -108,24 +122,64 @@ const fightingTeamOrder: DiscordBotCommand = {
 
 const commands: DiscordBotCommand[] = [newMatch, feedback, timer, commonMessage, mentionByReaction, fightingTeamOrder, echo, test]
 
-fetch(`https://discord.com/api/v10/applications/${DISCORD_APPLICATION_ID}/commands`, {
-  // POSTにすると新規登録のみで古いのは変更されない
-  method: "PUT", // POST → PUT に変更
-  headers: {
-    Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify(commands), // 配列で送信
-})
-  .then(async (res) => {
-    const data = await res.json()
-    if (!res.ok) {
-      console.error("Failed to register commands:", data)
-      process.exit(1)
+// 開発環境ではコマンド登録をスキップ
+if (ENV !== "production" && ENV !== "preview") {
+  console.log("Skipping command registration in development environment:", ENV)
+  process.exit(0)
+}
+
+const isGuildCommand = !!DISCORD_COMMAND_GUILD_ID
+
+const baseUrl = `https://discord.com/api/v10/applications/${DISCORD_APPLICATION_ID}`
+const url = isGuildCommand ? `${baseUrl}/guilds/${DISCORD_COMMAND_GUILD_ID}/commands` : `${baseUrl}/commands`
+
+console.log(`Registering commands as ${isGuildCommand ? "guild commands (即時反映)" : "global commands (最大1時間)"}`)
+
+if (isGuildCommand) {
+  ;(async () => {
+    for (const command of commands) {
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(command),
+        })
+
+        const data = await res.json()
+        if (!res.ok) {
+          console.error(`Failed to register command "${command.name}":`, JSON.stringify(data, null, 2))
+          process.exit(1)
+        }
+        console.log(`✓ Registered: ${command.name}`)
+      } catch (err) {
+        console.error(`Error registering command "${command.name}":`, err)
+        process.exit(1)
+      }
     }
-    console.log("Commands registered successfully:", data)
+    console.log("All guild commands registered successfully")
+  })()
+} else {
+  fetch(url, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(commands),
   })
-  .catch((err) => {
-    console.error(err)
-    process.exit(1)
-  })
+    .then(async (res) => {
+      const data = await res.json()
+      if (!res.ok) {
+        console.error("Failed to register commands:", JSON.stringify(data, null, 2))
+        process.exit(1)
+      }
+      console.log("Commands registered successfully:", data)
+    })
+    .catch((err) => {
+      console.error(err)
+      process.exit(1)
+    })
+}
