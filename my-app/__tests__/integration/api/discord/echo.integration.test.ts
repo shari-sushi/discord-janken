@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest"
 import { POST } from "@/app/api/discord/route"
 import { createEchoCommandPayload, createPingPayload } from "../../../mocks/discord-payloads"
 import { createDiscordRequest, parseJsonResponse } from "../../../helpers/api-test-utils"
-import { InteractionResponseType } from "discord-interactions"
+import { InteractionResponseType } from "discord-api-types/v10"
 
 describe("Discord API - Echo Command Integration Test", () => {
   beforeAll(() => {
@@ -17,7 +17,7 @@ describe("Discord API - Echo Command Integration Test", () => {
     const data = await parseJsonResponse(response)
 
     expect(response.status).toBe(200)
-    expect(data.type).toBe(InteractionResponseType.PONG)
+    expect(data.type).toBe(InteractionResponseType.Pong)
   })
 
   it("success:echoコマンドは入力されたテキストをそのまま返す", async () => {
@@ -29,7 +29,7 @@ describe("Discord API - Echo Command Integration Test", () => {
     const data = await parseJsonResponse(response)
 
     expect(response.status).toBe(200)
-    expect(data.type).toBe(InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE)
+    expect(data.type).toBe(InteractionResponseType.ChannelMessageWithSource)
     expect(data.data.content).toBe(testMessage)
   })
 
@@ -42,7 +42,7 @@ describe("Discord API - Echo Command Integration Test", () => {
     const data = await parseJsonResponse(response)
 
     expect(response.status).toBe(200)
-    expect(data.type).toBe(InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE)
+    expect(data.type).toBe(InteractionResponseType.ChannelMessageWithSource)
     expect(data.data.content).toBe("")
   })
 })

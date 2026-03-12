@@ -2,8 +2,8 @@ import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { NextResponse } from "next/server"
 import { qstashPublishJSON } from "@/app/_server/lib/qstash/qstash"
 import { parseReminderAt } from "@/app/domains/lol/_server/validators"
-import { InteractionResponseType, InteractionResponseFlags, MessageComponentTypes, TextStyleTypes } from "discord-interactions"
 import { APP_URL } from "@/app/_server/lib/env"
+import { ComponentType, InteractionResponseType, MessageFlags, TextInputStyle } from "discord-api-types/v10"
 
 // コマンド初期表示（モーダル表示）
 export const timerCommand = (): NextResponse => {
@@ -12,32 +12,32 @@ export const timerCommand = (): NextResponse => {
 
 export const handleOpenModalTimer = (customId: string) => {
   return NextResponse.json({
-    type: InteractionResponseType.MODAL,
+    type: InteractionResponseType.Modal,
     data: {
       custom_id: customId,
       title: "タイマー設定",
       components: [
         {
-          type: MessageComponentTypes.ACTION_ROW,
+          type: ComponentType.ActionRow,
           components: [
             {
-              type: MessageComponentTypes.INPUT_TEXT,
+              type: ComponentType.TextInput,
               custom_id: "timer_time",
               label: "時刻（HH:MM または M分後）",
-              style: TextStyleTypes.SHORT,
+              style: TextInputStyle.Short,
               required: true,
               placeholder: "例: 14:30 または 10分後",
             },
           ],
         },
         {
-          type: MessageComponentTypes.ACTION_ROW,
+          type: ComponentType.ActionRow,
           components: [
             {
-              type: MessageComponentTypes.INPUT_TEXT,
+              type: ComponentType.TextInput,
               custom_id: "timer_message",
               label: "通知メッセージ",
-              style: TextStyleTypes.PARAGRAPH,
+              style: TextInputStyle.Paragraph,
               required: false,
               placeholder: "例: 試合開始時刻です",
             },
@@ -64,10 +64,10 @@ export const handleSubmitTimer = async ({ guildId, channelId, timeInput, userId,
 
     if (!targetDate) {
       return NextResponse.json({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        type: InteractionResponseType.ChannelMessageWithSource,
         data: {
           content: "⚠️ 時刻の形式が正しくありません。\n正しい形式: `HH:MM` または `M分後`",
-          flags: InteractionResponseFlags.EPHEMERAL,
+          flags: MessageFlags.Ephemeral,
         },
       })
     }
@@ -86,19 +86,19 @@ export const handleSubmitTimer = async ({ guildId, channelId, timeInput, userId,
     const timeString = timeInput
 
     return NextResponse.json({
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      type: InteractionResponseType.ChannelMessageWithSource,
       data: {
         content: `⏰ タイマーを設定しました\n時刻: ${timeString}\nメッセージ: ${notificationMessage}`,
-        flags: InteractionResponseFlags.EPHEMERAL,
+        flags: MessageFlags.Ephemeral,
       },
     })
   } catch (error) {
     console.error("Timer setup error:", error)
     return NextResponse.json({
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      type: InteractionResponseType.ChannelMessageWithSource,
       data: {
         content: "❌ タイマーの設定に失敗しました",
-        flags: InteractionResponseFlags.EPHEMERAL,
+        flags: MessageFlags.Ephemeral,
       },
     })
   }

@@ -1,103 +1,88 @@
 import { COMMANDS } from "@/app/_server/util/commands"
-import { ApplicationCommandOptionType } from "@/app/_server/lib/discord/types"
 import { DISCORD_BOT_TOKEN, DISCORD_APPLICATION_ID, DISCORD_COMMAND_GUILD_ID, ENV } from "@/app/_server/lib/env"
+import { type RESTPostAPIApplicationCommandsJSONBody, ApplicationCommandOptionType } from "discord-api-types/v10"
 import "dotenv/config"
 
 // npx tsx app/api/discord/command/register.ts でコマンド登録(完全置き換え)できる
 // ただし、本番環境のビルド時に実行しているので、通常は手動で実行する必要は無い
 
-type DiscordBotCommand = {
-  name: string
-  description: string
-  options?: {
-    name: string // spaceを含まないこと
-    description: string
-    type: ApplicationCommandOptionType
-    required: boolean
-    choices?: {
-      name: string
-      value: string | number
-    }[]
-  }[]
-}
-
-const newMatch: DiscordBotCommand = {
+const newMatch: RESTPostAPIApplicationCommandsJSONBody = {
   name: COMMANDS.LOL.NEW_MATCH,
   description: "レッドサイド、ブルーサイドそれぞれのプロテクトやロール選択を行い、同時発表できます",
   options: [],
 }
 
-const feedback: DiscordBotCommand = {
+const feedback: RESTPostAPIApplicationCommandsJSONBody = {
   name: COMMANDS.USER.FEEDBACK,
   description: "フィードバックを送信します",
   options: [],
 }
 
-const timer: DiscordBotCommand = {
+const timer: RESTPostAPIApplicationCommandsJSONBody = {
   name: COMMANDS.USER.TIMER,
   description: "指定時刻にメッセージを送信するタイマーを設定します",
   options: [],
 }
 
-const commonMessage: DiscordBotCommand = {
+const commonMessage: RESTPostAPIApplicationCommandsJSONBody = {
   name: COMMANDS.USER.COMMON_MESSAGE,
   description: "みんなで編集できる共有メッセージを投稿します",
   options: [],
 }
 
-const mentionByReaction: DiscordBotCommand = {
+const mentionByReaction: RESTPostAPIApplicationCommandsJSONBody = {
   name: COMMANDS.USER.MENTION_REACTORS,
   description: "特定のメッセージに指定のリアクションをつけた人にメンションでメッセージを送れます",
   options: [
     {
       name: "message_link",
       description: "メッセージのリンク（右クリック→メッセージのリンクをコピー）",
-      type: ApplicationCommandOptionType.STRING,
+      type: ApplicationCommandOptionType.String,
       required: true,
     },
   ],
 }
 
-const echo: DiscordBotCommand = {
+const echo: RESTPostAPIApplicationCommandsJSONBody = {
   name: COMMANDS.DEV.ECHO,
   description: "入力したテキストをbotがチャットに送信",
   options: [
     {
       name: "text",
       description: "送信するテキスト",
-      type: ApplicationCommandOptionType.STRING,
+      type: ApplicationCommandOptionType.String,
       required: true,
     },
   ],
 }
 
-const test: DiscordBotCommand = {
+const test: RESTPostAPIApplicationCommandsJSONBody = {
   name: COMMANDS.DEV.TEST,
   description: "実装の動作確認コマンド",
   options: [
     {
       name: "test_number",
       description: "{test_num}::[url?{url}|num?{num}]",
-      type: ApplicationCommandOptionType.INTEGER,
+      type: ApplicationCommandOptionType.Integer,
       required: true,
     },
     {
       name: "url_or_num",
       description: "[url:{url} | num:{num}]",
-      type: ApplicationCommandOptionType.STRING,
+      type: ApplicationCommandOptionType.String,
       required: false,
     },
   ],
 }
 
-const fightingTeamOrder: DiscordBotCommand = {
+const fightingTeamOrder: RESTPostAPIApplicationCommandsJSONBody = {
   name: COMMANDS.FIGHTING.TEAM_ORDER,
   description: "格ゲーチーム戦の出場順を両チーム同時に発表します",
   options: [
     {
       name: "format",
       description: "チーム戦の形式",
-      type: ApplicationCommandOptionType.STRING,
+      type: ApplicationCommandOptionType.String,
       required: true,
       choices: [
         { name: "2v2", value: "2v2" },
@@ -108,19 +93,19 @@ const fightingTeamOrder: DiscordBotCommand = {
     {
       name: "team1_name",
       description: "チーム1の名前",
-      type: ApplicationCommandOptionType.STRING,
+      type: ApplicationCommandOptionType.String,
       required: false,
     },
     {
       name: "team2_name",
       description: "チーム2の名前",
-      type: ApplicationCommandOptionType.STRING,
+      type: ApplicationCommandOptionType.String,
       required: false,
     },
   ],
 }
 
-const commands: DiscordBotCommand[] = [newMatch, feedback, timer, commonMessage, mentionByReaction, fightingTeamOrder, echo, test]
+const commands: RESTPostAPIApplicationCommandsJSONBody[] = [newMatch, feedback, timer, commonMessage, mentionByReaction, fightingTeamOrder, echo, test]
 
 // 開発環境ではコマンド登録をスキップ
 if (ENV !== "production" && ENV !== "preview") {

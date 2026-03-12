@@ -1,6 +1,5 @@
-import { InteractionType } from "discord-interactions"
-import { COMMANDS, CLIENT_ACTIONS } from "@/app/_server/util/commands"
-import { customId } from "@/app/api/discord/util/customId"
+import { COMMANDS } from "@/app/_server/util/commands"
+import { InteractionType } from "discord-api-types/v10"
 
 /**
  * 基本的なDiscordユーザー情報
@@ -25,14 +24,14 @@ const mockMember = {
  * PING インタラクション
  */
 export const createPingPayload = () => ({
-  type: InteractionType.PING,
+  type: InteractionType.Ping,
 })
 
 /**
  * APPLICATION_COMMAND インタラクション（コマンド実行）
  */
 const createCommandPayload = (commandName: string, options: Array<{ name: string; value: string | number }> = []) => ({
-  type: InteractionType.APPLICATION_COMMAND,
+  type: InteractionType.ApplicationCommand,
   id: "interaction-id-" + Math.random().toString(36).substring(7),
   application_id: "test-app-id",
   token: "test-interaction-token",
@@ -70,7 +69,7 @@ export const createMentionReactorsCommandPayload = (messageLink: string) => crea
  * MESSAGE_COMPONENT インタラクション（ボタンクリック）
  */
 export const createButtonClickPayload = (customId: string, messageId: string = "test-message-id") => ({
-  type: InteractionType.MESSAGE_COMPONENT,
+  type: InteractionType.MessageComponent,
   id: "interaction-id-" + Math.random().toString(36).substring(7),
   application_id: "test-app-id",
   token: "test-interaction-token",
@@ -92,7 +91,7 @@ export const createButtonClickPayload = (customId: string, messageId: string = "
  * MESSAGE_COMPONENT インタラクション（セレクトメニュー）
  */
 export const createSelectMenuPayload = (customId: string, values: string[]) => ({
-  type: InteractionType.MESSAGE_COMPONENT,
+  type: InteractionType.MessageComponent,
   id: "interaction-id-" + Math.random().toString(36).substring(7),
   application_id: "test-app-id",
   token: "test-interaction-token",
@@ -111,7 +110,7 @@ export const createSelectMenuPayload = (customId: string, values: string[]) => (
  * MODAL_SUBMIT インタラクション（モーダル送信）
  */
 export const createModalSubmitPayload = (customId: string, components: { customId: string; value: string }[]) => ({
-  type: InteractionType.MODAL_SUBMIT,
+  type: InteractionType.ModalSubmit,
   id: "interaction-id-" + Math.random().toString(36).substring(7),
   application_id: "test-app-id",
   token: "test-interaction-token",

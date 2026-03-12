@@ -2,13 +2,13 @@ import { describe, it, expect } from "vitest"
 import { POST } from "@/app/api/discord/route"
 import { createNewMatchCommandPayload, createButtonClickPayload, createModalSubmitPayload } from "../../../mocks/discord-payloads"
 import { createDiscordRequest, parseJsonResponse } from "../../../helpers/api-test-utils"
-import { InteractionResponseType } from "discord-interactions"
 import { extractMatchId } from "@/__tests__/helpers/discord-test-utils"
 import { redisGet } from "@/app/_server/lib/redis/redis"
 import { getMatchKey } from "@/app/domains/lol/_server/redisKeys"
 import { ProtectMatchMeta, ProtectTeamData } from "@/app/domains/lol/types"
 import { customId } from "@/app/api/discord/util/customId"
 import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
+import { InteractionResponseType } from "discord-api-types/v10"
 
 describe("Discord API - LOL New Match Integration Test (isProtect: true, isRoleSelect: false)", () => {
   it("success:青→赤→発表", async () => {
@@ -18,7 +18,7 @@ describe("Discord API - LOL New Match Integration Test (isProtect: true, isRoleS
     expect(cmdResponse.status).toBe(200)
 
     const cmdData = await parseJsonResponse(cmdResponse)
-    expect(cmdData.type).toBe(InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE)
+    expect(cmdData.type).toBe(InteractionResponseType.ChannelMessageWithSource)
     expect(cmdData.data.content).toContain("プロテクト")
     expect(cmdData.data.components).toBeDefined()
 
@@ -44,7 +44,7 @@ describe("Discord API - LOL New Match Integration Test (isProtect: true, isRoleS
     expect(blueButtonResponse.status).toBe(200)
 
     const blueButtonData = await parseJsonResponse(blueButtonResponse)
-    expect(blueButtonData.type).toBe(InteractionResponseType.MODAL)
+    expect(blueButtonData.type).toBe(InteractionResponseType.Modal)
     expect(blueButtonData.data.title).toContain("ブルーサイド")
     expect(blueButtonData.data.components).toBeDefined()
     expect(blueButtonData.data.components.length).toBeGreaterThan(0)
@@ -58,7 +58,7 @@ describe("Discord API - LOL New Match Integration Test (isProtect: true, isRoleS
     const blueModalData = await parseJsonResponse(blueModalResponse)
 
     expect(blueModalResponse.status).toBe(200)
-    expect(blueModalData.type).toBe(InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE)
+    expect(blueModalData.type).toBe(InteractionResponseType.ChannelMessageWithSource)
     expect(blueModalData.data.content).toContain("登録完了")
 
     // 青チームのデータが保存されているか確認
@@ -74,7 +74,7 @@ describe("Discord API - LOL New Match Integration Test (isProtect: true, isRoleS
     const redButtonData = await parseJsonResponse(redButtonResponse)
 
     expect(redButtonResponse.status).toBe(200)
-    expect(redButtonData.type).toBe(InteractionResponseType.MODAL)
+    expect(redButtonData.type).toBe(InteractionResponseType.Modal)
     expect(redButtonData.data.title).toContain("レッドサイド")
 
     // ⑤ 赤チームのモーダルを送信 → Redisに保存 & 両チーム完了のEmbedメッセージを返す
@@ -86,7 +86,7 @@ describe("Discord API - LOL New Match Integration Test (isProtect: true, isRoleS
     const redModalData = await parseJsonResponse(redModalResponse)
 
     expect(redModalResponse.status).toBe(200)
-    expect(redModalData.type).toBe(InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE)
+    expect(redModalData.type).toBe(InteractionResponseType.ChannelMessageWithSource)
 
     // Embedメッセージの内容を確認
     expect(redModalData.data.embeds).toBeDefined()
