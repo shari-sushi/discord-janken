@@ -137,7 +137,51 @@ console.log(`Registering commands as ${isGuildCommand ? "guild commands (即時�
 
 if (isGuildCommand) {
   ;(async () => {
+    // 既存のguild commandsを取得し、そこに無いもののみpostする。
+    // 登録済みだがこのファイルのリストに無いものは「残しておく」。他ブランチで登録した可能性が高いため。
+
+    let existingCommands: { name: string; id: string }[] = []
+    try {
+      const getRes = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+        },
+      })
+
+      if (!getRes.ok) {
+        const errorData = await getRes.json()
+        console.error("Failed to get existing commands:", JSON.stringify(errorData, null, 2))
+        process.exit(1)
+      }
+
+      existingCommands = await getRes.json()
+      console.log(`Found ${existingCommands.length} existing guild commands`)
+    } catch (err) {
+      console.error("Error fetching existing commands:", err)
+      process.exit(1)
+    }
+
+    // 既存コマンドの名前リストを作成
+    const existingCommandNames = new Set(existingCommands.map((cmd) => cmd.name))
+
+    // 新しいコマンドのうち、既存に無いもののみPOST
+    let registeredCount = 0
+    let skippedCount = 0
+
     for (const command of commands) {
+      // Rate limit対策: 2ms で5つpostしたらrate limitsに引っかかった経緯有り(再現性2/2)
+      if (registeredCount > 0 && registeredCount % 4 == 0) {
+        const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+        await sleep(4000)
+      }
+
+      if (existingCommandNames.has(command.name)) {
+        console.log(`⊖ Already exists: ${command.name}`)
+        skippedCount++
+        continue
+      }
+
       try {
         const res = await fetch(url, {
           method: "POST",
@@ -154,12 +198,17 @@ if (isGuildCommand) {
           process.exit(1)
         }
         console.log(`✓ Registered: ${command.name}`)
+        registeredCount++
       } catch (err) {
         console.error(`Error registering command "${command.name}":`, err)
         process.exit(1)
       }
     }
-    console.log("All guild commands registered successfully")
+
+    console.log(`\nSummary:`)
+    console.log(`  Registered: ${registeredCount}`)
+    console.log(`  Skipped (already exists): ${skippedCount}`)
+    console.log(`  Kept (not in this list): ${existingCommands.length - skippedCount}`)
   })()
 } else {
   fetch(url, {
