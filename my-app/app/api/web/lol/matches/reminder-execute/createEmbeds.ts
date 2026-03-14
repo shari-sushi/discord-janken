@@ -1,4 +1,4 @@
-import { DiscordEmbed } from "@/app/_server/lib/discord/types"
+import { APIEmbed } from "discord-api-types/v10"
 
 type ReminderEmbedInput = {
   message?: string
@@ -6,9 +6,9 @@ type ReminderEmbedInput = {
   matchStatusContent?: string
 }
 
-export const createReminderEmbeds = (input: ReminderEmbedInput, suffixEmbeds: DiscordEmbed[], color = 3447003): DiscordEmbed[] => {
+export const createReminderEmbeds = (input: ReminderEmbedInput, suffixEmbeds: APIEmbed[], color = 3447003): APIEmbed[] => {
   // 5. メッセージを構築
-  const timerEmbed: DiscordEmbed = {
+  const timerEmbed: APIEmbed = {
     title: "⏰ タイマー通知",
     color: color,
     description: "",

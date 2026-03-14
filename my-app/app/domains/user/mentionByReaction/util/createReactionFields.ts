@@ -1,4 +1,4 @@
-import { DiscordEmbedField } from "@/app/_server/lib/discord/types"
+import { APIEmbedField } from "discord-api-types/v10"
 import { ReactionFieldData } from "../types"
 
 /**
@@ -6,7 +6,7 @@ import { ReactionFieldData } from "../types"
  * @param reactionFields - リアクションフィールドデータ配列
  * @returns Embed Field配列
  */
-export const createReactionFields = (reactionFields: ReactionFieldData[]): DiscordEmbedField[] => {
+export const createReactionFields = (reactionFields: ReactionFieldData[]): APIEmbedField[] => {
   return reactionFields.map((field) => {
     // ユーザーをメンション形式に変換
     const mentions = field.userIds.map((userId) => `<@${userId}>`).join(" ")

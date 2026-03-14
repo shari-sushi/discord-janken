@@ -5,7 +5,7 @@ import { getMatchKey } from "@/app/domains/lol/_server/redisKeys"
 import { ProtectTeamData, ProtectMatchMeta } from "@/app/domains/lol/types"
 import { QSTASH_CURRENT_SIGNING_KEY, QSTASH_NEXT_SIGNING_KEY, DISCORD_BOT_TOKEN, DISCORD_API_BASE_URL } from "@/app/_server/lib/env"
 import { getMatchStatusMessage } from "@/app/api/discord/command/lol/util/getMatchStatusMessage"
-import { DiscordEmbed } from "@/app/_server/lib/discord/types"
+import { APIEmbed } from "discord-api-types/v10"
 import { createReminderEmbeds } from "./createEmbeds"
 
 interface ReminderPayload {
@@ -18,7 +18,7 @@ interface ReminderPayload {
 
 interface DiscordMessageRequestBody {
   content?: string
-  embeds?: DiscordEmbed[]
+  embeds?: APIEmbed[]
 }
 
 // リマインダーの通知タイミングで使われるapi。通常は人が直接使うことは無い。
