@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { createReminderEmbeds } from "./createEmbeds"
-import { DiscordEmbed } from "@/app/_server/lib/discord/types"
+import { APIEmbed } from "discord-api-types/v10"
 
 describe("createReminderEmbeds", () => {
   // 仕様として固定の値のみ共通化
@@ -77,7 +77,7 @@ describe("createReminderEmbeds", () => {
 
   it("success: suffixEmbedsが渡された場合、正しく結合される", () => {
     const message = "テストメッセージ"
-    const suffixEmbeds: DiscordEmbed[] = [
+    const suffixEmbeds: APIEmbed[] = [
       {
         title: "追加情報1",
         description: "詳細1",

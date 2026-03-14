@@ -1,4 +1,4 @@
-import { DiscordInteraction, InteractionData, MessageComponentData } from "@/app/_server/lib/discord/types"
+import { APIModalSubmitInteraction, APIModalSubmission, APIModalSubmissionComponent } from "discord-api-types/v10"
 
 /**
  * Extracted Interaction Data
@@ -8,8 +8,8 @@ interface InteractionDataExtracted {
   guildId?: string
   customId?: string
   userId?: string
-  components: MessageComponentData[]
-  data: InteractionData | undefined
+  components: APIModalSubmissionComponent[]
+  data: APIModalSubmission | undefined
 }
 
 /**
@@ -17,9 +17,9 @@ interface InteractionDataExtracted {
  * @param interaction - Discord Interaction オブジェクト
  * @returns 抽出されたデータ（customId と components）
  */
-export function extractInteractionData(interaction: DiscordInteraction): InteractionDataExtracted {
+export function extractModalSubmitInteractionData(interaction: APIModalSubmitInteraction): InteractionDataExtracted {
   return {
-    channelId: interaction.channel_id,
+    channelId: interaction.channel?.id,
     guildId: interaction.guild_id,
     userId: interaction.member?.user?.id,
     customId: interaction.data?.custom_id,

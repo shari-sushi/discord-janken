@@ -5,8 +5,7 @@ import { redisSet, redisGet, redisMGet, redisDelete } from "@/app/_server/lib/re
 import { createProtectComponents } from "../../util/createProtectMessageComponents"
 import { ProtectTeamData, ProtectMatchMeta, TeamSide } from "@/app/domains/lol/types"
 import { getMatchKey } from "@/app/domains/lol/_server/redisKeys"
-import { InteractionResponseType, InteractionResponseFlags, MessageComponentTypes, TextStyleTypes } from "discord-interactions"
-import { InteractionData } from "@/app/_server/lib/discord/types"
+import { APIModalInteractionResponseCallbackComponent, APIModalSubmission, ComponentType, InteractionResponseType, MessageFlags, TextInputStyle } from "discord-api-types/v10"
 import { getValue } from "../../util/getComponentValue"
 import { customId } from "../../util/customId"
 import { createCompletionEmbedData } from "./util/createCompletionEmbedData"
@@ -26,7 +25,7 @@ export const newMatchCommand = async (): Promise<NextResponse> => {
   await redisSet(getMatchKey(matchId, "meta"), meta)
 
   return NextResponse.json({
-    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    type: InteractionResponseType.ChannelMessageWithSource,
     data: {
       content: "自分のチームのプロテクトを入力してください",
       components: createProtectComponents(matchId),
@@ -39,7 +38,7 @@ export const newMatchCommand = async (): Promise<NextResponse> => {
  */
 function createCompletionEmbed(meta: ProtectMatchMeta, teamData: { blue: ProtectTeamData; red: ProtectTeamData }) {
   return NextResponse.json({
-    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    type: InteractionResponseType.ChannelMessageWithSource,
     data: createCompletionEmbedData(meta, teamData),
   })
 }
@@ -53,32 +52,32 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
 
   if (!meta) {
     return NextResponse.json({
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-      data: { content: "エラー: 試合情報が見つかりません", flags: InteractionResponseFlags.EPHEMERAL },
+      type: InteractionResponseType.ChannelMessageWithSource,
+      data: { content: "エラー: 試合情報が見つかりません", flags: MessageFlags.Ephemeral },
     })
   }
 
   // どちらもfalseの場合
   if (!meta.isProtect && !meta.isRoleSelect) {
     return NextResponse.json({
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-      data: { content: "入力が求められている情報がありません。プロテクトの宣言もロール振り分けも不要です。", flags: InteractionResponseFlags.EPHEMERAL },
+      type: InteractionResponseType.ChannelMessageWithSource,
+      data: { content: "入力が求められている情報がありません。プロテクトの宣言もロール振り分けも不要です。", flags: MessageFlags.Ephemeral },
     })
   }
 
   // モーダルのcomponentsを構築
-  const components: Array<Record<string, unknown>> = []
+  const components: APIModalInteractionResponseCallbackComponent[] = []
 
   // プロテクト入力（isProtect: trueの場合）
   if (meta.isProtect) {
     components.push({
-      type: MessageComponentTypes.ACTION_ROW,
+      type: ComponentType.ActionRow,
       components: [
         {
-          type: MessageComponentTypes.INPUT_TEXT,
+          type: ComponentType.TextInput,
           custom_id: customId("protection_champions").matchId(matchId),
           label: "プロテクトするチャンプを入力",
-          style: TextStyleTypes.SHORT,
+          style: TextInputStyle.Short,
           required: true,
           placeholder: isBlue ? "例：モルガナ、メル" : "例：ヴェルコズ、ニーコ",
         },
@@ -90,8 +89,8 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
   if (meta.isRoleSelect) {
     if (!meta.members) {
       return NextResponse.json({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: { content: "エラー: メンバー情報が見つかりません", flags: InteractionResponseFlags.EPHEMERAL },
+        type: InteractionResponseType.ChannelMessageWithSource,
+        data: { content: "エラー: メンバー情報が見つかりません", flags: MessageFlags.Ephemeral },
       })
     }
 
@@ -100,10 +99,10 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
 
     // Top
     components.push({
-      type: MessageComponentTypes.LABEL,
+      type: ComponentType.Label,
       label: "Top",
       component: {
-        type: MessageComponentTypes.STRING_SELECT,
+        type: ComponentType.StringSelect,
         custom_id: customId("role_top").matchId(matchId),
         placeholder: "Topを選択",
         options: roleOptions,
@@ -113,10 +112,10 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
 
     // Jungle
     components.push({
-      type: MessageComponentTypes.LABEL,
+      type: ComponentType.Label,
       label: "Jungle",
       component: {
-        type: MessageComponentTypes.STRING_SELECT,
+        type: ComponentType.StringSelect,
         custom_id: customId("role_jg").matchId(matchId),
         placeholder: "Jungleを選択",
         options: roleOptions,
@@ -126,10 +125,10 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
 
     // Mid
     components.push({
-      type: MessageComponentTypes.LABEL,
+      type: ComponentType.Label,
       label: "Mid",
       component: {
-        type: MessageComponentTypes.STRING_SELECT,
+        type: ComponentType.StringSelect,
         custom_id: customId("role_mid").matchId(matchId),
         placeholder: "Midを選択",
         options: roleOptions,
@@ -139,10 +138,10 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
 
     // ADC
     components.push({
-      type: MessageComponentTypes.LABEL,
+      type: ComponentType.Label,
       label: "ADC",
       component: {
-        type: MessageComponentTypes.STRING_SELECT,
+        type: ComponentType.StringSelect,
         custom_id: customId("role_adc").matchId(matchId),
         placeholder: "ADCを選択",
         options: roleOptions,
@@ -153,7 +152,7 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
 
   const action = isBlue ? CLIENT_ACTIONS.LOL.REGISTER_BLUE_TEAM : CLIENT_ACTIONS.LOL.REGISTER_RED_TEAM
   return NextResponse.json({
-    type: InteractionResponseType.MODAL,
+    type: InteractionResponseType.Modal,
     data: {
       custom_id: customId(action).messageId(messageId),
       title: isBlue ? "ブルーサイド" : "レッドサイド",
@@ -166,7 +165,7 @@ type handleRegisterTeamArgs = {
   matchId: string
   userId: string
   teamSide: TeamSide
-  data: InteractionData
+  data: APIModalSubmission
 }
 
 // チーム情報の登録処理
@@ -180,7 +179,7 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: ha
   if (!meta) {
     console.error("Meta not found for matchId:", matchId)
     return {
-      response: NextResponse.json({ type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE, data: { content: "エラー: 試合情報が見つかりません", flags: InteractionResponseFlags.EPHEMERAL } }),
+      response: NextResponse.json({ type: InteractionResponseType.ChannelMessageWithSource, data: { content: "エラー: 試合情報が見つかりません", flags: MessageFlags.Ephemeral } }),
       isBothTeamsRegistered: false,
     }
   }
@@ -202,8 +201,8 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: ha
       console.error("ロール選択エラー")
       return {
         response: NextResponse.json({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: { content: "エラー: 全てのロールに選手を割り振ってください", flags: InteractionResponseFlags.EPHEMERAL },
+          type: InteractionResponseType.ChannelMessageWithSource,
+          data: { content: "エラー: 全てのロールに選手を割り振ってください", flags: MessageFlags.Ephemeral },
         }),
         isBothTeamsRegistered: false,
       }
@@ -215,8 +214,8 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: ha
     if (uniqueMembers.size !== 4) {
       return {
         response: NextResponse.json({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: { content: "エラー: 同じメンバーが複数のロールに選択されています", flags: InteractionResponseFlags.EPHEMERAL },
+          type: InteractionResponseType.ChannelMessageWithSource,
+          data: { content: "エラー: 同じメンバーが複数のロールに選択されています", flags: MessageFlags.Ephemeral },
         }),
         isBothTeamsRegistered: false,
       }
@@ -226,8 +225,8 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: ha
     if (!meta.members) {
       return {
         response: NextResponse.json({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: { content: "エラー: メンバー情報が見つかりません", flags: InteractionResponseFlags.EPHEMERAL },
+          type: InteractionResponseType.ChannelMessageWithSource,
+          data: { content: "エラー: メンバー情報が見つかりません", flags: MessageFlags.Ephemeral },
         }),
         isBothTeamsRegistered: false,
       }
@@ -240,8 +239,8 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: ha
     if (!supMember) {
       return {
         response: NextResponse.json({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: { content: "エラー: Supportロールに割り当てるメンバーが見つかりません", flags: InteractionResponseFlags.EPHEMERAL },
+          type: InteractionResponseType.ChannelMessageWithSource,
+          data: { content: "エラー: Supportロールに割り当てるメンバーが見つかりません", flags: MessageFlags.Ephemeral },
         }),
         isBothTeamsRegistered: false,
       }
@@ -287,7 +286,7 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: ha
     console.log(teamSide, "- Returning single team completion message")
     return {
       response: NextResponse.json({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        type: InteractionResponseType.ChannelMessageWithSource,
         data: { content: teamSide === "blue_team" ? `🟦 ブルーサイド登録完了 (登録者<@${userId}>)` : `🟥 レッドサイド登録完了 (登録者<@${userId}>)` },
       }),
       isBothTeamsRegistered: false,
@@ -301,14 +300,14 @@ export const handleCheckRegistered = async (matchId: string): Promise<NextRespon
 
   if (!messageData) {
     return NextResponse.json({
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-      data: { content: "エラー: 試合情報が見つかりません", flags: InteractionResponseFlags.EPHEMERAL },
+      type: InteractionResponseType.ChannelMessageWithSource,
+      data: { content: "エラー: 試合情報が見つかりません", flags: MessageFlags.Ephemeral },
     })
   }
 
   return NextResponse.json({
-    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-    data: { ...messageData, flags: InteractionResponseFlags.EPHEMERAL },
+    type: InteractionResponseType.ChannelMessageWithSource,
+    data: { ...messageData, flags: MessageFlags.Ephemeral },
   })
 }
 
@@ -318,8 +317,8 @@ export const handleResetRegistered = async (matchId: string): Promise<NextRespon
   const meta = await redisGet<ProtectMatchMeta>(getMatchKey(matchId, "meta"))
   if (!meta) {
     return NextResponse.json({
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-      data: { content: "エラー: 試合情報が見つかりません", flags: InteractionResponseFlags.EPHEMERAL },
+      type: InteractionResponseType.ChannelMessageWithSource,
+      data: { content: "エラー: 試合情報が見つかりません", flags: MessageFlags.Ephemeral },
     })
   }
 
@@ -329,29 +328,29 @@ export const handleResetRegistered = async (matchId: string): Promise<NextRespon
 
   if (blueTeamData && redTeamData) {
     return NextResponse.json({
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-      data: { content: "エラー: 両チーム登録済みのためリセットできません", flags: InteractionResponseFlags.EPHEMERAL },
+      type: InteractionResponseType.ChannelMessageWithSource,
+      data: { content: "エラー: 両チーム登録済みのためリセットできません", flags: MessageFlags.Ephemeral },
     })
   }
 
   if (!blueTeamData && !redTeamData) {
     return NextResponse.json({
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-      data: { content: "エラー: 両チーム未登録のため、リセットするデータがありません", flags: InteractionResponseFlags.EPHEMERAL },
+      type: InteractionResponseType.ChannelMessageWithSource,
+      data: { content: "エラー: 両チーム未登録のため、リセットするデータがありません", flags: MessageFlags.Ephemeral },
     })
   }
 
   if (blueTeamData) {
     await redisDelete(getMatchKey(matchId, "blue_team"))
     return NextResponse.json({
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      type: InteractionResponseType.ChannelMessageWithSource,
       data: { content: "ブルーチームのデータを削除しました" },
     })
   }
 
   await redisDelete(getMatchKey(matchId, "red_team"))
   return NextResponse.json({
-    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    type: InteractionResponseType.ChannelMessageWithSource,
     data: { content: "レッドチームのデータを削除しました" },
   })
 }

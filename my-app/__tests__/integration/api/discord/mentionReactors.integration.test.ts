@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest"
 import { POST } from "@/app/api/discord/route"
 import { createMentionReactorsCommandPayload } from "../../../mocks/discord-payloads"
 import { createDiscordRequest, parseJsonResponse } from "../../../helpers/api-test-utils"
-import { InteractionResponseType, InteractionResponseFlags } from "discord-interactions"
 import * as discordApi from "@/app/_server/lib/discord/api"
+import { InteractionResponseType, MessageFlags } from "discord-api-types/v10"
 
 // Discord API関数をモック化
 vi.mock("@/app/_server/lib/discord/api", async () => {
@@ -65,7 +65,7 @@ describe("Discord API - /user-mention-reactors Command Integration Test", () => 
     const data = await parseJsonResponse(response)
 
     expect(response.status).toBe(200)
-    expect(data.type).toBe(InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE)
+    expect(data.type).toBe(InteractionResponseType.ChannelMessageWithSource)
     expect(data.data.embeds).toBeDefined()
     expect(data.data.embeds).toHaveLength(1)
 
@@ -103,9 +103,9 @@ describe("Discord API - /user-mention-reactors Command Integration Test", () => 
     const data = await parseJsonResponse(response)
 
     expect(response.status).toBe(200)
-    expect(data.type).toBe(InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE)
+    expect(data.type).toBe(InteractionResponseType.ChannelMessageWithSource)
     expect(data.data.content).toContain("不正なメッセージリンクです")
-    expect(data.data.flags).toBe(InteractionResponseFlags.EPHEMERAL)
+    expect(data.data.flags).toBe(MessageFlags.Ephemeral)
   })
 
   it("failure: リアクションがない場合、エラーメッセージを返す", async () => {
@@ -134,9 +134,9 @@ describe("Discord API - /user-mention-reactors Command Integration Test", () => 
     const data = await parseJsonResponse(response)
 
     expect(response.status).toBe(200)
-    expect(data.type).toBe(InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE)
+    expect(data.type).toBe(InteractionResponseType.ChannelMessageWithSource)
     expect(data.data.content).toContain("リアクションがありません")
-    expect(data.data.flags).toBe(InteractionResponseFlags.EPHEMERAL)
+    expect(data.data.flags).toBe(MessageFlags.Ephemeral)
   })
 
   it("failure: メッセージが見つからない場合、エラーメッセージを返す", async () => {
@@ -153,9 +153,9 @@ describe("Discord API - /user-mention-reactors Command Integration Test", () => 
     const data = await parseJsonResponse(response)
 
     expect(response.status).toBe(200)
-    expect(data.type).toBe(InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE)
+    expect(data.type).toBe(InteractionResponseType.ChannelMessageWithSource)
     expect(data.data.content).toContain("メッセージまたはリアクション情報の取得に失敗しました")
-    expect(data.data.flags).toBe(InteractionResponseFlags.EPHEMERAL)
+    expect(data.data.flags).toBe(MessageFlags.Ephemeral)
   })
 
   it("success: カスタム絵文字のリアクションも正しく処理できる", async () => {
@@ -202,7 +202,7 @@ describe("Discord API - /user-mention-reactors Command Integration Test", () => 
     const data = await parseJsonResponse(response)
 
     expect(response.status).toBe(200)
-    expect(data.type).toBe(InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE)
+    expect(data.type).toBe(InteractionResponseType.ChannelMessageWithSource)
     expect(data.data.embeds[0].fields[0].name).toBe("custom_emoji (1)")
     expect(data.data.embeds[0].fields[0].value).toBe("<@user1>")
 

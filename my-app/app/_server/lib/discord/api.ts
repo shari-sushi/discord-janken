@@ -2,8 +2,8 @@
  * Discord REST API 通信用のヘルパー関数
  */
 
-import { MessageComponent } from "discord-interactions"
-import { DISCORD_API_BASE_URL, DISCORD_BOT_TOKEN, DISCORD_APPLICATION_ID } from "@/app/_server/lib/env"
+import { APIActionRowComponent, APIComponentInMessageActionRow } from "discord-api-types/v10"
+import { DISCORD_API_BASE_URL, DISCORD_BOT_TOKEN } from "@/app/_server/lib/env"
 
 export interface DiscordMessageResponse {
   id: string
@@ -41,7 +41,7 @@ export class DiscordApiError extends Error {
 
 interface DiscordMessageBody {
   content: string
-  components?: MessageComponent[]
+  components?: APIActionRowComponent<APIComponentInMessageActionRow>[]
 }
 
 /**
@@ -51,7 +51,7 @@ interface DiscordMessageBody {
  * @param components - ボタンなどのコンポーネント配列
  * @returns Discord APIからのレスポンス（message_id等）
  */
-export async function sendDiscordMessage(channelId: string, content: string, components?: MessageComponent[]): Promise<DiscordMessageResponse> {
+export async function sendDiscordMessage(channelId: string, content: string, components?: APIActionRowComponent<APIComponentInMessageActionRow>[]): Promise<DiscordMessageResponse> {
   const url = `${DISCORD_API_BASE_URL}/channels/${channelId}/messages`
 
   const body: DiscordMessageBody = {
@@ -94,7 +94,7 @@ export async function sendDiscordMessage(channelId: string, content: string, com
  * @param content - 新しいメッセージ本文
  * @param components - 新しいコンポーネント配列
  */
-export async function editDiscordMessage(channelId: string, messageId: string, content: string, components?: MessageComponent[]): Promise<void> {
+export async function editDiscordMessage(channelId: string, messageId: string, content: string, components?: APIActionRowComponent<APIComponentInMessageActionRow>[]): Promise<void> {
   const url = `${DISCORD_API_BASE_URL}/channels/${channelId}/messages/${messageId}`
 
   const body: DiscordMessageBody = { content }
@@ -206,11 +206,7 @@ function encodeEmoji(reaction: DiscordReaction): string {
  * @param reactions - リアクション配列
  * @returns リアクションフィールドデータの配列
  */
-export async function getAllReactionFields(
-  channelId: string,
-  messageId: string,
-  reactions: DiscordReaction[],
-): Promise<Array<{ emojiName: string; count: number; userIds: string[] }>> {
+export async function getAllReactionFields(channelId: string, messageId: string, reactions: DiscordReaction[]): Promise<Array<{ emojiName: string; count: number; userIds: string[] }>> {
   return await Promise.all(
     reactions.map(async (reaction) => {
       const emojiEncoded = encodeEmoji(reaction)

@@ -1,10 +1,10 @@
-import { DiscordEmbed, DiscordEmbedField } from "@/app/_server/lib/discord/types"
+import { APIEmbed, APIEmbedField } from "discord-api-types/v10"
 import { ProtectMatchMeta, ProtectTeamData } from "@/app/domains/lol/types"
 
 /**
  * 両チーム完了時のEmbedデータを生成（3カラムテーブル形式）
  */
-export const createCompletionEmbedData = (meta: ProtectMatchMeta, teamsData: { blue: ProtectTeamData; red: ProtectTeamData }): { embeds?: DiscordEmbed[] } => {
+export const createCompletionEmbedData = (meta: ProtectMatchMeta, teamsData: { blue: ProtectTeamData; red: ProtectTeamData }): { embeds?: APIEmbed[] } => {
   // 左カラム（項目名）の値を構築
   const leftColumnLines: string[] = []
 
@@ -36,7 +36,7 @@ export const createCompletionEmbedData = (meta: ProtectMatchMeta, teamsData: { b
   }
 
   // fieldsを構築
-  const fields: DiscordEmbedField[] = [
+  const fields: APIEmbedField[] = [
     {
       name: "\u200B",
       value: leftColumnLines.join("\n"),

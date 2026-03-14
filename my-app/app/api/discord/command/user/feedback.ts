@@ -1,26 +1,33 @@
 import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { NextResponse } from "next/server"
 import { appendFeedbackToSheet } from "@/app/_server/lib/googleSheets"
-import { StringSelectOption, InteractionResponseType, InteractionResponseFlags, MessageComponentTypes, TextStyleTypes } from "discord-interactions"
-import { DiscordInteraction } from "@/app/_server/lib/discord/types"
 import { getValue } from "@/app/api/discord/util/getComponentValue"
 import { FeedBackType } from "@/app/domains/user/feedback/types"
-import { extractInteractionData } from "../../util/extractInteractionData"
+import { extractModalSubmitInteractionData } from "../../util/extractModalSubmitInteractionData"
 import { extractType } from "../../util/extractCustomIdParam"
 import { customId } from "../../util/customId"
+import {
+  APIModalInteractionResponseCallbackComponent,
+  APIModalSubmitInteraction,
+  APISelectMenuOption,
+  ComponentType,
+  InteractionResponseType,
+  MessageFlags,
+  TextInputStyle,
+} from "discord-api-types/v10"
 
 // コマンド初期表示
 export const feedbackCommand = () => {
   return NextResponse.json({
-    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    type: InteractionResponseType.ChannelMessageWithSource,
     data: {
       content: "フィードバックの種類を選択してください",
       components: [
         {
-          type: MessageComponentTypes.ACTION_ROW,
+          type: ComponentType.ActionRow,
           components: [
             {
-              type: MessageComponentTypes.STRING_SELECT,
+              type: ComponentType.StringSelect,
               custom_id: CLIENT_ACTIONS.USER.SELECT_FEEDBACK_TYPE,
               placeholder: "種類を選択...",
               options: [
@@ -40,12 +47,12 @@ export const feedbackCommand = () => {
                   label: "その他",
                   value: "other",
                 },
-              ] satisfies Array<StringSelectOption & { value: FeedBackType }>,
+              ] satisfies Array<APISelectMenuOption & { value: FeedBackType }>,
             },
           ],
         },
       ],
-      flags: InteractionResponseFlags.EPHEMERAL,
+      flags: MessageFlags.Ephemeral,
     },
   })
 }
@@ -53,51 +60,51 @@ export const feedbackCommand = () => {
 // フィードバック種類選択処理
 export const handleSelectFeedbackType = (selectedType: FeedBackType) => {
   return NextResponse.json({
-    type: InteractionResponseType.MODAL,
+    type: InteractionResponseType.Modal,
     data: {
       custom_id: customId(CLIENT_ACTIONS.USER.SUBMIT_FEEDBACK).type(selectedType),
       title: "フィードバック",
       components: [
         {
-          type: MessageComponentTypes.ACTION_ROW,
+          type: ComponentType.ActionRow,
           components: [
             {
-              type: MessageComponentTypes.INPUT_TEXT,
+              type: ComponentType.TextInput,
               custom_id: "feedback_name",
               label: "お名前（任意）",
-              style: TextStyleTypes.SHORT,
+              style: TextInputStyle.Short,
               required: false,
               placeholder: "例：太郎",
             },
           ],
         },
         {
-          type: MessageComponentTypes.ACTION_ROW,
+          type: ComponentType.ActionRow,
           components: [
             {
-              type: MessageComponentTypes.INPUT_TEXT,
+              type: ComponentType.TextInput,
               custom_id: "feedback_content",
               label: "内容（必須）",
-              style: TextStyleTypes.PARAGRAPH,
+              style: TextInputStyle.Paragraph,
               required: true,
               placeholder: "フィードバック内容を入力してください",
             },
           ],
         },
-      ],
+      ] satisfies APIModalInteractionResponseCallbackComponent[],
     },
   })
 }
 
 // フィードバック送信処理
-export const handleSubmitFeedback = async (interaction: DiscordInteraction) => {
-  const { customId } = extractInteractionData(interaction)
+export const handleSubmitFeedback = async (interaction: APIModalSubmitInteraction) => {
+  const { customId } = extractModalSubmitInteractionData(interaction)
   if (!customId) {
     return NextResponse.json({
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      type: InteractionResponseType.ChannelMessageWithSource,
       data: {
         content: "フィードバックの送信に失敗しました。もう一度お試しください。",
-        flags: InteractionResponseFlags.EPHEMERAL,
+        flags: MessageFlags.Ephemeral,
       },
     })
   }
@@ -110,10 +117,10 @@ export const handleSubmitFeedback = async (interaction: DiscordInteraction) => {
   const content = getValue("feedback_content", interaction.data)
   if (!content) {
     return NextResponse.json({
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      type: InteractionResponseType.ChannelMessageWithSource,
       data: {
         content: "本文が必要です",
-        flags: InteractionResponseFlags.EPHEMERAL,
+        flags: MessageFlags.Ephemeral,
       },
     })
   }
@@ -131,19 +138,19 @@ export const handleSubmitFeedback = async (interaction: DiscordInteraction) => {
     })
 
     return NextResponse.json({
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      type: InteractionResponseType.ChannelMessageWithSource,
       data: {
         content: "フィードバックを送信しました。ありがとうございます！",
-        flags: InteractionResponseFlags.EPHEMERAL,
+        flags: MessageFlags.Ephemeral,
       },
     })
   } catch (error) {
     console.error("Error submitting feedback:", error)
     return NextResponse.json({
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      type: InteractionResponseType.ChannelMessageWithSource,
       data: {
         content: "フィードバックの送信に失敗しました。もう一度お試しください。",
-        flags: InteractionResponseFlags.EPHEMERAL,
+        flags: MessageFlags.Ephemeral,
       },
     })
   }
