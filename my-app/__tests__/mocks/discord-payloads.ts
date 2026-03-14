@@ -1,5 +1,5 @@
 import { COMMANDS } from "@/app/_server/util/commands"
-import { InteractionType } from "discord-api-types/v10"
+import { InteractionType, ApplicationCommandType } from "discord-api-types/v10"
 
 /**
  * 基本的なDiscordユーザー情報
@@ -37,6 +37,7 @@ const createCommandPayload = (commandName: string, options: Array<{ name: string
   token: "test-interaction-token",
   version: 1,
   data: {
+    type: ApplicationCommandType.ChatInput,
     name: commandName,
     options,
   },
