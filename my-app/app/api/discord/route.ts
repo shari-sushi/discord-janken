@@ -221,16 +221,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       console.log("Extracted match_id:", matchId)
       const messageId = extractMessageId(customId) || ""
 
-      const channelId = interaction.channel_id || ""
+      const channelId = interaction.channel?.id || ""
       const userId = interaction.member?.user?.id ?? ""
-
       const modalActionId = customId.split("?")[0]
       if (modalActionId === CLIENT_ACTIONS.LOL.REGISTER_RED_TEAM) {
         if (!interaction.data) {
           return NextResponse.json({ error: "Missing interaction data" }, { status: 400 })
         }
 
-        const { response, isBothTeamsRegistered } = await handleRegisterTeam({ matchId, teamSide: "red_team", userId, data: interaction.data })
+        const interactionToken = interaction.token
+        const { response, isBothTeamsRegistered } = await handleRegisterTeam({ matchId, teamSide: "red_team", userId, data: interaction.data, interactionToken })
         if (isBothTeamsRegistered && messageId && channelId) {
           await disableRegisterButtonsMessage(messageId, channelId, matchId)
         }
@@ -243,7 +243,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return NextResponse.json({ error: "Missing interaction data" }, { status: 400 })
         }
 
-        const { response, isBothTeamsRegistered } = await handleRegisterTeam({ matchId, teamSide: "blue_team", userId, data: interaction.data })
+        const interactionToken = interaction.token
+        const { response, isBothTeamsRegistered } = await handleRegisterTeam({ matchId, teamSide: "blue_team", userId, data: interaction.data, interactionToken })
         if (isBothTeamsRegistered && messageId && channelId) {
           await disableRegisterButtonsMessage(messageId, channelId, matchId)
         }

@@ -2,7 +2,7 @@ import { Receiver } from "@upstash/qstash"
 import { NextRequest, NextResponse } from "next/server"
 import { redisGet, redisMGet } from "@/app/_server/lib/redis/redis"
 import { getMatchKey } from "@/app/domains/lol/_server/redisKeys"
-import { ProtectTeamData, ProtectMatchMeta } from "@/app/domains/lol/types"
+import { RegisteredTeamData, ProtectMatchMeta } from "@/app/domains/lol/types"
 import { QSTASH_CURRENT_SIGNING_KEY, QSTASH_NEXT_SIGNING_KEY, DISCORD_BOT_TOKEN, DISCORD_API_BASE_URL } from "@/app/_server/lib/env"
 import { getMatchStatusMessage } from "@/app/api/discord/command/lol/util/getMatchStatusMessage"
 import { APIEmbed } from "discord-api-types/v10"
@@ -51,6 +51,16 @@ export async function POST(req: NextRequest) {
     const payload: ReminderPayload = JSON.parse(body)
     const { matchId, channelId } = payload
 
+    // デバッグ: payloadの内容を確認
+    console.log("Reminder payload:", {
+      matchId,
+      channelId,
+      message: payload.message,
+      createdBy: payload.createdBy,
+      createdByType: typeof payload.createdBy,
+      createdByLength: payload.createdBy?.length,
+    })
+
     // 1. メタデータ取得
     const meta = await redisGet<ProtectMatchMeta>(getMatchKey(matchId, "meta"))
     if (!meta) {
@@ -60,11 +70,14 @@ export async function POST(req: NextRequest) {
 
     // 2. 両チームデータ一括取得（MGET使用）
     const teamKeys = [getMatchKey(matchId, "blue_team"), getMatchKey(matchId, "red_team")]
-    const [blueTeamData, redTeamData] = await redisMGet<ProtectTeamData>(teamKeys)
+    const [blueTeamData, redTeamData] = await redisMGet<RegisteredTeamData>(teamKeys)
 
     // 3. 両チーム完了判定
     const isBothRegistered =
-      redTeamData && blueTeamData && (!meta.isProtect || (blueTeamData.protection_champions && redTeamData.protection_champions)) && (!meta.isRoleSelect || (blueTeamData.roster && redTeamData.roster))
+      redTeamData &&
+      blueTeamData &&
+      (!meta.rules.isProtect || (blueTeamData.protection_champions && redTeamData.protection_champions)) &&
+      (!meta.rules.isRoleSelect || (blueTeamData.roster && redTeamData.roster))
 
     // 両チームが記入済みの場合は何もしない
     if (isBothRegistered) {

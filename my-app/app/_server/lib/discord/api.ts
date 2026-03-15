@@ -220,3 +220,13 @@ export async function getAllReactionFields(channelId: string, messageId: string,
     }),
   )
 }
+
+/**
+ * インタラクションのFollow-upメッセージを送信する
+ * @param interactionToken - インタラクショントークン
+ * @param content - メッセージ本文
+ */
+export async function sendFollowupMessage(interactionToken: string, content: string): Promise<void> {
+  // TODO: 実装
+  console.log("sendFollowupMessage called with:", { interactionToken, content })
+}

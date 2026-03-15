@@ -113,8 +113,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const meta: ProtectMatchMeta = {
       match_id: matchId,
       created_at: new Date().toISOString(),
-      isProtect: isProtectFlag,
-      isRoleSelect: isRoleSelectFlag,
+      rules: {
+        isProtect: isProtectFlag,
+        isRoleSelect: isRoleSelectFlag,
+      },
       ...(members && { members }),
     }
     await redisSet(getMatchKey(matchId, "meta"), meta)

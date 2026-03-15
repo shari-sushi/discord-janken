@@ -56,6 +56,7 @@ export const createWebApiRequest = (
 /**
  * レスポンスをJSONとしてパース
  */
+// TODO: 戻り値ちゃんとしたい。型ガードで条件分岐させるかジェネリクスか…？
 export const parseJsonResponse = async (response: Response) => {
   const text = await response.text()
   try {

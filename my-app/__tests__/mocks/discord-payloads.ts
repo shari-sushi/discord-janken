@@ -1,23 +1,40 @@
 import { COMMANDS } from "@/app/_server/util/commands"
 import { InteractionType, ApplicationCommandType } from "discord-api-types/v10"
 
+// domainかどこか、testコードじゃないとこで型を作ったらそちらに移行する
+export type User = { id: string; username: string; discriminator: string; avatar: string }
+export type Member = { user: User; roles: string[]; nick: string }
+
 /**
  * 基本的なDiscordユーザー情報
  */
-const mockUser = {
-  id: "123456789012345678",
-  username: "test_user",
+const mockUser1: User = {
+  id: "123456789012345671",
+  username: "test_user1",
   discriminator: "0",
-  avatar: "test-avatar-hash",
+  avatar: "test-avatar-hash1",
+}
+
+const mockUser2: User = {
+  id: "123456789012345678",
+  username: "test_user2",
+  discriminator: "0",
+  avatar: "test-avatar-hash2",
 }
 
 /**
  * 基本的なDiscordメンバー情報
  */
-const mockMember = {
-  user: mockUser,
+export const mockMember1: Member = {
+  user: mockUser1,
   roles: ["987654321098765432"],
-  nick: "TestNick",
+  nick: "blue girl",
+}
+
+export const mockMember2: Member = {
+  user: mockUser2,
+  roles: ["987654321098765431"],
+  nick: "red men",
 }
 
 /**
@@ -43,7 +60,7 @@ const createCommandPayload = (commandName: string, options: Array<{ name: string
   },
   guild_id: "test-guild-id",
   channel_id: "test-channel-id",
-  member: mockMember,
+  member: mockMember1,
 })
 
 /**
@@ -69,7 +86,7 @@ export const createMentionReactorsCommandPayload = (messageLink: string) => crea
 /**
  * MESSAGE_COMPONENT インタラクション（ボタンクリック）
  */
-export const createButtonClickPayload = (customId: string, messageId: string = "test-message-id") => ({
+export const createButtonClickPayload = (customId: string, messageId: string = "test-message-id", member: Member) => ({
   type: InteractionType.MessageComponent,
   id: "interaction-id-" + Math.random().toString(36).substring(7),
   application_id: "test-app-id",
@@ -81,7 +98,7 @@ export const createButtonClickPayload = (customId: string, messageId: string = "
   },
   guild_id: "test-guild-id",
   channel_id: "test-channel-id",
-  member: mockMember,
+  member: member,
   message: {
     id: messageId,
     content: "Test message",
@@ -104,13 +121,13 @@ export const createSelectMenuPayload = (customId: string, values: string[]) => (
   },
   guild_id: "test-guild-id",
   channel_id: "test-channel-id",
-  member: mockMember,
+  member: mockMember1,
 })
 
 /**
  * MODAL_SUBMIT インタラクション（モーダル送信）
  */
-export const createModalSubmitPayload = (customId: string, components: { customId: string; value: string }[]) => ({
+export const createModalSubmitPayload = (customId: string, components: { customId: string; value: string }[], member: Member = mockMember1) => ({
   type: InteractionType.ModalSubmit,
   id: "interaction-id-" + Math.random().toString(36).substring(7),
   application_id: "test-app-id",
@@ -131,5 +148,8 @@ export const createModalSubmitPayload = (customId: string, components: { customI
   },
   guild_id: "test-guild-id",
   channel_id: "test-channel-id",
-  member: mockMember,
+  channel: {
+    id: "test-channel-id",
+  },
+  member,
 })

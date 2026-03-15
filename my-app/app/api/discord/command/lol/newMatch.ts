@@ -3,13 +3,16 @@ import { newId } from "@/app/_server/util/newId"
 import { NextResponse } from "next/server"
 import { redisSet, redisGet, redisMGet, redisDelete } from "@/app/_server/lib/redis/redis"
 import { createProtectComponents } from "../../util/createProtectMessageComponents"
-import { ProtectTeamData, ProtectMatchMeta, TeamSide } from "@/app/domains/lol/types"
+import { RegisteredTeamData, ProtectMatchMeta, TeamSide } from "@/app/domains/lol/types"
 import { getMatchKey } from "@/app/domains/lol/_server/redisKeys"
 import { APIModalInteractionResponseCallbackComponent, APIModalSubmission, ComponentType, InteractionResponseType, MessageFlags, TextInputStyle } from "discord-api-types/v10"
 import { getValue } from "../../util/getComponentValue"
 import { customId } from "../../util/customId"
+import { sendFollowupMessage } from "@/app/_server/lib/discord/api"
+import { createRegistrationDetailMessage } from "./util/createRegistrationDetailMessage"
 import { createCompletionEmbedData } from "./util/createCompletionEmbedData"
 import { getMatchStatusMessage } from "./util/getMatchStatusMessage"
+import { isBothTeamRegistered } from "./util/isBothTeamRegistered"
 
 // コマンド初期表示
 export const newMatchCommand = async (): Promise<NextResponse> => {
@@ -19,8 +22,10 @@ export const newMatchCommand = async (): Promise<NextResponse> => {
   const meta: ProtectMatchMeta = {
     match_id: matchId,
     created_at: new Date().toISOString(),
-    isProtect: true,
-    isRoleSelect: false,
+    rules: {
+      isProtect: true,
+      isRoleSelect: false,
+    },
   }
   await redisSet(getMatchKey(matchId, "meta"), meta)
 
@@ -36,7 +41,7 @@ export const newMatchCommand = async (): Promise<NextResponse> => {
 /**
  * 両チーム完了時のEmbedメッセージを生成（3カラムテーブル形式）
  */
-function createCompletionEmbed(meta: ProtectMatchMeta, teamData: { blue: ProtectTeamData; red: ProtectTeamData }) {
+export const createCompletionEmbed = (meta: ProtectMatchMeta, teamData: { blue: RegisteredTeamData; red: RegisteredTeamData }) => {
   return NextResponse.json({
     type: InteractionResponseType.ChannelMessageWithSource,
     data: createCompletionEmbedData(meta, teamData),
@@ -58,7 +63,7 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
   }
 
   // どちらもfalseの場合
-  if (!meta.isProtect && !meta.isRoleSelect) {
+  if (!meta.rules.isProtect && !meta.rules.isRoleSelect) {
     return NextResponse.json({
       type: InteractionResponseType.ChannelMessageWithSource,
       data: { content: "入力が求められている情報がありません。プロテクトの宣言もロール振り分けも不要です。", flags: MessageFlags.Ephemeral },
@@ -69,7 +74,7 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
   const components: APIModalInteractionResponseCallbackComponent[] = []
 
   // プロテクト入力（isProtect: trueの場合）
-  if (meta.isProtect) {
+  if (meta.rules.isProtect) {
     components.push({
       type: ComponentType.ActionRow,
       components: [
@@ -86,7 +91,7 @@ export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: st
   }
 
   // ロール選択（isRoleSelect: trueの場合）
-  if (meta.isRoleSelect) {
+  if (meta.rules.isRoleSelect) {
     if (!meta.members) {
       return NextResponse.json({
         type: InteractionResponseType.ChannelMessageWithSource,
@@ -166,10 +171,11 @@ type handleRegisterTeamArgs = {
   userId: string
   teamSide: TeamSide
   data: APIModalSubmission
+  interactionToken: string
 }
 
 // チーム情報の登録処理
-export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: handleRegisterTeamArgs): Promise<{ response: NextResponse; isBothTeamsRegistered: boolean }> => {
+export const handleRegisterTeam = async ({ matchId, userId, teamSide, data, interactionToken }: handleRegisterTeamArgs): Promise<{ response: NextResponse; isBothTeamsRegistered: boolean }> => {
   console.log("handleRegisterTeam by", teamSide, "data:", JSON.stringify(data, null, 2))
 
   // 1. メタデータ取得
@@ -185,13 +191,13 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: ha
   }
 
   // 2. プロテクトチャンピオン取得（meta.isProtect === true の場合のみ）
-  const protectionChampions = meta.isProtect ? getValue("protection_champions", data) : undefined
+  const protectionChampions = meta.rules.isProtect ? getValue("protection_champions", data) : undefined
   console.log(teamSide, "- Protection champions:", protectionChampions)
 
   // 3. ロール選択の処理（meta.isRoleSelect === true の場合のみ）
   let roster: { top: string; jg: string; mid: string; adc: string; sup: string } | undefined
 
-  if (meta.isRoleSelect) {
+  if (meta.rules.isRoleSelect) {
     const top = getValue("role_top", data)
     const jg = getValue("role_jg", data)
     const mid = getValue("role_mid", data)
@@ -251,7 +257,7 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: ha
 
   // 4. Redisに保存
   const usTeamKey = getMatchKey(matchId, teamSide)
-  const usTeamData: ProtectTeamData = {
+  const usTeamData: RegisteredTeamData = {
     updated_at: new Date().toISOString(),
     ...(protectionChampions && { protection_champions: protectionChampions }),
     ...(roster && { roster }),
@@ -264,33 +270,81 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data }: ha
   const otherTeamSide = teamSide === "blue_team" ? "red_team" : "blue_team"
   // 5. 相手チーム確認
   const otherTeamKey = getMatchKey(matchId, otherTeamSide)
-  const otherTeamData = await redisGet<ProtectTeamData>(otherTeamKey)
+  const otherTeamData = await redisGet<RegisteredTeamData>(otherTeamKey)
   console.log(teamSide, "-", otherTeamSide, "data:", JSON.stringify(otherTeamData, null, 2))
 
-  // 6. 両チーム完了判定
-  const isBothRegistered =
-    otherTeamData && (!meta.isProtect || (usTeamData.protection_champions && otherTeamData.protection_champions)) && (!meta.isRoleSelect || (usTeamData.roster && otherTeamData.roster))
-  console.log(teamSide, "- Both complete?", isBothRegistered)
-
   // 7. メッセージ返却
-  if (isBothRegistered) {
-    console.log(teamSide, "- Returning completion embed")
-    // 両チーム完了時はEmbed形式で結果を表示
-    // teamSideに応じてblue/redを正しい順序で渡す
-    const teamsData = {
-      blue: teamSide === "blue_team" ? usTeamData : otherTeamData!,
-      red: teamSide === "blue_team" ? otherTeamData! : usTeamData,
-    }
-    return { response: createCompletionEmbed(meta, teamsData), isBothTeamsRegistered: true }
-  } else {
+  if (!isBothTeamRegistered(meta.rules, usTeamData, otherTeamData)) {
+    console.log(teamSide, "- Both completed")
     console.log(teamSide, "- Returning single team completion message")
+    const responseContent = createRegistrationDetailMessage(teamSide, meta, usTeamData)
+    if (responseContent == null) {
+      console.error("responseContent is null")
+      return {
+        response: NextResponse.json({
+          type: InteractionResponseType.ChannelMessageWithSource,
+          data: {
+            content: "データの不整合が発生しました。試合作成からやり直すか、開発者にお問い合わせください。",
+            flags: MessageFlags.Ephemeral,
+          },
+        }),
+        isBothTeamsRegistered: false,
+      }
+    }
+
+    // 登録状況のステータスを追加
+    const blueStatus = teamSide === "blue_team" ? "✅登録済" : "✍️未登録"
+    const redStatus = teamSide === "red_team" ? "✅登録済" : "✍️未登録"
+    const statusMessage = `\n\n🟦 ブルーサイド：${blueStatus}\n🟥 レッドサイド：${redStatus}`
+    const fullContent = responseContent + statusMessage
+
+    // Follow-up メッセージで全員向けの通知を送信（非同期）
+    const publicMessage = teamSide === "blue_team" ? `🟦 ブルーサイド登録完了 (登録者<@${userId}>)` : `🟥 レッドサイド登録完了 (登録者<@${userId}>)`
+    sendFollowupMessage(interactionToken, publicMessage).catch((error) => console.error("Failed to send follow-up message:", error))
+
     return {
       response: NextResponse.json({
         type: InteractionResponseType.ChannelMessageWithSource,
-        data: { content: teamSide === "blue_team" ? `🟦 ブルーサイド登録完了 (登録者<@${userId}>)` : `🟥 レッドサイド登録完了 (登録者<@${userId}>)` },
+        data: {
+          content: fullContent,
+          flags: MessageFlags.Ephemeral,
+        },
       }),
       isBothTeamsRegistered: false,
     }
+  }
+
+  console.log(teamSide, "- Returning completion embed")
+  // 両チーム完了時はFollow-upメッセージを送らず、レスポンスで全員に見える形で結果発表
+  const responseContent = createRegistrationDetailMessage(teamSide, meta, usTeamData)
+  if (responseContent == null) {
+    console.error("responseContent is null in completion phase")
+    return {
+      response: NextResponse.json({
+        type: InteractionResponseType.ChannelMessageWithSource,
+        data: {
+          content: "データの不整合が発生しました。試合作成からやり直すか、開発者にお問い合わせください。",
+          flags: MessageFlags.Ephemeral,
+        },
+      }),
+      isBothTeamsRegistered: false,
+    }
+  }
+
+  const embedData = createCompletionEmbedData(meta, {
+    blue: teamSide === "blue_team" ? usTeamData : otherTeamData!,
+    red: teamSide === "blue_team" ? otherTeamData! : usTeamData,
+  })
+
+  return {
+    response: NextResponse.json({
+      type: InteractionResponseType.ChannelMessageWithSource,
+      data: {
+        content: responseContent,
+        ...embedData, // embeds プロパティを展開
+      },
+    }),
+    isBothTeamsRegistered: true,
   }
 }
 
@@ -324,7 +378,7 @@ export const handleResetRegistered = async (matchId: string): Promise<NextRespon
 
   // 2. 両チームデータ一括取得（MGET使用）
   const teamKeys = [getMatchKey(matchId, "blue_team"), getMatchKey(matchId, "red_team")]
-  const [blueTeamData, redTeamData] = await redisMGet<ProtectTeamData>(teamKeys)
+  const [blueTeamData, redTeamData] = await redisMGet<RegisteredTeamData>(teamKeys)
 
   if (blueTeamData && redTeamData) {
     return NextResponse.json({

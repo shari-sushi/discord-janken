@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { RegisteredStatus, registeredStatus } from "./getMatchStatusMessage"
-import { ProtectMatchMeta, ProtectTeamData } from "@/app/domains/lol/types"
+import { ProtectMatchMeta, RegisteredTeamData } from "@/app/domains/lol/types"
 import { newId } from "@/app/_server/util/newId"
 
 describe("getMatchStatusMessage: ", () => {
@@ -9,15 +9,17 @@ describe("getMatchStatusMessage: ", () => {
     it("success: both did", () => {
       const meta: ProtectMatchMeta = {
         created_at: now.toISOString(),
-        isProtect: true,
-        isRoleSelect: true,
+        rules: {
+          isProtect: true,
+          isRoleSelect: true,
+        },
         match_id: newId(),
         members: {
           blueTeam: ["b1", "b2", "b3", "b4", "b5"],
           redTeam: ["r1", "r2", "r3", "r4", "r5"],
         },
       }
-      const blueTeamData: ProtectTeamData = {
+      const blueTeamData: RegisteredTeamData = {
         updated_at: new Date(now.getTime() + 5 * 60 + 10000).toISOString(),
         protection_champions: "あああ、ｂｂｂ",
         roster: {
@@ -28,7 +30,7 @@ describe("getMatchStatusMessage: ", () => {
           top: "b5",
         },
       }
-      const redTeamData: ProtectTeamData = {
+      const redTeamData: RegisteredTeamData = {
         updated_at: new Date(now.getTime() + 5 * 60 + 10000).toISOString(),
         protection_champions: "えええ、ううう",
         roster: {
@@ -48,8 +50,10 @@ describe("getMatchStatusMessage: ", () => {
   it("success: only red did", () => {
     const meta: ProtectMatchMeta = {
       created_at: now.toISOString(),
-      isProtect: true,
-      isRoleSelect: true,
+      rules: {
+        isProtect: true,
+        isRoleSelect: true,
+      },
       match_id: newId(),
       members: {
         blueTeam: ["b1", "b2", "b3", "b4", "b5"],
@@ -57,7 +61,7 @@ describe("getMatchStatusMessage: ", () => {
       },
     }
     const blueTeamData = null
-    const redTeamData: ProtectTeamData = {
+    const redTeamData: RegisteredTeamData = {
       updated_at: new Date(now.getTime() + 5 * 60 + 10000).toISOString(),
       protection_champions: "えええ、ううう",
       roster: {
@@ -76,15 +80,17 @@ describe("getMatchStatusMessage: ", () => {
   it("success: only red did", () => {
     const meta: ProtectMatchMeta = {
       created_at: now.toISOString(),
-      isProtect: true,
-      isRoleSelect: true,
+      rules: {
+        isProtect: true,
+        isRoleSelect: true,
+      },
       match_id: newId(),
       members: {
         blueTeam: ["b1", "b2", "b3", "b4", "b5"],
         redTeam: ["r1", "r2", "r3", "r4", "r5"],
       },
     }
-    const blueTeamData: ProtectTeamData = {
+    const blueTeamData: RegisteredTeamData = {
       updated_at: new Date(now.getTime() + 5 * 60 + 10000).toISOString(),
       protection_champions: "えええ、ううう",
       roster: {

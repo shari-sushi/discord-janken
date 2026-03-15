@@ -35,11 +35,11 @@ const getRedisClient = async (): Promise<RedisClientType> => {
   return redis
 }
 
-export const redisGet = async <T = string>(key: string): Promise<T | null> => {
+export const redisGet = async <T = string>(key: string): Promise<T | undefined> => {
   const client = await getRedisClient()
   const result = await client.get(key)
-  if (result === null) {
-    return null
+  if (result == null) {
+    return undefined
   }
   try {
     return JSON.parse(result) as T
@@ -92,7 +92,7 @@ export const redisExists = async (key: string): Promise<boolean> => {
 
 export const redisDisconnect = async (): Promise<void> => {
   if (redis) {
-    await redis.disconnect()
+    await redis.destroy()
     redis = null
   }
 }
