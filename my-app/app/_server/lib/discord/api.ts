@@ -214,16 +214,12 @@ export async function sendFollowupMessage(interactionToken: string, body: RESTPo
       body: JSON.stringify(body),
     })
 
-    console.log("[sendFollowupMessage] Response status:", response.status, response.statusText)
     if (!response.ok) {
       const errorData = await response.json()
       console.log("[sendFollowupMessage] URL:", url, "\n[sendFollowupMessage] Body:", JSON.stringify(body))
       console.error("[sendFollowupMessage] Error data:", errorData)
       throw new DiscordApiError(response.status, response.statusText, errorData)
     }
-
-    const responseData = await response.json()
-    console.log("[sendFollowupMessage] Success response:", responseData)
   } catch (error) {
     console.error("[sendFollowupMessage] Caught error:", error)
     if (error instanceof DiscordApiError) {
@@ -243,7 +239,6 @@ export function sendFollowupMessageAfter(interactionToken: string, body: RESTPos
   after(async () => {
     try {
       await sendFollowupMessage(interactionToken, body)
-      console.log("Follow-up message sent successfully")
     } catch (error) {
       console.error("Failed to send follow-up message:", error)
     }
@@ -293,7 +288,6 @@ export function editDiscordMessageAfter(channelId: string, messageId: string, co
   after(async () => {
     try {
       await editDiscordMessage(channelId, messageId, content, components)
-      console.log("Discord message edited successfully")
     } catch (error) {
       console.error("Failed to edit Discord message:", error)
     }
