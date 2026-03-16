@@ -21,6 +21,7 @@ export const createReminderEmbeds = (input: ReminderEmbedInput, suffixEmbeds: AP
   }
 
   if (input.createdBy && input.createdBy.trim() !== "") {
+    console.log("input.createdBy:", input.createdBy) // @unknown-role と出ることがあるので出力しておく。
     timerEmbed.author = {
       name: `<@${input.createdBy}>`,
     }

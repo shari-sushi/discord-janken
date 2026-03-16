@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest"
 import { POST } from "@/app/api/discord/route"
-import { createNewMatchCommandPayload, createButtonClickPayload, createModalSubmitPayload } from "../../../mocks/discord-payloads"
+import { createNewMatchCommandPayload, createButtonClickPayload, createModalSubmitPayload, mockMember1, mockMember2 } from "../../../mocks/discord-payloads"
 import { createDiscordRequest, parseJsonResponse } from "../../../helpers/api-test-utils"
 import { extractMatchId } from "@/__tests__/helpers/discord-test-utils"
 import { redisGet } from "@/app/_server/lib/redis/redis"
 import { getMatchKey } from "@/app/domains/lol/_server/redisKeys"
-import { ProtectMatchMeta, ProtectTeamData } from "@/app/domains/lol/types"
+import { ProtectMatchMeta, RegisteredTeamData } from "@/app/domains/lol/types"
 import { customId } from "@/app/api/discord/util/customId"
 import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { InteractionResponseType } from "discord-api-types/v10"
@@ -33,8 +33,8 @@ describe("Discord API - LOL New Match Integration Test (isProtect: true, isRoleS
     const meta = await redisGet<ProtectMatchMeta>(getMatchKey(matchId, "meta"))
     expect(meta).toBeDefined()
     expect(meta?.match_id).toBe(matchId)
-    expect(meta?.isProtect).toBe(true)
-    expect(meta?.isRoleSelect).toBe(false)
+    expect(meta?.rules.isProtect).toBe(true)
+    expect(meta?.rules.isRoleSelect).toBe(false)
 
     // ② 青チームのボタンをクリック → モーダルを返す
     const blueButtonPayload = createBlueTeamProtectButtonPayload(matchId)
@@ -62,7 +62,7 @@ describe("Discord API - LOL New Match Integration Test (isProtect: true, isRoleS
     expect(blueModalData.data.content).toContain("登録完了")
 
     // 青チームのデータが保存されているか確認
-    const blueTeamData = await redisGet<ProtectTeamData>(getMatchKey(matchId, "blue_team"))
+    const blueTeamData = await redisGet<RegisteredTeamData>(getMatchKey(matchId, "blue_team"))
     expect(blueTeamData).toBeDefined()
     expect(blueTeamData?.protection_champions).toBe(blueProtectChampion)
 
@@ -103,7 +103,7 @@ describe("Discord API - LOL New Match Integration Test (isProtect: true, isRoleS
     expect(fields[2].value).toContain(redProtectChampion)
 
     // 赤チームのデータが保存されているか確認
-    const redTeamData = await redisGet<ProtectTeamData>(getMatchKey(matchId, "red_team"))
+    const redTeamData = await redisGet<RegisteredTeamData>(getMatchKey(matchId, "red_team"))
     expect(redTeamData).toBeDefined()
     expect(redTeamData?.protection_champions).toBe(redProtectChampion)
   })
@@ -113,13 +113,13 @@ describe("Discord API - LOL New Match Integration Test (isProtect: true, isRoleS
  * 青チームプロテクトボタンクリック
  */
 const createBlueTeamProtectButtonPayload = (matchId: string, messageId: string = "test-message-id") =>
-  createButtonClickPayload(customId(CLIENT_ACTIONS.LOL.OPEN_MODAL_BLUE_TEAM_REGISTER).matchId(matchId), messageId)
+  createButtonClickPayload(customId(CLIENT_ACTIONS.LOL.OPEN_MODAL_BLUE_TEAM_REGISTER).matchId(matchId), messageId, mockMember1)
 
 /**
  * 赤チームプロテクトボタンクリック
  */
 const createRedTeamProtectButtonPayload = (matchId: string, messageId: string = "test-message-id") =>
-  createButtonClickPayload(customId(CLIENT_ACTIONS.LOL.OPEN_MODAL_RED_TEAM_REGISTER).matchId(matchId), messageId)
+  createButtonClickPayload(customId(CLIENT_ACTIONS.LOL.OPEN_MODAL_RED_TEAM_REGISTER).matchId(matchId), messageId, mockMember2)
 
 /**
  * 確認ボタンクリック

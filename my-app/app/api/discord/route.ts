@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyKey } from "discord-interactions"
 import { echoCommand } from "./command/dev/echo"
-import { newMatchCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole, handleResetRegistered } from "./command/lol/newMatch"
+import { newMatchCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole, handleResetRegistered, postTeamRegistration } from "./command/lol/newMatch"
 import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./command/user/feedback"
 import { timerCommand, handleSubmitTimer, handleOpenModalTimer } from "./command/user/timer"
 import { commonMessageCommand, handleSubmitNewCommonMessage, handleOpenModalEditCommonMessage, handleSubmitCommonMessage, handleForceEndEditingCommonMessage } from "./command/user/commonMessage"
@@ -9,9 +9,7 @@ import { mentionReactorsCommand } from "./command/user/mentionReactors"
 import { handleFightingTeamOrderCommand, handleOpenModalFightingTeamOrder, handleFightingRegisterTeamOrder, handleFightingResetTeamOrder } from "./command/fighting-game/teamOrder"
 import { CLIENT_ACTIONS, COMMANDS } from "@/app/_server/util/commands"
 import { developersTestCommand } from "./command/dev/developers-test"
-import { editDiscordMessage } from "@/app/_server/lib/discord/api"
 import { getValue } from "./util/getComponentValue"
-import { createProtectComponents } from "./util/createProtectMessageComponents"
 import { extractModalSubmitInteractionData } from "./util/extractModalSubmitInteractionData"
 import { extractMatchId, extractMessageId } from "./util/extractCustomIdParam"
 import { DISCORD_PUBLIC_KEY } from "@/app/_server/lib/env"
@@ -26,14 +24,6 @@ import {
   APIApplicationCommandInteraction,
   ApplicationCommandType,
 } from "discord-api-types/v10"
-
-async function disableRegisterButtonsMessage(messageId: string, channelId: string, matchId: string) {
-  try {
-    await editDiscordMessage(channelId, messageId, "✅ 両チームの入力が完了し、結果が発表されました", createProtectComponents(matchId, true))
-  } catch (e) {
-    console.error("Failed to disable register buttons:", e)
-  }
-}
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -221,21 +211,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       console.log("Extracted match_id:", matchId)
       const messageId = extractMessageId(customId) || ""
 
-      const channelId = interaction.channel_id || ""
+      const channelId = interaction.channel?.id || ""
       const userId = interaction.member?.user?.id ?? ""
-
       const modalActionId = customId.split("?")[0]
       if (modalActionId === CLIENT_ACTIONS.LOL.REGISTER_RED_TEAM) {
         if (!interaction.data) {
           return NextResponse.json({ error: "Missing interaction data" }, { status: 400 })
         }
 
-        const { response, isBothTeamsRegistered } = await handleRegisterTeam({ matchId, teamSide: "red_team", userId, data: interaction.data })
-        if (isBothTeamsRegistered && messageId && channelId) {
-          await disableRegisterButtonsMessage(messageId, channelId, matchId)
-        }
+        const interactionToken = interaction.token
+        const { response, isBothTeamsRegistered, followupMessage, interactionToken: token } = await handleRegisterTeam({ matchId, teamSide: "red_team", userId, data: interaction.data, interactionToken })
 
-        return response
+        return postTeamRegistration({ matchId, messageId, channelId, response, isBothTeamsRegistered, followupMessage, interactionToken: token })
       }
 
       if (modalActionId === CLIENT_ACTIONS.LOL.REGISTER_BLUE_TEAM) {
@@ -243,12 +230,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return NextResponse.json({ error: "Missing interaction data" }, { status: 400 })
         }
 
-        const { response, isBothTeamsRegistered } = await handleRegisterTeam({ matchId, teamSide: "blue_team", userId, data: interaction.data })
-        if (isBothTeamsRegistered && messageId && channelId) {
-          await disableRegisterButtonsMessage(messageId, channelId, matchId)
-        }
+        const interactionToken = interaction.token
+        const { response, isBothTeamsRegistered, followupMessage, interactionToken: token } = await handleRegisterTeam({ matchId, teamSide: "blue_team", userId, data: interaction.data, interactionToken })
 
-        return response
+        return postTeamRegistration({ matchId, messageId, channelId, response, isBothTeamsRegistered, followupMessage, interactionToken: token })
       }
 
       if (modalActionId === CLIENT_ACTIONS.FIGHTING.REGISTER_TEAM1_ORDER) {

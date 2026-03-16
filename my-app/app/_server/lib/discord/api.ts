@@ -2,8 +2,9 @@
  * Discord REST API 通信用のヘルパー関数
  */
 
-import { APIActionRowComponent, APIComponentInMessageActionRow } from "discord-api-types/v10"
+import { APIActionRowComponent, APIComponentInMessageActionRow, RESTPostAPIWebhookWithTokenJSONBody } from "discord-api-types/v10"
 import { DISCORD_API_BASE_URL, DISCORD_BOT_TOKEN } from "@/app/_server/lib/env"
+import { after } from "next/server"
 
 export interface DiscordMessageResponse {
   id: string
@@ -84,37 +85,6 @@ export async function sendDiscordMessage(channelId: string, content: string, com
       throw error
     }
     throw new Error(`Failed to send Discord message: ${error}`)
-  }
-}
-
-/**
- * Discordのメッセージを編集する（PATCH）
- * @param channelId - チャンネルID
- * @param messageId - 編集対象のメッセージID
- * @param content - 新しいメッセージ本文
- * @param components - 新しいコンポーネント配列
- */
-export async function editDiscordMessage(channelId: string, messageId: string, content: string, components?: APIActionRowComponent<APIComponentInMessageActionRow>[]): Promise<void> {
-  const url = `${DISCORD_API_BASE_URL}/channels/${channelId}/messages/${messageId}`
-
-  const body: DiscordMessageBody = { content }
-
-  if (components && components.length > 0) {
-    body.components = components
-  }
-
-  const response = await fetch(url, {
-    method: "PATCH",
-    headers: {
-      Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  })
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new DiscordApiError(response.status, response.statusText, errorData)
   }
 }
 
@@ -219,4 +189,107 @@ export async function getAllReactionFields(channelId: string, messageId: string,
       }
     }),
   )
+}
+
+/**
+ * インタラクションのFollow-upメッセージを送信する
+ * @param interactionToken - インタラクショントークン
+ * @param body - Webhookメッセージボディ（content, embeds, components等）
+ * https://docs.discord.com/developers/interactions/receiving-and-responding#followup-messages
+ */
+export async function sendFollowupMessage(interactionToken: string, body: RESTPostAPIWebhookWithTokenJSONBody): Promise<void> {
+  const DISCORD_APPLICATION_ID = process.env.DISCORD_APPLICATION_ID
+  if (!DISCORD_APPLICATION_ID) {
+    throw new Error("DISCORD_APPLICATION_ID is not defined")
+  }
+
+  const url = `${DISCORD_API_BASE_URL}/webhooks/${DISCORD_APPLICATION_ID}/${interactionToken}`
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.log("[sendFollowupMessage] URL:", url, "\n[sendFollowupMessage] Body:", JSON.stringify(body))
+      console.error("[sendFollowupMessage] Error data:", errorData)
+      throw new DiscordApiError(response.status, response.statusText, errorData)
+    }
+  } catch (error) {
+    console.error("[sendFollowupMessage] Caught error:", error)
+    if (error instanceof DiscordApiError) {
+      throw error
+    }
+    throw new Error(`Failed to send follow-up message: ${error}`)
+  }
+}
+
+/**
+ * インタラクションのFollow-upメッセージを送信する（after APIでラップ）
+ * レスポンスを返した後に非同期で実行される
+ * @param interactionToken - インタラクショントークン
+ * @param body - Webhookメッセージボディ（content, embeds, components等）
+ */
+export function sendFollowupMessageAfter(interactionToken: string, body: RESTPostAPIWebhookWithTokenJSONBody): void {
+  after(async () => {
+    try {
+      await sendFollowupMessage(interactionToken, body)
+    } catch (error) {
+      console.error("Failed to send follow-up message:", error)
+    }
+  })
+}
+
+/**
+ * Discordのメッセージを編集する（PATCH）
+ * @param channelId - チャンネルID
+ * @param messageId - 編集対象のメッセージID
+ * @param content - 新しいメッセージ本文
+ * @param components - 新しいコンポーネント配列
+ */
+export async function editDiscordMessage(channelId: string, messageId: string, content: string, components?: APIActionRowComponent<APIComponentInMessageActionRow>[]): Promise<void> {
+  const url = `${DISCORD_API_BASE_URL}/channels/${channelId}/messages/${messageId}`
+
+  const body: DiscordMessageBody = { content }
+
+  if (components && components.length > 0) {
+    body.components = components
+  }
+
+  const response = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new DiscordApiError(response.status, response.statusText, errorData)
+  }
+}
+
+/**
+ * Discordのメッセージを編集する（after APIでラップ）
+ * レスポンスを返した後に非同期で実行される
+ * @param channelId - チャンネルID
+ * @param messageId - 編集対象のメッセージID
+ * @param content - 新しいメッセージ本文
+ * @param components - 新しいコンポーネント配列
+ */
+export function editDiscordMessageAfter(channelId: string, messageId: string, content: string, components?: APIActionRowComponent<APIComponentInMessageActionRow>[]): void {
+  after(async () => {
+    try {
+      await editDiscordMessage(channelId, messageId, content, components)
+    } catch (error) {
+      console.error("Failed to edit Discord message:", error)
+    }
+  })
 }

@@ -1,10 +1,10 @@
 import { APIEmbed, APIEmbedField } from "discord-api-types/v10"
-import { ProtectMatchMeta, ProtectTeamData } from "@/app/domains/lol/types"
+import { ProtectMatchMeta, RegisteredTeamData } from "@/app/domains/lol/types"
 
 /**
  * 両チーム完了時のEmbedデータを生成（3カラムテーブル形式）
  */
-export const createCompletionEmbedData = (meta: ProtectMatchMeta, teamsData: { blue: ProtectTeamData; red: ProtectTeamData }): { embeds?: APIEmbed[] } => {
+export const createCompletionEmbedData = (meta: ProtectMatchMeta, teamsData: { blue: RegisteredTeamData; red: RegisteredTeamData }): { embeds?: APIEmbed[] } => {
   // 左カラム（項目名）の値を構築
   const leftColumnLines: string[] = []
 
@@ -15,13 +15,13 @@ export const createCompletionEmbedData = (meta: ProtectMatchMeta, teamsData: { b
   const redColumnLines: string[] = []
 
   // プロテクト行（isProtect が true の場合のみ）
-  if (meta.isProtect && teamsData.blue.protection_champions && teamsData.red.protection_champions) {
+  if (meta.rules.isProtect && teamsData.blue.protection_champions && teamsData.red.protection_champions) {
     leftColumnLines.push("プロテクト    ")
     blueColumnLines.push(teamsData.blue.protection_champions)
     redColumnLines.push(teamsData.red.protection_champions)
 
     // protectとroleの間に改行を入れる
-    if (meta.isRoleSelect) {
+    if (meta.rules.isRoleSelect) {
       leftColumnLines.push("\u200B")
       blueColumnLines.push("\u200B")
       redColumnLines.push("\u200B")
@@ -29,7 +29,7 @@ export const createCompletionEmbedData = (meta: ProtectMatchMeta, teamsData: { b
   }
 
   // ロール行（isRoleSelect が true の場合のみ）
-  if (meta.isRoleSelect && teamsData.blue.roster && teamsData.red.roster) {
+  if (meta.rules.isRoleSelect && teamsData.blue.roster && teamsData.red.roster) {
     leftColumnLines.push("TOP", "JG", "MID", "ADC", "SUP")
     blueColumnLines.push(teamsData.blue.roster.top, teamsData.blue.roster.jg, teamsData.blue.roster.mid, teamsData.blue.roster.adc, teamsData.blue.roster.sup)
     redColumnLines.push(teamsData.red.roster.top, teamsData.red.roster.jg, teamsData.red.roster.mid, teamsData.red.roster.adc, teamsData.red.roster.sup)

@@ -1,7 +1,7 @@
 import { redisGet, redisMGet } from "@/app/_server/lib/redis/redis"
 import { getMatchKey } from "@/app/domains/lol/_server/redisKeys"
 import { createCompletionEmbedData } from "./createCompletionEmbedData"
-import { ProtectMatchMeta, ProtectTeamData } from "@/app/domains/lol/types"
+import { ProtectMatchMeta, RegisteredTeamData } from "@/app/domains/lol/types"
 import { APIEmbed } from "discord-api-types/v10"
 
 /**
@@ -18,7 +18,7 @@ export const getMatchStatusMessage = async (matchId: string): Promise<{ content?
 
   // 2. 両チームデータ一括取得（MGET使用）
   const teamKeys = [getMatchKey(matchId, "blue_team"), getMatchKey(matchId, "red_team")]
-  const [blueTeamData, redTeamData] = await redisMGet<ProtectTeamData>(teamKeys)
+  const [blueTeamData, redTeamData] = await redisMGet<RegisteredTeamData>(teamKeys)
 
   const teamsData = {
     blue: blueTeamData!,
@@ -41,7 +41,7 @@ export const getMatchStatusMessage = async (matchId: string): Promise<{ content?
   }
 }
 
-type isBothRegisteredArgs = { meta: ProtectMatchMeta; redTeamData: ProtectTeamData | null; blueTeamData: ProtectTeamData | null }
+type isBothRegisteredArgs = { meta: ProtectMatchMeta; redTeamData: RegisteredTeamData | null; blueTeamData: RegisteredTeamData | null }
 export type RegisteredStatus = "bothDid" | "bothDidNot" | "OnlyRedDid" | "OnlyBlueDid"
 
 // test用にexportしてるだけ。本番コードで使うなら置き場を検討する。
@@ -55,11 +55,11 @@ export const registeredStatus = ({ meta, blueTeamData, redTeamData }: isBothRegi
   return "OnlyRedDid"
 }
 
-const isTeamRegistered = (team: ProtectTeamData | null, meta: ProtectMatchMeta): boolean => {
+const isTeamRegistered = (team: RegisteredTeamData | null, meta: ProtectMatchMeta): boolean => {
   if (!team) return false
 
-  const protectDone = !meta.isProtect || team.protection_champions !== ""
-  const roleDone = !meta.isRoleSelect || team.roster != null
+  const protectDone = !meta.rules.isProtect || team.protection_champions !== ""
+  const roleDone = !meta.rules.isRoleSelect || team.roster != null
 
   return protectDone && roleDone
 }

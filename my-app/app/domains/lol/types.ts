@@ -1,17 +1,22 @@
 /**
  * プロテクト機能 - チームデータ
  */
-export type ProtectTeamData = {
+export type RegisteredTeamData = {
   updated_at: string // ISO 8601
+} & TeamData
+
+export type TeamData = {
   protection_champions?: string // isProtect: true の場合のみ存在
-  roster?: {
-    // isRoleSelect: true の場合のみ存在
-    top: string
-    jg: string
-    mid: string
-    adc: string
-    sup: string
-  }
+  roster?: Roster // isRoleSelect: trueの場合のみ存在
+}
+
+export type Roster = {
+  // isRoleSelect: true の場合のみ存在
+  top: string
+  jg: string
+  mid: string
+  adc: string
+  sup: string
 }
 
 /**
@@ -20,9 +25,13 @@ export type ProtectTeamData = {
 export type ProtectMatchMeta = {
   match_id: string
   created_at: string // ISO 8601
+  members?: MatchMembers
+  rules: MatchRules
+}
+
+export type MatchRules = {
   isProtect: boolean // プロテクト機能の有無
   isRoleSelect: boolean // ロール選択機能の有無
-  members?: MatchMembers
 }
 
 export type MatchMembers = {
