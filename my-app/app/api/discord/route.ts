@@ -9,7 +9,7 @@ import { mentionReactorsCommand } from "./command/user/mentionReactors"
 import { handleFightingTeamOrderCommand, handleOpenModalFightingTeamOrder, handleFightingRegisterTeamOrder, handleFightingResetTeamOrder } from "./command/fighting-game/teamOrder"
 import { CLIENT_ACTIONS, COMMANDS } from "@/app/_server/util/commands"
 import { developersTestCommand } from "./command/dev/developers-test"
-import { editDiscordMessage, sendFollowupMessageAfter } from "@/app/_server/lib/discord/api"
+import { editDiscordMessageAfter, sendFollowupMessageAfter } from "@/app/_server/lib/discord/api"
 import { getValue } from "./util/getComponentValue"
 import { createProtectComponents } from "./util/createProtectMessageComponents"
 import { extractModalSubmitInteractionData } from "./util/extractModalSubmitInteractionData"
@@ -26,14 +26,6 @@ import {
   APIApplicationCommandInteraction,
   ApplicationCommandType,
 } from "discord-api-types/v10"
-
-async function disableRegisterButtonsMessage(messageId: string, channelId: string, matchId: string) {
-  try {
-    await editDiscordMessage(channelId, messageId, "✅ 両チームの入力が完了し、結果が発表されました", createProtectComponents(matchId, true))
-  } catch (e) {
-    console.error("Failed to disable register buttons:", e)
-  }
-}
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -242,9 +234,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
 
         if (isBothTeamsRegistered && messageId != "" && channelId != "") {
-          after(async () => {
-            await disableRegisterButtonsMessage(messageId, channelId, matchId)
-          })
+          editDiscordMessageAfter(channelId, messageId, "✅ 両チームの入力が完了し、結果が発表されました", createProtectComponents(matchId, true))
         }
 
         return response
@@ -268,9 +258,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
 
         if (isBothTeamsRegistered && messageId != "" && channelId != "") {
-          after(async () => {
-            await disableRegisterButtonsMessage(messageId, channelId, matchId)
-          })
+          editDiscordMessageAfter(channelId, messageId, "✅ 両チームの入力が完了し、結果が発表されました", createProtectComponents(matchId, true))
         }
 
         return response
