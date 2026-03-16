@@ -12,6 +12,7 @@ import { createSingleTeamRegistrationMessage } from "./util/createSingleTeamRegi
 import { createCompletionEmbedData } from "./util/createCompletionEmbedData"
 import { getMatchStatusMessage } from "./util/getMatchStatusMessage"
 import { isBothTeamRegistered } from "./util/isBothTeamRegistered"
+import { editDiscordMessageAfter, sendFollowupMessageAfter } from "@/app/_server/lib/discord/api"
 
 // コマンド初期表示
 export const newMatchCommand = async (): Promise<NextResponse> => {
@@ -304,9 +305,9 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data, inte
       }
     }
 
-    const blueStatus = teamSide === "blue_team" ? "✅登録済" : "✍️未登録"
-    const redStatus = teamSide === "red_team" ? "✅登録済" : "✍️未登録"
-    const statusMessage = `🟦 ブルーサイド：${blueStatus}\n🟥 レッドサイド：${redStatus}\n(登録者: <@${userId}>)`
+    const blueStatus = teamSide === "blue_team" ? `✅登録済 (by <@${userId}>)` : "✍️未登録"
+    const redStatus = teamSide === "red_team" ? `✅登録済 (by <@${userId}>)` : "✍️未登録"
+    const statusMessage = `🟦 ブルーサイド：${blueStatus}\n🟥 レッドサイド：${redStatus}`
 
     return {
       response: NextResponse.json({
@@ -418,4 +419,31 @@ export const handleResetRegistered = async (matchId: string): Promise<NextRespon
     type: InteractionResponseType.ChannelMessageWithSource,
     data: { content: "レッドチームのデータを削除しました" },
   })
+}
+
+type PostTeamRegistrationArgs = {
+  matchId: string
+  messageId: string
+  channelId: string
+  response: NextResponse
+  isBothTeamsRegistered: boolean
+  followupMessage?: { content?: string; embeds?: APIEmbed[] }
+  interactionToken: string
+}
+
+/**
+ * チーム登録後の処理（Follow-upメッセージ送信、メッセージ編集）
+ */
+export const postTeamRegistration = ({ matchId, messageId, channelId, response, isBothTeamsRegistered, followupMessage, interactionToken }: PostTeamRegistrationArgs): NextResponse => {
+  // Follow-upメッセージ送信
+  if (followupMessage != null) {
+    sendFollowupMessageAfter(interactionToken, followupMessage)
+  }
+
+  // 両チーム完了時: 元のメッセージを編集して完了を通知
+  if (isBothTeamsRegistered && messageId !== "" && channelId !== "") {
+    editDiscordMessageAfter(channelId, messageId, "✅ 両チームの入力が完了し、結果が発表されました", createProtectComponents(matchId, true))
+  }
+
+  return response
 }

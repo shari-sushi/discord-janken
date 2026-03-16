@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse, after } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { verifyKey } from "discord-interactions"
 import { echoCommand } from "./command/dev/echo"
-import { newMatchCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole, handleResetRegistered } from "./command/lol/newMatch"
+import { newMatchCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole, handleResetRegistered, postTeamRegistration } from "./command/lol/newMatch"
 import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./command/user/feedback"
 import { timerCommand, handleSubmitTimer, handleOpenModalTimer } from "./command/user/timer"
 import { commonMessageCommand, handleSubmitNewCommonMessage, handleOpenModalEditCommonMessage, handleSubmitCommonMessage, handleForceEndEditingCommonMessage } from "./command/user/commonMessage"
@@ -9,9 +9,7 @@ import { mentionReactorsCommand } from "./command/user/mentionReactors"
 import { handleFightingTeamOrderCommand, handleOpenModalFightingTeamOrder, handleFightingRegisterTeamOrder, handleFightingResetTeamOrder } from "./command/fighting-game/teamOrder"
 import { CLIENT_ACTIONS, COMMANDS } from "@/app/_server/util/commands"
 import { developersTestCommand } from "./command/dev/developers-test"
-import { editDiscordMessageAfter, sendFollowupMessageAfter } from "@/app/_server/lib/discord/api"
 import { getValue } from "./util/getComponentValue"
-import { createProtectComponents } from "./util/createProtectMessageComponents"
 import { extractModalSubmitInteractionData } from "./util/extractModalSubmitInteractionData"
 import { extractMatchId, extractMessageId } from "./util/extractCustomIdParam"
 import { DISCORD_PUBLIC_KEY } from "@/app/_server/lib/env"
@@ -222,22 +220,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
 
         const interactionToken = interaction.token
-        const {
-          response,
-          isBothTeamsRegistered,
-          followupMessage,
-          interactionToken: token,
-        } = await handleRegisterTeam({ matchId, teamSide: "red_team", userId, data: interaction.data, interactionToken })
+        const { response, isBothTeamsRegistered, followupMessage, interactionToken: token } = await handleRegisterTeam({ matchId, teamSide: "red_team", userId, data: interaction.data, interactionToken })
 
-        if (followupMessage != null) {
-          sendFollowupMessageAfter(token, followupMessage)
-        }
-
-        if (isBothTeamsRegistered && messageId != "" && channelId != "") {
-          editDiscordMessageAfter(channelId, messageId, "✅ 両チームの入力が完了し、結果が発表されました", createProtectComponents(matchId, true))
-        }
-
-        return response
+        return postTeamRegistration({ matchId, messageId, channelId, response, isBothTeamsRegistered, followupMessage, interactionToken: token })
       }
 
       if (modalActionId === CLIENT_ACTIONS.LOL.REGISTER_BLUE_TEAM) {
@@ -246,22 +231,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
 
         const interactionToken = interaction.token
-        const {
-          response,
-          isBothTeamsRegistered,
-          followupMessage,
-          interactionToken: token,
-        } = await handleRegisterTeam({ matchId, teamSide: "blue_team", userId, data: interaction.data, interactionToken })
+        const { response, isBothTeamsRegistered, followupMessage, interactionToken: token } = await handleRegisterTeam({ matchId, teamSide: "blue_team", userId, data: interaction.data, interactionToken })
 
-        if (followupMessage != null) {
-          sendFollowupMessageAfter(token, followupMessage)
-        }
-
-        if (isBothTeamsRegistered && messageId != "" && channelId != "") {
-          editDiscordMessageAfter(channelId, messageId, "✅ 両チームの入力が完了し、結果が発表されました", createProtectComponents(matchId, true))
-        }
-
-        return response
+        return postTeamRegistration({ matchId, messageId, channelId, response, isBothTeamsRegistered, followupMessage, interactionToken: token })
       }
 
       if (modalActionId === CLIENT_ACTIONS.FIGHTING.REGISTER_TEAM1_ORDER) {
