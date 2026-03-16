@@ -38,16 +38,6 @@ export const newMatchCommand = async (): Promise<NextResponse> => {
   })
 }
 
-/**
- * 両チーム完了時のEmbedメッセージを生成（3カラムテーブル形式）
- */
-export const createCompletionEmbed = (meta: ProtectMatchMeta, teamData: { blue: RegisteredTeamData; red: RegisteredTeamData }) => {
-  return NextResponse.json({
-    type: InteractionResponseType.ChannelMessageWithSource,
-    data: createCompletionEmbedData(meta, teamData),
-  })
-}
-
 // プロテクト・ロール入力 モーダル表示（共通処理）
 export const handleOpenModalProtectRole = async (teamSide: TeamSide, matchId: string, messageId: string): Promise<NextResponse> => {
   const isBlue = teamSide === "blue_team"
