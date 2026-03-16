@@ -1,5 +1,5 @@
 import { ProtectMatchMeta, RegisteredTeamData, TeamSide } from "@/app/domains/lol/types"
-import { arrayUnorderedEqual } from "../../../util/arrayUnorderedEqual"
+import { arrayUnorderedEqual } from "../../../_util/arrayUnorderedEqual"
 
 /**
  * 片方のチーム登録完了時のメッセージを生成（エフェメラル用）

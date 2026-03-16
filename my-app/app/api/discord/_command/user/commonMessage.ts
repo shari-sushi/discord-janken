@@ -1,11 +1,11 @@
 import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { NextResponse } from "next/server"
 import { editDiscordMessage, sendDiscordMessage } from "@/app/_server/lib/discord/api"
-import { getValue } from "@/app/api/discord/util/getComponentValue"
+import { getValue } from "@/app/api/discord/_util/getComponentValue"
 import { DISCORD_MESSAGE_MAX_LENGTH } from "@/app/domains/user/commonMessage/_server/constants"
-import { extractModalSubmitInteractionData } from "../../util/extractModalSubmitInteractionData"
-import { extractMessageId } from "../../util/extractCustomIdParam"
-import { customId } from "../../util/customId"
+import { extractModalSubmitInteractionData } from "../../_util/extractModalSubmitInteractionData"
+import { extractMessageId } from "../../_util/extractCustomIdParam"
+import { customId } from "../../_util/customId"
 import {
   APIActionRowComponent,
   APIComponentInMessageActionRow,

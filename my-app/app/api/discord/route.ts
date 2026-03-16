@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyKey } from "discord-interactions"
-import { echoCommand } from "./command/dev/echo"
-import { newMatchCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole, handleResetRegistered, postTeamRegistration } from "./command/lol/newMatch"
-import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./command/user/feedback"
-import { timerCommand, handleSubmitTimer, handleOpenModalTimer } from "./command/user/timer"
-import { commonMessageCommand, handleSubmitNewCommonMessage, handleOpenModalEditCommonMessage, handleSubmitCommonMessage, handleForceEndEditingCommonMessage } from "./command/user/commonMessage"
-import { mentionReactorsCommand } from "./command/user/mentionReactors"
-import { handleFightingTeamOrderCommand, handleOpenModalFightingTeamOrder, handleFightingRegisterTeamOrder, handleFightingResetTeamOrder } from "./command/fighting-game/teamOrder"
+import { echoCommand } from "./_command/dev/echo"
+import { newMatchCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole, handleResetRegistered, postTeamRegistration } from "./_command/lol/newMatch"
+import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./_command/user/feedback"
+import { timerCommand, handleSubmitTimer, handleOpenModalTimer } from "./_command/user/timer"
+import { commonMessageCommand, handleSubmitNewCommonMessage, handleOpenModalEditCommonMessage, handleSubmitCommonMessage, handleForceEndEditingCommonMessage } from "./_command/user/commonMessage"
+import { mentionReactorsCommand } from "./_command/user/mentionReactors"
+import { handleFightingTeamOrderCommand, handleOpenModalFightingTeamOrder, handleFightingRegisterTeamOrder, handleFightingResetTeamOrder } from "./_command/fighting-game/teamOrder"
 import { CLIENT_ACTIONS, COMMANDS } from "@/app/_server/util/commands"
-import { developersTestCommand } from "./command/dev/developers-test"
-import { getValue } from "./util/getComponentValue"
-import { extractModalSubmitInteractionData } from "./util/extractModalSubmitInteractionData"
-import { extractMatchId, extractMessageId } from "./util/extractCustomIdParam"
+import { developersTestCommand } from "./_command/dev/developers-test"
+import { getValue } from "./_util/getComponentValue"
+import { extractModalSubmitInteractionData } from "./_util/extractModalSubmitInteractionData"
+import { extractMatchId, extractMessageId } from "./_util/extractCustomIdParam"
 import { DISCORD_PUBLIC_KEY } from "@/app/_server/lib/env"
 import { FeedBackType } from "@/app/domains/user/feedback/types"
 import {
@@ -220,7 +220,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
 
         const interactionToken = interaction.token
-        const { response, isBothTeamsRegistered, followupMessage, interactionToken: token } = await handleRegisterTeam({ matchId, teamSide: "red_team", userId, data: interaction.data, interactionToken })
+        const {
+          response,
+          isBothTeamsRegistered,
+          followupMessage,
+          interactionToken: token,
+        } = await handleRegisterTeam({ matchId, teamSide: "red_team", userId, data: interaction.data, interactionToken })
 
         return postTeamRegistration({ matchId, messageId, channelId, response, isBothTeamsRegistered, followupMessage, interactionToken: token })
       }
@@ -231,7 +236,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
 
         const interactionToken = interaction.token
-        const { response, isBothTeamsRegistered, followupMessage, interactionToken: token } = await handleRegisterTeam({ matchId, teamSide: "blue_team", userId, data: interaction.data, interactionToken })
+        const {
+          response,
+          isBothTeamsRegistered,
+          followupMessage,
+          interactionToken: token,
+        } = await handleRegisterTeam({ matchId, teamSide: "blue_team", userId, data: interaction.data, interactionToken })
 
         return postTeamRegistration({ matchId, messageId, channelId, response, isBothTeamsRegistered, followupMessage, interactionToken: token })
       }

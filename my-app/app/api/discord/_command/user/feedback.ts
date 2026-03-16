@@ -1,11 +1,11 @@
 import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { NextResponse } from "next/server"
 import { appendFeedbackToSheet } from "@/app/_server/lib/googleSheets"
-import { getValue } from "@/app/api/discord/util/getComponentValue"
+import { getValue } from "@/app/api/discord/_util/getComponentValue"
 import { FeedBackType } from "@/app/domains/user/feedback/types"
-import { extractModalSubmitInteractionData } from "../../util/extractModalSubmitInteractionData"
-import { extractType } from "../../util/extractCustomIdParam"
-import { customId } from "../../util/customId"
+import { extractModalSubmitInteractionData } from "../../_util/extractModalSubmitInteractionData"
+import { extractType } from "../../_util/extractCustomIdParam"
+import { customId } from "../../_util/customId"
 import {
   APIModalInteractionResponseCallbackComponent,
   APIModalSubmitInteraction,

@@ -20,8 +20,8 @@ import { TeamFormat, TeamOrderData, FightingTeamOrderMeta, TeamData, OrderedTeam
 import { getMetaKey, getTeamKey } from "@/app/domains/fighting/_server/redisKeys"
 import { isOrderedTeamData } from "@/app/domains/fighting/_server/validators"
 import { TEAM_FORMAT_POSITIONS, getPositionLabel } from "@/app/domains/fighting/_server/constants"
-import { getValue } from "../../util/getComponentValue"
-import { customId } from "../../util/customId"
+import { getValue } from "../../_util/getComponentValue"
+import { customId } from "../../_util/customId"
 
 // 型ガード: valueプロパティを持つ基本オプションかどうか
 const isBasicOption = (

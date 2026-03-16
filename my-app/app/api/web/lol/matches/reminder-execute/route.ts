@@ -4,7 +4,7 @@ import { redisGet, redisMGet } from "@/app/_server/lib/redis/redis"
 import { getMatchKey } from "@/app/domains/lol/_server/redisKeys"
 import { RegisteredTeamData, ProtectMatchMeta } from "@/app/domains/lol/types"
 import { QSTASH_CURRENT_SIGNING_KEY, QSTASH_NEXT_SIGNING_KEY, DISCORD_BOT_TOKEN, DISCORD_API_BASE_URL } from "@/app/_server/lib/env"
-import { getMatchStatusMessage } from "@/app/api/discord/command/lol/util/getMatchStatusMessage"
+import { getMatchStatusMessage } from "@/app/api/discord/_command/lol/util/getMatchStatusMessage"
 import { APIEmbed } from "discord-api-types/v10"
 import { createReminderEmbeds } from "./createEmbeds"
 

@@ -1,4 +1,4 @@
-import { extractMatchId as _extractMatchId } from "@/app/api/discord/util/extractCustomIdParam"
+import { extractMatchId as _extractMatchId } from "@/app/api/discord/_util/extractCustomIdParam"
 
 /**
  * 失敗時にthrowするようWrapした extractMatchId
