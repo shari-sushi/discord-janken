@@ -116,24 +116,28 @@ describe("Discord API - LOL New Match Response Improvement (isProtect: true, isR
     expect(blueModalResponse.status).toBe(200)
     expect(blueModalData.type).toBe(InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE)
 
-    // ephemeral の content に登録内容の詳細が含まれる
+    // ephemeral の embeds に登録内容の詳細が含まれる（登録状況ステータスは含まれない）
     expect(blueModalData.data.flags).toBe(InteractionResponseFlags.EPHEMERAL)
-    expect(blueModalData.data.content).toContain("✅ ブルーサイド登録完了")
-    expect(blueModalData.data.content).toContain("【プロテクト】")
-    expect(blueModalData.data.content).toContain(blueProtectChampion)
-    expect(blueModalData.data.content).toContain("【ロール振り分け】")
-    expect(blueModalData.data.content).toContain(`TOP: ${blueRoster.top}`)
-    expect(blueModalData.data.content).toContain(`JG: ${blueRoster.jg}`)
-    expect(blueModalData.data.content).toContain(`MID: ${blueRoster.mid}`)
-    expect(blueModalData.data.content).toContain(`ADC: ${blueRoster.adc}`)
-    expect(blueModalData.data.content).toContain(`SUP: ${blueRoster.sup}`)
-    // 登録状況ステータスの確認
-    expect(blueModalData.data.content).toContain("🟦 ブルーサイド：✅登録済")
-    expect(blueModalData.data.content).toContain("🟥 レッドサイド：✍️未登録")
+    expect(blueModalData.data.embeds).toBeDefined()
+    expect(blueModalData.data.embeds.length).toBeGreaterThan(0)
+    expect(blueModalData.data.embeds[0].title).toBe("✅ ブルーサイド登録完了")
+    expect(blueModalData.data.embeds[0].fields).toBeDefined()
 
-    // Follow-up メッセージが1回呼ばれる
+    // Embedのフィールドから値を取得してチェック
+    const embedValues = blueModalData.data.embeds[0].fields![1].value
+    expect(embedValues).toContain(blueProtectChampion)
+    expect(embedValues).toContain(blueRoster.top)
+    expect(embedValues).toContain(blueRoster.jg)
+    expect(embedValues).toContain(blueRoster.mid)
+    expect(embedValues).toContain(blueRoster.adc)
+    expect(embedValues).toContain(blueRoster.sup)
+
+    // Follow-up メッセージで登録状況ステータスが送信される
     expect(mockSendFollowupMessage).toHaveBeenCalledTimes(1)
-    expect(mockSendFollowupMessage.mock.calls[0]).toEqual(["test-interaction-token", `🟦 ブルーサイド登録完了 (登録者<@${mockMember1.user.id}>)`])
+    expect(mockSendFollowupMessage.mock.calls[0][0]).toBe("test-interaction-token")
+    expect(mockSendFollowupMessage.mock.calls[0][1].content).toContain("🟦 ブルーサイド：✅登録済")
+    expect(mockSendFollowupMessage.mock.calls[0][1].content).toContain("🟥 レッドサイド：✍️未登録")
+    expect(mockSendFollowupMessage.mock.calls[0][1].content).toContain(`(登録者: <@${mockMember1.user.id}>)`)
 
     // メッセージ更新はまだ呼ばれない
     expect(mockEditDiscordMessage).toHaveBeenCalledTimes(0)
@@ -153,7 +157,7 @@ describe("Discord API - LOL New Match Response Improvement (isProtect: true, isR
     const redButtonData = (await parseJsonResponse(redButtonResponse)) as ModalSubmitResponse
     expect(redButtonData.type).toBe(InteractionResponseType.MODAL)
 
-    // ⑤ 赤チームのモーダルを送信 → 全員に見える形で結果発表(Embed) + ボタン無効化。Follow-up無し。
+    // ⑤ 赤チームのモーダルを送信 → エフェメラルで赤チーム情報、Follow-upで結果発表
     const redProtectChampion = "アジール、ライズ"
     const redRoster = {
       top: redTeamMembers[0],
@@ -170,21 +174,19 @@ describe("Discord API - LOL New Match Response Improvement (isProtect: true, isR
     expect(redModalResponse.status).toBe(200)
     expect(redModalData.type).toBe(InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE)
 
-    // 全員に見える形（ephemeralフラグなし）
-    expect(redModalData.data.flags).toBeUndefined()
-
-    // content に登録内容の詳細が含まれる
-    expect(redModalData.data.content).toContain("✅ レッドサイド登録完了")
-    expect(redModalData.data.content).toContain("【プロテクト】")
-    expect(redModalData.data.content).toContain(redProtectChampion)
-
-    // Follow-up メッセージは1回のみ（青チーム登録時のみ、赤チーム登録時は送らない）
-    expect(mockSendFollowupMessage).toHaveBeenCalledTimes(1)
-
-    // 両チーム完了の Embed メッセージが返される
+    // エフェメラルで赤チーム情報を返す
+    expect(redModalData.data.flags).toBe(InteractionResponseFlags.EPHEMERAL)
     expect(redModalData.data.embeds).toBeDefined()
-    expect(redModalData.data.embeds.length).toBeGreaterThan(0)
-    expect(redModalData.data.embeds[0].title).toContain("結果発表")
+    expect(redModalData.data.embeds[0].title).toBe("✅ レッドサイド登録完了")
+    expect(redModalData.data.embeds[0].fields![1].value).toContain(redProtectChampion)
+
+    // Follow-up メッセージが2回呼ばれる（青チーム登録時、赤チーム登録時）
+    expect(mockSendFollowupMessage).toHaveBeenCalledTimes(2)
+    // 1回目: 青チーム登録時の登録状況
+    expect(mockSendFollowupMessage.mock.calls[0][1].content).toContain("🟦 ブルーサイド：✅登録済")
+    // 2回目: 両チーム完了時の結果発表
+    expect(mockSendFollowupMessage.mock.calls[1][1].embeds).toBeDefined()
+    expect(mockSendFollowupMessage.mock.calls[1][1].embeds[0].title).toContain("結果発表")
 
     // メッセージ更新が1回呼ばれる（ボタン無効化）
     expect(mockEditDiscordMessage).toHaveBeenCalledTimes(1)
@@ -247,24 +249,28 @@ describe("Discord API - LOL New Match Response Improvement (isProtect: true, isR
     expect(redModalResponse.status).toBe(200)
     expect(redModalData.type).toBe(InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE)
 
-    // ephemeral フラグの確認
+    // ephemeral の embeds に登録内容の詳細が含まれる（登録状況ステータスは含まれない）
     expect(redModalData.data.flags).toBe(InteractionResponseFlags.EPHEMERAL)
-    expect(redModalData.data.content).toContain("✅ レッドサイド登録完了")
-    expect(redModalData.data.content).toContain("【プロテクト】")
-    expect(redModalData.data.content).toContain(redProtectChampion)
-    expect(redModalData.data.content).toContain("【ロール振り分け】")
-    expect(redModalData.data.content).toContain(`TOP: ${redRoster.top}`)
-    expect(redModalData.data.content).toContain(`JG: ${redRoster.jg}`)
-    expect(redModalData.data.content).toContain(`MID: ${redRoster.mid}`)
-    expect(redModalData.data.content).toContain(`ADC: ${redRoster.adc}`)
-    expect(redModalData.data.content).toContain(`SUP: ${redRoster.sup}`)
-    // 登録状況ステータスの確認
-    expect(redModalData.data.content).toContain("🟦 ブルーサイド：✍️未登録")
-    expect(redModalData.data.content).toContain("🟥 レッドサイド：✅登録済")
+    expect(redModalData.data.embeds).toBeDefined()
+    expect(redModalData.data.embeds.length).toBeGreaterThan(0)
+    expect(redModalData.data.embeds[0].title).toBe("✅ レッドサイド登録完了")
+    expect(redModalData.data.embeds[0].fields).toBeDefined()
 
-    // Follow-up メッセージが1回呼ばれる
+    // Embedのフィールドから値を取得してチェック
+    const embedValues = redModalData.data.embeds[0].fields![1].value
+    expect(embedValues).toContain(redProtectChampion)
+    expect(embedValues).toContain(redRoster.top)
+    expect(embedValues).toContain(redRoster.jg)
+    expect(embedValues).toContain(redRoster.mid)
+    expect(embedValues).toContain(redRoster.adc)
+    expect(embedValues).toContain(redRoster.sup)
+
+    // Follow-up メッセージで登録状況ステータスが送信される
     expect(mockSendFollowupMessage).toHaveBeenCalledTimes(1)
-    expect(mockSendFollowupMessage.mock.calls[0]).toEqual(["test-interaction-token", "🟥 レッドサイド登録完了 (登録者<@123456789012345678>)"])
+    expect(mockSendFollowupMessage.mock.calls[0][0]).toBe("test-interaction-token")
+    expect(mockSendFollowupMessage.mock.calls[0][1].content).toContain("🟦 ブルーサイド：✍️未登録")
+    expect(mockSendFollowupMessage.mock.calls[0][1].content).toContain("🟥 レッドサイド：✅登録済")
+    expect(mockSendFollowupMessage.mock.calls[0][1].content).toContain(`(登録者: <@${mockMember2.user.id}>)`)
 
     // メッセージ更新はまだ呼ばれない
     expect(mockEditDiscordMessage).toHaveBeenCalledTimes(0)
@@ -275,7 +281,7 @@ describe("Discord API - LOL New Match Response Improvement (isProtect: true, isR
     const blueButtonResponse = await DiscordPOST(blueButtonRequest)
     expect(blueButtonResponse.status).toBe(200)
 
-    // ⑤ 青チームのモーダルを送信 → 全員に見える形で結果発表(Embed) + ボタン無効化。Follow-up無し。
+    // ⑤ 青チームのモーダルを送信 → エフェメラルで青チーム情報、Follow-upで結果発表
     const blueProtectChampion = "モルガナ、メル"
     const blueRoster = {
       top: blueTeamMembers[0],
@@ -292,16 +298,16 @@ describe("Discord API - LOL New Match Response Improvement (isProtect: true, isR
     expect(blueModalResponse.status).toBe(200)
     expect(blueModalData.type).toBe(InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE)
 
-    // 全員に見える形（ephemeralフラグなし）
-    expect(blueModalData.data.flags).toBeUndefined()
-    expect(blueModalData.data.content).toContain("✅ ブルーサイド登録完了")
-
-    // Follow-up メッセージは1回のみ（赤チーム登録時のみ、青チーム登録時は送らない）
-    expect(mockSendFollowupMessage).toHaveBeenCalledTimes(1)
-
-    // 両チーム完了の Embed メッセージが返される
+    // エフェメラルで青チーム情報を返す
+    expect(blueModalData.data.flags).toBe(InteractionResponseFlags.EPHEMERAL)
     expect(blueModalData.data.embeds).toBeDefined()
-    expect(blueModalData.data.embeds[0].title).toContain("結果発表")
+    expect(blueModalData.data.embeds[0].title).toBe("✅ ブルーサイド登録完了")
+
+    // Follow-up メッセージが2回呼ばれる（赤チーム登録時、青チーム登録時）
+    expect(mockSendFollowupMessage).toHaveBeenCalledTimes(2)
+    // 2回目: 両チーム完了時の結果発表
+    expect(mockSendFollowupMessage.mock.calls[1][1].embeds).toBeDefined()
+    expect(mockSendFollowupMessage.mock.calls[1][1].embeds[0].title).toContain("結果発表")
 
     // メッセージ更新が1回呼ばれる（ボタン無効化）
     expect(mockEditDiscordMessage).toHaveBeenCalledTimes(1)
@@ -359,12 +365,14 @@ describe("Discord API - LOL New Match Response Improvement (isProtect: true, isR
 
     expect(blueModalResponseA.status).toBe(200)
     expect(blueModalDataA.data.flags).toBe(InteractionResponseFlags.EPHEMERAL)
-    expect(blueModalDataA.data.content).toContain(blueProtectChampionA)
-    expect(blueModalDataA.data.content).toContain("🟦 ブルーサイド：✅登録済")
-    expect(blueModalDataA.data.content).toContain("🟥 レッドサイド：✍️未登録")
+    expect(blueModalDataA.data.embeds).toBeDefined()
+    expect(blueModalDataA.data.embeds[0].title).toBe("✅ ブルーサイド登録完了")
+    expect(blueModalDataA.data.embeds[0].fields![1].value).toContain(blueProtectChampionA)
 
-    // Follow-up メッセージが1回呼ばれる
+    // Follow-up メッセージで登録状況ステータスが送信される
     expect(mockSendFollowupMessage).toHaveBeenCalledTimes(1)
+    expect(mockSendFollowupMessage.mock.calls[0][1].content).toContain("🟦 ブルーサイド：✅登録済")
+    expect(mockSendFollowupMessage.mock.calls[0][1].content).toContain("🟥 レッドサイド：✍️未登録")
 
     // 青チーム1回目の登録データが Redis に保存される
     let blueTeamData = await redisGet<RegisteredTeamData>(getMatchKey(matchId, "blue_team"))
@@ -392,12 +400,14 @@ describe("Discord API - LOL New Match Response Improvement (isProtect: true, isR
 
     expect(blueModalResponseB.status).toBe(200)
     expect(blueModalDataB.data.flags).toBe(InteractionResponseFlags.EPHEMERAL)
-    expect(blueModalDataB.data.content).toContain(blueProtectChampionB)
-    expect(blueModalDataB.data.content).toContain("🟦 ブルーサイド：✅登録済")
-    expect(blueModalDataB.data.content).toContain("🟥 レッドサイド：✍️未登録")
+    expect(blueModalDataB.data.embeds).toBeDefined()
+    expect(blueModalDataB.data.embeds[0].title).toBe("✅ ブルーサイド登録完了")
+    expect(blueModalDataB.data.embeds[0].fields![1].value).toContain(blueProtectChampionB)
 
-    // Follow-up メッセージが2回呼ばれる
+    // Follow-up メッセージが2回呼ばれる（1回目と2回目）
     expect(mockSendFollowupMessage).toHaveBeenCalledTimes(2)
+    expect(mockSendFollowupMessage.mock.calls[1][1].content).toContain("🟦 ブルーサイド：✅登録済")
+    expect(mockSendFollowupMessage.mock.calls[1][1].content).toContain("🟥 レッドサイド：✍️未登録")
 
     // 青チーム2回目の登録データで Redis が上書きされる
     blueTeamData = await redisGet<RegisteredTeamData>(getMatchKey(matchId, "blue_team"))
@@ -424,16 +434,20 @@ describe("Discord API - LOL New Match Response Improvement (isProtect: true, isR
     const redModalData = (await parseJsonResponse(redModalResponse)) as ModalSubmitResponse
 
     expect(redModalResponse.status).toBe(200)
+    expect(redModalData.data.flags).toBe(InteractionResponseFlags.EPHEMERAL)
 
-    // Follow-up メッセージが合計2回呼ばれる（青チーム1回目、青チーム2回目のみ。赤チーム登録時は送らない）
-    expect(mockSendFollowupMessage).toHaveBeenCalledTimes(2)
-    expect(mockSendFollowupMessage.mock.calls[0][1]).toContain("🟦 ブルーサイド登録完了")
-    expect(mockSendFollowupMessage.mock.calls[1][1]).toContain("🟦 ブルーサイド登録完了")
-
-    // 両チーム完了の Embed メッセージに青チームの最新データ（データB）が含まれる
-    expect(redModalData.data.embeds).toBeDefined()
-    expect(redModalData.data.embeds[0].title).toContain("結果発表")
-    const blueField = redModalData.data.embeds[0].fields![1] // fields[1] がブルーサイド
+    // Follow-up メッセージが合計3回呼ばれる（青チーム1回目、青チーム2回目、赤チーム登録時）
+    expect(mockSendFollowupMessage).toHaveBeenCalledTimes(3)
+    // 1回目: 青チーム1回目登録の登録状況
+    expect(mockSendFollowupMessage.mock.calls[0][1].content).toContain("🟦 ブルーサイド：✅登録済")
+    expect(mockSendFollowupMessage.mock.calls[0][1].content).toContain("🟥 レッドサイド：✍️未登録")
+    // 2回目: 青チーム2回目登録の登録状況
+    expect(mockSendFollowupMessage.mock.calls[1][1].content).toContain("🟦 ブルーサイド：✅登録済")
+    expect(mockSendFollowupMessage.mock.calls[1][1].content).toContain("🟥 レッドサイド：✍️未登録")
+    // 3回目: 両チーム完了時の結果発表
+    expect(mockSendFollowupMessage.mock.calls[2][1].embeds).toBeDefined()
+    expect(mockSendFollowupMessage.mock.calls[2][1].embeds[0].title).toContain("結果発表")
+    const blueField = mockSendFollowupMessage.mock.calls[2][1].embeds[0].fields![1] // fields[1] がブルーサイド
     expect(blueField?.value).toContain(blueProtectChampionB) // 青チームの最新データ
     expect(blueField?.value).toContain(blueRosterB.top) // 青チームの最新ロール振り分け
   })

@@ -2,8 +2,9 @@
  * Discord REST API 通信用のヘルパー関数
  */
 
-import { APIActionRowComponent, APIComponentInMessageActionRow } from "discord-api-types/v10"
+import { APIActionRowComponent, APIComponentInMessageActionRow, RESTPostAPIWebhookWithTokenJSONBody } from "discord-api-types/v10"
 import { DISCORD_API_BASE_URL, DISCORD_BOT_TOKEN } from "@/app/_server/lib/env"
+import { after } from "next/server"
 
 export interface DiscordMessageResponse {
   id: string
@@ -224,9 +225,58 @@ export async function getAllReactionFields(channelId: string, messageId: string,
 /**
  * インタラクションのFollow-upメッセージを送信する
  * @param interactionToken - インタラクショントークン
- * @param content - メッセージ本文
+ * @param body - Webhookメッセージボディ（content, embeds, components等）
+ * https://docs.discord.com/developers/interactions/receiving-and-responding#followup-messages
  */
-export async function sendFollowupMessage(interactionToken: string, content: string): Promise<void> {
-  // TODO: 実装
-  console.log("sendFollowupMessage called with:", { interactionToken, content })
+export async function sendFollowupMessage(interactionToken: string, body: RESTPostAPIWebhookWithTokenJSONBody): Promise<void> {
+  const DISCORD_APPLICATION_ID = process.env.DISCORD_APPLICATION_ID
+  if (!DISCORD_APPLICATION_ID) {
+    throw new Error("DISCORD_APPLICATION_ID is not defined")
+  }
+
+  const url = `${DISCORD_API_BASE_URL}/webhooks/${DISCORD_APPLICATION_ID}/${interactionToken}`
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    })
+
+    console.log("[sendFollowupMessage] Response status:", response.status, response.statusText)
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.log("[sendFollowupMessage] URL:", url, "\n[sendFollowupMessage] Body:", JSON.stringify(body))
+      console.error("[sendFollowupMessage] Error data:", errorData)
+      throw new DiscordApiError(response.status, response.statusText, errorData)
+    }
+
+    const responseData = await response.json()
+    console.log("[sendFollowupMessage] Success response:", responseData)
+  } catch (error) {
+    console.error("[sendFollowupMessage] Caught error:", error)
+    if (error instanceof DiscordApiError) {
+      throw error
+    }
+    throw new Error(`Failed to send follow-up message: ${error}`)
+  }
+}
+
+/**
+ * インタラクションのFollow-upメッセージを送信する（after APIでラップ）
+ * レスポンスを返した後に非同期で実行される
+ * @param interactionToken - インタラクショントークン
+ * @param body - Webhookメッセージボディ（content, embeds, components等）
+ */
+export function sendFollowupMessageAfter(interactionToken: string, body: RESTPostAPIWebhookWithTokenJSONBody): void {
+  after(async () => {
+    try {
+      await sendFollowupMessage(interactionToken, body)
+      console.log("Follow-up message sent successfully")
+    } catch (error) {
+      console.error("Failed to send follow-up message:", error)
+    }
+  })
 }

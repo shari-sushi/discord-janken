@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse, after } from "next/server"
 import { verifyKey } from "discord-interactions"
 import { echoCommand } from "./command/dev/echo"
 import { newMatchCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole, handleResetRegistered } from "./command/lol/newMatch"
@@ -9,7 +9,7 @@ import { mentionReactorsCommand } from "./command/user/mentionReactors"
 import { handleFightingTeamOrderCommand, handleOpenModalFightingTeamOrder, handleFightingRegisterTeamOrder, handleFightingResetTeamOrder } from "./command/fighting-game/teamOrder"
 import { CLIENT_ACTIONS, COMMANDS } from "@/app/_server/util/commands"
 import { developersTestCommand } from "./command/dev/developers-test"
-import { editDiscordMessage } from "@/app/_server/lib/discord/api"
+import { editDiscordMessage, sendFollowupMessageAfter } from "@/app/_server/lib/discord/api"
 import { getValue } from "./util/getComponentValue"
 import { createProtectComponents } from "./util/createProtectMessageComponents"
 import { extractModalSubmitInteractionData } from "./util/extractModalSubmitInteractionData"
@@ -230,9 +230,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
 
         const interactionToken = interaction.token
-        const { response, isBothTeamsRegistered } = await handleRegisterTeam({ matchId, teamSide: "red_team", userId, data: interaction.data, interactionToken })
-        if (isBothTeamsRegistered && messageId && channelId) {
-          await disableRegisterButtonsMessage(messageId, channelId, matchId)
+        const {
+          response,
+          isBothTeamsRegistered,
+          followupMessage,
+          interactionToken: token,
+        } = await handleRegisterTeam({ matchId, teamSide: "red_team", userId, data: interaction.data, interactionToken })
+
+        if (followupMessage != null) {
+          sendFollowupMessageAfter(token, followupMessage)
+        }
+
+        if (isBothTeamsRegistered && messageId != "" && channelId != "") {
+          after(async () => {
+            await disableRegisterButtonsMessage(messageId, channelId, matchId)
+          })
         }
 
         return response
@@ -244,9 +256,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
 
         const interactionToken = interaction.token
-        const { response, isBothTeamsRegistered } = await handleRegisterTeam({ matchId, teamSide: "blue_team", userId, data: interaction.data, interactionToken })
-        if (isBothTeamsRegistered && messageId && channelId) {
-          await disableRegisterButtonsMessage(messageId, channelId, matchId)
+        const {
+          response,
+          isBothTeamsRegistered,
+          followupMessage,
+          interactionToken: token,
+        } = await handleRegisterTeam({ matchId, teamSide: "blue_team", userId, data: interaction.data, interactionToken })
+
+        if (followupMessage != null) {
+          sendFollowupMessageAfter(token, followupMessage)
+        }
+
+        if (isBothTeamsRegistered && messageId != "" && channelId != "") {
+          after(async () => {
+            await disableRegisterButtonsMessage(messageId, channelId, matchId)
+          })
         }
 
         return response

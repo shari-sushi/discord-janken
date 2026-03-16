@@ -5,11 +5,10 @@ import { redisSet, redisGet, redisMGet, redisDelete } from "@/app/_server/lib/re
 import { createProtectComponents } from "../../util/createProtectMessageComponents"
 import { RegisteredTeamData, ProtectMatchMeta, TeamSide } from "@/app/domains/lol/types"
 import { getMatchKey } from "@/app/domains/lol/_server/redisKeys"
-import { APIModalInteractionResponseCallbackComponent, APIModalSubmission, ComponentType, InteractionResponseType, MessageFlags, TextInputStyle } from "discord-api-types/v10"
+import { APIModalInteractionResponseCallbackComponent, APIModalSubmission, ComponentType, InteractionResponseType, MessageFlags, TextInputStyle, APIEmbed } from "discord-api-types/v10"
 import { getValue } from "../../util/getComponentValue"
 import { customId } from "../../util/customId"
-import { sendFollowupMessage } from "@/app/_server/lib/discord/api"
-import { createRegistrationDetailMessage } from "./util/createRegistrationDetailMessage"
+import { createSingleTeamRegistrationMessage } from "./util/createSingleTeamRegistrationEmbedData"
 import { createCompletionEmbedData } from "./util/createCompletionEmbedData"
 import { getMatchStatusMessage } from "./util/getMatchStatusMessage"
 import { isBothTeamRegistered } from "./util/isBothTeamRegistered"
@@ -174,8 +173,15 @@ type handleRegisterTeamArgs = {
   interactionToken: string
 }
 
+type handleRegisterTeamResult = {
+  response: NextResponse
+  isBothTeamsRegistered: boolean
+  followupMessage?: { content?: string; embeds?: APIEmbed[] }
+  interactionToken: string
+}
+
 // チーム情報の登録処理
-export const handleRegisterTeam = async ({ matchId, userId, teamSide, data, interactionToken }: handleRegisterTeamArgs): Promise<{ response: NextResponse; isBothTeamsRegistered: boolean }> => {
+export const handleRegisterTeam = async ({ matchId, userId, teamSide, data, interactionToken }: handleRegisterTeamArgs): Promise<handleRegisterTeamResult> => {
   console.log("handleRegisterTeam by", teamSide, "data:", JSON.stringify(data, null, 2))
 
   // 1. メタデータ取得
@@ -187,6 +193,7 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data, inte
     return {
       response: NextResponse.json({ type: InteractionResponseType.ChannelMessageWithSource, data: { content: "エラー: 試合情報が見つかりません", flags: MessageFlags.Ephemeral } }),
       isBothTeamsRegistered: false,
+      interactionToken,
     }
   }
 
@@ -211,6 +218,7 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data, inte
           data: { content: "エラー: 全てのロールに選手を割り振ってください", flags: MessageFlags.Ephemeral },
         }),
         isBothTeamsRegistered: false,
+        interactionToken,
       }
     }
 
@@ -224,6 +232,7 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data, inte
           data: { content: "エラー: 同じメンバーが複数のロールに選択されています", flags: MessageFlags.Ephemeral },
         }),
         isBothTeamsRegistered: false,
+        interactionToken,
       }
     }
 
@@ -235,6 +244,7 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data, inte
           data: { content: "エラー: メンバー情報が見つかりません", flags: MessageFlags.Ephemeral },
         }),
         isBothTeamsRegistered: false,
+        interactionToken,
       }
     }
 
@@ -249,6 +259,7 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data, inte
           data: { content: "エラー: Supportロールに割り当てるメンバーが見つかりません", flags: MessageFlags.Ephemeral },
         }),
         isBothTeamsRegistered: false,
+        interactionToken,
       }
     }
 
@@ -275,11 +286,11 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data, inte
 
   // 7. メッセージ返却
   if (!isBothTeamRegistered(meta.rules, usTeamData, otherTeamData)) {
-    console.log(teamSide, "- Both completed")
+    console.log(teamSide, "- Single team completed (not both)")
     console.log(teamSide, "- Returning single team completion message")
-    const responseContent = createRegistrationDetailMessage(teamSide, meta, usTeamData)
-    if (responseContent == null) {
-      console.error("responseContent is null")
+    const messageData = createSingleTeamRegistrationMessage(teamSide, meta, usTeamData)
+    if (messageData == null) {
+      console.error("messageData is null")
       return {
         response: NextResponse.json({
           type: InteractionResponseType.ChannelMessageWithSource,
@@ -289,36 +300,33 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data, inte
           },
         }),
         isBothTeamsRegistered: false,
+        interactionToken,
       }
     }
 
-    // 登録状況のステータスを追加
     const blueStatus = teamSide === "blue_team" ? "✅登録済" : "✍️未登録"
     const redStatus = teamSide === "red_team" ? "✅登録済" : "✍️未登録"
-    const statusMessage = `\n\n🟦 ブルーサイド：${blueStatus}\n🟥 レッドサイド：${redStatus}`
-    const fullContent = responseContent + statusMessage
-
-    // Follow-up メッセージで全員向けの通知を送信（非同期）
-    const publicMessage = teamSide === "blue_team" ? `🟦 ブルーサイド登録完了 (登録者<@${userId}>)` : `🟥 レッドサイド登録完了 (登録者<@${userId}>)`
-    sendFollowupMessage(interactionToken, publicMessage).catch((error) => console.error("Failed to send follow-up message:", error))
+    const statusMessage = `🟦 ブルーサイド：${blueStatus}\n🟥 レッドサイド：${redStatus}\n(登録者: <@${userId}>)`
 
     return {
       response: NextResponse.json({
         type: InteractionResponseType.ChannelMessageWithSource,
         data: {
-          content: fullContent,
+          ...messageData,
           flags: MessageFlags.Ephemeral,
         },
       }),
       isBothTeamsRegistered: false,
+      followupMessage: { content: statusMessage },
+      interactionToken,
     }
   }
 
   console.log(teamSide, "- Returning completion embed")
-  // 両チーム完了時はFollow-upメッセージを送らず、レスポンスで全員に見える形で結果発表
-  const responseContent = createRegistrationDetailMessage(teamSide, meta, usTeamData)
-  if (responseContent == null) {
-    console.error("responseContent is null in completion phase")
+  // 両チーム完了時: エフェメラルで自分のチーム確認、全員向けには結果発表Embed
+  const singleTeamMessageData = createSingleTeamRegistrationMessage(teamSide, meta, usTeamData)
+  if (singleTeamMessageData == null) {
+    console.error("singleTeamMessageData is null in completion phase")
     return {
       response: NextResponse.json({
         type: InteractionResponseType.ChannelMessageWithSource,
@@ -328,10 +336,11 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data, inte
         },
       }),
       isBothTeamsRegistered: false,
+      interactionToken,
     }
   }
 
-  const embedData = createCompletionEmbedData(meta, {
+  const completionEmbedData = createCompletionEmbedData(meta, {
     blue: teamSide === "blue_team" ? usTeamData : otherTeamData!,
     red: teamSide === "blue_team" ? otherTeamData! : usTeamData,
   })
@@ -340,11 +349,13 @@ export const handleRegisterTeam = async ({ matchId, userId, teamSide, data, inte
     response: NextResponse.json({
       type: InteractionResponseType.ChannelMessageWithSource,
       data: {
-        content: responseContent,
-        ...embedData, // embeds プロパティを展開
+        ...singleTeamMessageData,
+        flags: MessageFlags.Ephemeral,
       },
     }),
     isBothTeamsRegistered: true,
+    followupMessage: { embeds: completionEmbedData.embeds },
+    interactionToken,
   }
 }
 
