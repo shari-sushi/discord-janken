@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "npm run register-commands && next build",
-    "register-commands": "npx tsx app/api/discord/command/register.ts",
+    "register-commands": "npx tsx app/api/discord/_command/register.ts",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
