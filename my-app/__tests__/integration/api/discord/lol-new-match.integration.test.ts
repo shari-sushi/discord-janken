@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, vi, beforeEach } from "vitest"
 import { POST } from "@/app/api/discord/route"
 import { createNewMatchCommandPayload, createButtonClickPayload, createModalSubmitPayload, mockMember1, mockMember2 } from "../../../mocks/discord-payloads"
 import { createDiscordRequest, parseJsonResponse } from "../../../helpers/api-test-utils"
@@ -9,6 +9,21 @@ import { ProtectMatchMeta, RegisteredTeamData } from "@/app/domains/lol/types"
 import { customId } from "@/app/api/discord/util/customId"
 import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { InteractionResponseType } from "discord-api-types/v10"
+import * as discordApi from "@/app/_server/lib/discord/api"
+
+// Discord API 関数をモック化
+const mockSendFollowupMessageAfter = vi.fn()
+const mockEditDiscordMessageAfter = vi.fn()
+
+beforeEach(() => {
+  // 各テスト前にモックをリセット
+  mockSendFollowupMessageAfter.mockClear()
+  mockEditDiscordMessageAfter.mockClear()
+
+  // モック関数を設定
+  vi.spyOn(discordApi, "sendFollowupMessageAfter").mockImplementation(mockSendFollowupMessageAfter)
+  vi.spyOn(discordApi, "editDiscordMessageAfter").mockImplementation(mockEditDiscordMessageAfter)
+})
 
 describe("Discord API - LOL New Match Integration Test (isProtect: true, isRoleSelect: false)", () => {
   it("success:青→赤→発表", async () => {
@@ -88,13 +103,20 @@ describe("Discord API - LOL New Match Integration Test (isProtect: true, isRoleS
     expect(redModalResponse.status).toBe(200)
     expect(redModalData.type).toBe(InteractionResponseType.ChannelMessageWithSource)
 
-    // Embedメッセージの内容を確認
-    expect(redModalData.data.embeds).toBeDefined()
-    expect(redModalData.data.embeds.length).toBeGreaterThan(0)
-    expect(redModalData.data.embeds[0].title).toContain("結果発表")
+    // エフェメラルで赤チーム情報を返す
+    expect(redModalData.data.content).toContain("登録完了")
+
+    // Follow-upメッセージでEmbed（結果発表）が送信される
+    expect(mockSendFollowupMessageAfter).toHaveBeenCalledTimes(2)
+    // 1回目: 青チーム登録時の登録状況
+    expect(mockSendFollowupMessageAfter.mock.calls[0][1].content).toBeDefined()
+    // 2回目: 両チーム完了時の結果発表
+    expect(mockSendFollowupMessageAfter.mock.calls[1][1].embeds).toBeDefined()
+    expect(mockSendFollowupMessageAfter.mock.calls[1][1].embeds.length).toBeGreaterThan(0)
+    expect(mockSendFollowupMessageAfter.mock.calls[1][1].embeds[0].title).toContain("結果発表")
 
     // fieldsの内容を確認（3カラム形式）
-    const fields = redModalData.data.embeds[0].fields
+    const fields = mockSendFollowupMessageAfter.mock.calls[1][1].embeds[0].fields
     expect(fields).toBeDefined()
     expect(fields.length).toBe(3) // 左カラム、ブルーサイド、レッドサイド
 
