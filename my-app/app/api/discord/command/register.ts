@@ -111,7 +111,15 @@ const fightingTeamOrder: RESTPostAPIApplicationCommandsJSONBody = {
   ],
 }
 
-const commands: RESTPostAPIApplicationCommandsJSONBody[] = [newMatch, feedback, timer, randomSide, commonMessage, mentionByReaction, fightingTeamOrder, echo, test]
+// コマンド追加/削除時はここを変更する
+const ALL_COMMANDS = {
+  lol: { newMatch, randomSide },
+  user: { feedback, timer, commonMessage, mentionByReaction },
+  fighting: { fightingTeamOrder },
+  dev: { echo, test },
+}
+
+const commands: RESTPostAPIApplicationCommandsJSONBody[] = Object.values(ALL_COMMANDS).flatMap((group) => Object.values(group))
 
 // 開発環境ではコマンド登録をスキップ
 if (ENV !== "production" && ENV !== "preview") {
