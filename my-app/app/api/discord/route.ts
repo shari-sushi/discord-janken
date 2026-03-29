@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { verifyKey } from "discord-interactions"
 import { echoCommand } from "./command/dev/echo"
 import { newMatchCommand, handleCheckRegistered, handleRegisterTeam, handleOpenModalProtectRole, handleResetRegistered } from "./command/lol/newMatch"
+import { randomSideCommand } from "./command/lol/randomSide"
 import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from "./command/user/feedback"
 import { timerCommand, handleSubmitTimer, handleOpenModalTimer } from "./command/user/timer"
 import { commonMessageCommand, handleSubmitNewCommonMessage, handleOpenModalEditCommonMessage, handleSubmitCommonMessage, handleForceEndEditingCommonMessage } from "./command/user/commonMessage"
@@ -74,6 +75,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       switch (commandName) {
         case COMMANDS.LOL.NEW_MATCH:
           return newMatchCommand()
+        case COMMANDS.LOL.RANDOM_SIDE:
+          return randomSideCommand()
         case COMMANDS.USER.TIMER:
           return timerCommand()
         case COMMANDS.USER.FEEDBACK:

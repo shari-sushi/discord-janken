@@ -12,6 +12,12 @@ const newMatch: RESTPostAPIApplicationCommandsJSONBody = {
   options: [],
 }
 
+const randomSide: RESTPostAPIApplicationCommandsJSONBody = {
+  name: COMMANDS.LOL.RANDOM_SIDE,
+  description: "ランダムでレッドサイドかブルーサイドかを抽選します",
+  options: [],
+}
+
 const feedback: RESTPostAPIApplicationCommandsJSONBody = {
   name: COMMANDS.USER.FEEDBACK,
   description: "フィードバックを送信します",
@@ -105,7 +111,7 @@ const fightingTeamOrder: RESTPostAPIApplicationCommandsJSONBody = {
   ],
 }
 
-const commands: RESTPostAPIApplicationCommandsJSONBody[] = [newMatch, feedback, timer, commonMessage, mentionByReaction, fightingTeamOrder, echo, test]
+const commands: RESTPostAPIApplicationCommandsJSONBody[] = [newMatch, feedback, timer, randomSide, commonMessage, mentionByReaction, fightingTeamOrder, echo, test]
 
 // 開発環境ではコマンド登録をスキップ
 if (ENV !== "production" && ENV !== "preview") {

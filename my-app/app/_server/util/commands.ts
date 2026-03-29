@@ -6,6 +6,7 @@ const FIGHTING_PREF = "fighting-"
 export const COMMANDS = {
   LOL: {
     NEW_MATCH: LOL_PREF + "new-match",
+    RANDOM_SIDE: LOL_PREF + "random-side",
   },
   USER: {
     TIMER: USER_PREF + "timer",
