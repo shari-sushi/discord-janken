@@ -59,6 +59,7 @@ export const roleRouletteCommand = (interaction: APIChatInputApplicationCommandI
     try {
       for (const emoji of Object.values(ROLE_EMOJIS)) {
         await addReaction(channelId, messageId, emoji)
+        await new Promise((resolve) => setTimeout(resolve, 100))
       }
     } catch (e) {
       console.error("roleRouletteCommand reaction error:", e)
@@ -174,6 +175,7 @@ export const handleRoleRouletteReset = (interaction: APIMessageComponentInteract
     try {
       for (const emoji of Object.values(ROLE_EMOJIS)) {
         await addReaction(channelId, messageId, emoji)
+        await new Promise((resolve) => setTimeout(resolve, 100))
       }
     } catch (e) {
       console.error("handleRoleRouletteReset reaction error:", e)
