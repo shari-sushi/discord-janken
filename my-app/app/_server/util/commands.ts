@@ -7,6 +7,7 @@ export const COMMANDS = {
   LOL: {
     NEW_MATCH: LOL_PREF + "new-match",
     RANDOM_SIDE: LOL_PREF + "random-side",
+    ROLE_ROULETTE: LOL_PREF + "role-roulette",
   },
   USER: {
     TIMER: USER_PREF + "timer",
@@ -34,6 +35,8 @@ export const CLIENT_ACTIONS = {
     RESET_REGISTERED: "reset-registered",
     OPEN_MODAL_TIMER: "open-modal-timer",
     SUBMIT_TIMER: "submit-timer-lol-new-match",
+    ROLE_ROULETTE_START: LOL_PREF + "role-roulette-start",
+    ROLE_ROULETTE_RESET: LOL_PREF + "role-roulette-reset",
   },
   USER: {
     SELECT_FEEDBACK_TYPE: "select-feedback-type",

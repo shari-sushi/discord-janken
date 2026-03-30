@@ -111,9 +111,15 @@ const fightingTeamOrder: RESTPostAPIApplicationCommandsJSONBody = {
   ],
 }
 
+const roleRoulette: RESTPostAPIApplicationCommandsJSONBody = {
+  name: COMMANDS.LOL.ROLE_ROULETTE,
+  description: "LoLのロール抽選を行います",
+  options: [],
+}
+
 // コマンド追加/削除時はここを変更する
 const ALL_COMMANDS = {
-  lol: { newMatch, randomSide },
+  lol: { newMatch, randomSide, roleRoulette },
   user: { feedback, timer, commonMessage, mentionByReaction },
   fighting: { fightingTeamOrder },
   dev: { echo, test },

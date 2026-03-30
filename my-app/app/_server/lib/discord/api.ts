@@ -200,6 +200,119 @@ function encodeEmoji(reaction: DiscordReaction): string {
 }
 
 /**
+ * 特定のリアクションをつけたユーザー一覧を取得する
+ * @param channelId - チャンネルID
+ * @param messageId - メッセージID
+ * @param emoji - 絵文字
+ * @returns リアクションをつけたユーザーの配列
+ */
+export async function getReactionUsers(channelId: string, messageId: string, emoji: string): Promise<DiscordReactor[]> {
+  return getMessageReactions(channelId, messageId, emoji)
+}
+
+/**
+ * メッセージにリアクションを追加する
+ * @param channelId - チャンネルID
+ * @param messageId - メッセージID
+ * @param emoji - 絵文字
+ */
+export async function addReaction(channelId: string, messageId: string, emoji: string): Promise<void> {
+  const url = `${DISCORD_API_BASE_URL}/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}/@me`
+
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new DiscordApiError(response.status, response.statusText, errorData)
+  }
+}
+
+/**
+ * メッセージの全リアクションを削除する
+ * @param channelId - チャンネルID
+ * @param messageId - メッセージID
+ */
+export async function deleteAllReactions(channelId: string, messageId: string): Promise<void> {
+  const url = `${DISCORD_API_BASE_URL}/channels/${channelId}/messages/${messageId}/reactions`
+
+  const response = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+    },
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new DiscordApiError(response.status, response.statusText, errorData)
+  }
+}
+
+/**
+ * Webhookを通じて元のインタラクションレスポンスメッセージを取得する
+ * @param applicationId - アプリケーションID
+ * @param token - インタラクショントークン
+ * @returns 元メッセージのデータ
+ */
+export async function getWebhookOriginalMessage(applicationId: string, token: string): Promise<DiscordMessageResponse> {
+  const url = `${DISCORD_API_BASE_URL}/webhooks/${applicationId}/${token}/messages/@original`
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new DiscordApiError(response.status, response.statusText, errorData)
+  }
+
+  return response.json()
+}
+
+/**
+ * Webhookを通じて元のインタラクションレスポンスメッセージを編集する
+ * @param applicationId - アプリケーションID
+ * @param token - インタラクショントークン
+ * @param content - メッセージ本文
+ * @param components - コンポーネント配列
+ */
+export async function editWebhookOriginalMessage(
+  applicationId: string,
+  token: string,
+  content: string,
+  components?: APIActionRowComponent<APIComponentInMessageActionRow>[],
+): Promise<void> {
+  const url = `${DISCORD_API_BASE_URL}/webhooks/${applicationId}/${token}/messages/@original`
+
+  const body: DiscordMessageBody = { content }
+  if (components && components.length > 0) {
+    body.components = components
+  }
+
+  const response = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new DiscordApiError(response.status, response.statusText, errorData)
+  }
+}
+
+/**
  * メッセージの全リアクションについて、ユーザー情報を並列取得する
  * @param channelId - チャンネルID
  * @param messageId - メッセージID
