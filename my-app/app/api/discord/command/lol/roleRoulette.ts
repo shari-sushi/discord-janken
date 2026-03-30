@@ -1,6 +1,6 @@
 import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { DISCORD_APPLICATION_ID } from "@/app/_server/lib/env"
-import { addReaction, deleteAllReactions, editWebhookOriginalMessage, getReactionUsers, getWebhookOriginalMessage } from "@/app/_server/lib/discord/api"
+import { addReaction, deleteAllReactions, editWebhookOriginalMessage, getReactionUsers, getWebhookOriginalMessage, DiscordApiError } from "@/app/_server/lib/discord/api"
 import { ROLE_EMOJIS, ROLE_KEYS, ROLE_LABELS, RoleKey, runRoleRoulette } from "@/app/domains/lol/_server/roleRoulette"
 import { NextResponse } from "next/server"
 import { after } from "next/server"
@@ -42,21 +42,40 @@ export const roleRouletteCommand = (interaction: APIChatInputApplicationCommandI
   const { token, application_id, channel } = interaction
 
   after(async () => {
+    // セットアップ：メッセージ取得・編集
+    let messageId: string
+    let channelId: string
     try {
-      // 元メッセージを取得（IDとchannel.idが必要）
       const original = await getWebhookOriginalMessage(application_id, token)
-      const messageId = original.id
-      const channelId = channel?.id ?? original.channel_id
-
-      // メッセージ本文 + ボタンに編集
+      messageId = original.id
+      channelId = channel?.id ?? original.channel_id
       await editWebhookOriginalMessage(application_id, token, ROULETTE_MESSAGE_CONTENT, createRoleRouletteButtons())
+    } catch (e) {
+      console.error("roleRouletteCommand setup error:", e)
+      return
+    }
 
-      // 各ロール絵文字をリアクションとして追加
+    // リアクション追加：権限不足の場合はエラーメッセージを表示
+    try {
       for (const emoji of Object.values(ROLE_EMOJIS)) {
         await addReaction(channelId, messageId, emoji)
       }
     } catch (e) {
-      console.error("roleRouletteCommand after error:", e)
+      console.error("roleRouletteCommand reaction error:", e)
+      if (e instanceof DiscordApiError && e.status === 403) {
+        try {
+          await editWebhookOriginalMessage(
+            application_id,
+            token,
+            "⚠️ Botに「リアクションを追加する」権限がないため、リアクションを付けられませんでした。\n" +
+              "サーバー管理者に権限の付与を依頼してください。\n" +
+              "・「リアクションの追加」権限\n" +
+              "・コマンドを実行したチャンネルがプライベートの場合は、その「閲覧権限」",
+          )
+        } catch (editError) {
+          console.error("roleRouletteCommand error message edit failed:", editError)
+        }
+      }
     }
   })
 
@@ -128,18 +147,50 @@ export const handleRoleRouletteStart = (interaction: APIMessageComponentInteract
 export const handleRoleRouletteReset = (interaction: APIMessageComponentInteraction): NextResponse => {
   const channelId = interaction.channel?.id ?? ""
   const messageId = interaction.message.id
+  const { token, application_id } = interaction
 
   after(async () => {
     try {
-      // 全リアクション削除
       await deleteAllReactions(channelId, messageId)
+    } catch (e) {
+      console.error("handleRoleRouletteReset deleteAllReactions error:", e)
+      if (e instanceof DiscordApiError && e.status === 403) {
+        try {
+          await editWebhookOriginalMessage(
+            application_id,
+            token,
+            "⚠️ 権限不足でリアクション全削除ができませんでした。\n" +
+              "サーバー管理者に権限の付与を依頼してください。\n" +
+              "・「メッセージの管理」権限\n" +
+              "・コマンドを実行したチャンネルがプライベートの場合は、その「閲覧権限」",
+          )
+        } catch (editError) {
+          console.error("handleRoleRouletteReset error message edit failed:", editError)
+        }
+      }
+      return
+    }
 
-      // 各ロール絵文字を再追加
+    try {
       for (const emoji of Object.values(ROLE_EMOJIS)) {
         await addReaction(channelId, messageId, emoji)
       }
     } catch (e) {
-      console.error("handleRoleRouletteReset after error:", e)
+      console.error("handleRoleRouletteReset reaction error:", e)
+      if (e instanceof DiscordApiError && e.status === 403) {
+        try {
+          await editWebhookOriginalMessage(
+            application_id,
+            token,
+            "⚠️ Botに「リアクションを追加する」権限がないため、リアクションを付けられませんでした。\n" +
+              "サーバー管理者に権限の付与を依頼してください。\n" +
+              "・「リアクションの追加」権限\n" +
+              "・コマンドを実行したチャンネルがプライベートの場合は、その「閲覧権限」",
+          )
+        } catch (editError) {
+          console.error("handleRoleRouletteReset error message edit failed:", editError)
+        }
+      }
     }
   })
 
