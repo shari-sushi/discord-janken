@@ -146,7 +146,7 @@ export function runRoleRoulette(
 2. `unstable_after` で非同期実行:
    a. `interaction.channel_id` と `interaction.message.id` を使い、各ロール絵文字のリアクションユーザーを取得（6回 GET）
    b. `runRoleRoulette()` を呼び出す
-   c. エラーの場合: Ephemeral メッセージで `PATCH /webhooks/{appId}/{token}/messages/@original` に書き込む
+   c. エラーの場合: `PATCH /webhooks/{appId}/{token}/messages/@original` に書き込む（全員に見える）
    d. 成功の場合: 割り当て結果をフォーマットして `PATCH` で書き込む
 
 結果フォーマット:
