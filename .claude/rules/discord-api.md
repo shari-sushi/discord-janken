@@ -56,6 +56,12 @@ paths: [my-app/app/api/discord/**/*.ts]
   - Action Row と Label でモーダルに載せられるコンポーネントが違う。String SelectはLabelでラップする必要がある。
 - **非同期処理**: Discord Interactionは3秒以内に応答する必要がある。重い処理は後続処理で対応
 
+## Bot 権限の管理
+
+コマンドの機能を追加・変更した場合、使用する Discord API エンドポイントが変わることがある。
+その際は `README.md` の「Bot 必要権限」セクションのパーミッション一覧を必ず更新すること。
+
+
 ## データ保存設計
 
 Redis のキー体系・データ型はコードを確認する。
