@@ -18,12 +18,9 @@ export const ROLE_LABELS: Record<Exclude<keyof typeof ROLE_EMOJIS, "FILL">, stri
 export type RoleKey = keyof typeof ROLE_LABELS
 export type RoleAssignment = Record<RoleKey, string> // roleKey -> userId
 
-// 結果表示順
-export const ROLE_KEYS_ORDERED: RoleKey[] = ["TOP", "JG", "MID", "ADC", "SUP"]
-
 export type RouletteResult = { ok: true; assignment: RoleAssignment; rest: string[] } | { ok: false; error: string }
 
-const ROLE_KEYS: RoleKey[] = ["TOP", "JG", "MID", "ADC", "SUP"]
+export const ROLE_KEYS: RoleKey[] = ["TOP", "JG", "MID", "ADC", "SUP"]
 const MAX_ATTEMPTS = 100
 
 function shuffle<T>(arr: T[]): T[] {
