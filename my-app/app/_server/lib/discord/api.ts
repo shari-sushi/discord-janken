@@ -172,7 +172,7 @@ async function getMessageReactions(channelId: string, messageId: string, emoji: 
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      throw new DiscordApiError(response.status, response.statusText, errorData)
+      throw new DiscordApiError(response.status, response.statusText, { emoji, ...errorData })
     }
 
     const data = await response.json()
@@ -181,7 +181,7 @@ async function getMessageReactions(channelId: string, messageId: string, emoji: 
     if (error instanceof DiscordApiError) {
       throw error
     }
-    throw new Error(`Failed to get message reactions: ${error}`)
+    throw new Error(`Failed to get message reactions (emoji: ${emoji}): ${error}`)
   }
 }
 

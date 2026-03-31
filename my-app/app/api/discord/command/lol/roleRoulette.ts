@@ -137,8 +137,20 @@ export const handleRoleRouletteStart = (interaction: APIMessageComponentInteract
       await editWebhookOriginalMessage(application_id, token, content)
     } catch (e) {
       console.error("handleRoleRouletteStart after error:", e)
+      let errorMessage = "⚠️ 抽選中にエラーが発生しました。しばらく待ってから再度お試しください。"
+      if (e instanceof DiscordApiError && e.status === 429) {
+        errorMessage =
+          "⚠️ Discord APIのレートリミットに達したため、リアクション情報を取得できませんでした。\n" +
+          "時間をおいてから再度お試しください。"
+      } else if (e instanceof DiscordApiError && e.status === 403) {
+        errorMessage =
+          "⚠️ Botに「リアクションを読み取る」権限がないため、抽選できませんでした。\n" +
+          "サーバー管理者に権限の付与を依頼してください。\n" +
+          "・「メッセージ履歴を読む」権限\n" +
+          "・コマンドを実行したチャンネルがプライベートの場合は、その「閲覧権限」"
+      }
       try {
-        await editWebhookOriginalMessage(application_id, token, "⚠️ 抽選中にエラーが発生しました。しばらく待ってから再度お試しください。")
+        await editWebhookOriginalMessage(application_id, token, errorMessage)
       } catch (editError) {
         console.error("handleRoleRouletteStart error message edit failed:", editError)
       }
@@ -190,6 +202,7 @@ export const handleRoleRouletteReset = (interaction: APIMessageComponentInteract
             "⚠️ Botに「リアクションを追加する」権限がないため、リアクションを付けられませんでした。\n" +
               "サーバー管理者に権限の付与を依頼してください。\n" +
               "・「リアクションの追加」権限\n" +
+              "・「メッセージの管理」権限\n" +
               "・コマンドを実行したチャンネルがプライベートの場合は、その「閲覧権限」",
           )
         } catch (editError) {
