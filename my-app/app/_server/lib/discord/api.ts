@@ -234,6 +234,25 @@ export async function addReaction(channelId: string, messageId: string, emoji: s
 }
 
 /**
+ * メッセージに複数のリアクションを順番に追加する
+ * レートリミット発生時は retry_after 秒待機してリトライする
+ * リアクションについては通常のrate limitより厳しい。コミュニティ実測値では0.25s~0.3sが必要とのこと。
+ * @see https://discord.com/developers/docs/topics/rate-limits （"Routes for controlling emojis" セクション）
+ * @see https://github.com/discord/discord-api-docs/issues/395
+ * 実際に、0.1s間隔では2リクエスト目で429が必ず返って来た。
+ * @param channelId - チャンネルID
+ * @param messageId - メッセージID
+ * @param emojis - 絵文字の配列
+ * @param intervalMs - リアクション間の待機時間（ミリ秒）
+ */
+export const addReactions = async (channelId: string, messageId: string, emojis: string[], intervalMs = 300): Promise<void> => {
+  for (const emoji of emojis) {
+    await retryAfterRateLimit(() => addReaction(channelId, messageId, emoji))
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+}
+
+/**
  * メッセージの全リアクションを削除する
  * @param channelId - チャンネルID
  * @param messageId - メッセージID
@@ -285,12 +304,7 @@ export async function getWebhookOriginalMessage(applicationId: string, token: st
  * @param content - メッセージ本文
  * @param components - コンポーネント配列
  */
-export async function editWebhookOriginalMessage(
-  applicationId: string,
-  token: string,
-  content: string,
-  components?: APIActionRowComponent<APIComponentInMessageActionRow>[],
-): Promise<void> {
+export async function editWebhookOriginalMessage(applicationId: string, token: string, content: string, components?: APIActionRowComponent<APIComponentInMessageActionRow>[]): Promise<void> {
   const url = `${DISCORD_API_BASE_URL}/webhooks/${applicationId}/${token}/messages/@original`
 
   const body: DiscordMessageBody = { content }
@@ -309,6 +323,25 @@ export async function editWebhookOriginalMessage(
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}))
     throw new DiscordApiError(response.status, response.statusText, errorData)
+  }
+}
+
+/**
+ * Discord APIのレートリミット（429）発生時に retry_after 秒待機してリトライする
+ * Next.js の after関数とは無関係なので注意
+ * @param fn - 実行する非同期関数
+ * @returns 関数の実行結果
+ */
+export const retryAfterRateLimit = async <T>(fn: () => Promise<T>): Promise<T> => {
+  try {
+    return await fn()
+  } catch (error) {
+    if (error instanceof DiscordApiError && error.status === 429) {
+      const retryAfter = (error.details as { retry_after?: number })?.retry_after ?? 1
+      await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000))
+      return await fn()
+    }
+    throw error
   }
 }
 

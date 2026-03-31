@@ -1,6 +1,6 @@
 import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { DISCORD_APPLICATION_ID } from "@/app/_server/lib/env"
-import { addReaction, deleteAllReactions, editWebhookOriginalMessage, getReactionUsers, getWebhookOriginalMessage, DiscordApiError } from "@/app/_server/lib/discord/api"
+import { addReactions, deleteAllReactions, editWebhookOriginalMessage, getReactionUsers, getWebhookOriginalMessage, DiscordApiError } from "@/app/_server/lib/discord/api"
 import { ROLE_EMOJIS, ROLE_KEYS, ROLE_LABELS, RoleKey, runRoleRoulette } from "@/app/domains/lol/_server/roleRoulette"
 import { NextResponse } from "next/server"
 import { after } from "next/server"
@@ -57,12 +57,9 @@ export const roleRouletteCommand = (interaction: APIChatInputApplicationCommandI
 
     // リアクション追加：権限不足の場合はエラーメッセージを表示
     try {
-      for (const emoji of Object.values(ROLE_EMOJIS)) {
-        await addReaction(channelId, messageId, emoji)
-        await new Promise((resolve) => setTimeout(resolve, 100))
-      }
+      await addReactions(channelId, messageId, Object.values(ROLE_EMOJIS))
     } catch (e) {
-      console.error("roleRouletteCommand reaction error:", e)
+      console.error("roleRouletteCommand reaction error:", e instanceof DiscordApiError ? JSON.stringify(e.details) : e)
       if (e instanceof DiscordApiError && e.status === 403) {
         try {
           await editWebhookOriginalMessage(
@@ -93,15 +90,19 @@ export const handleRoleRouletteStart = (interaction: APIMessageComponentInteract
 
   after(async () => {
     try {
-      // 各ロール絵文字のリアクションユーザーを並列取得
-      const [topUsers, jgUsers, midUsers, adcUsers, supUsers, fillUsers] = await Promise.all([
-        getReactionUsers(channelId, messageId, ROLE_EMOJIS.TOP),
-        getReactionUsers(channelId, messageId, ROLE_EMOJIS.JG),
-        getReactionUsers(channelId, messageId, ROLE_EMOJIS.MID),
-        getReactionUsers(channelId, messageId, ROLE_EMOJIS.ADC),
-        getReactionUsers(channelId, messageId, ROLE_EMOJIS.SUP),
-        getReactionUsers(channelId, messageId, ROLE_EMOJIS.FILL),
-      ])
+      const intervalMs = 300
+      // 各ロール絵文字のリアクションユーザーを順番に取得（並列だとrate limitに引っかかるため）
+      const topUsers = await getReactionUsers(channelId, messageId, ROLE_EMOJIS.TOP)
+      await new Promise((resolve) => setTimeout(resolve, intervalMs))
+      const jgUsers = await getReactionUsers(channelId, messageId, ROLE_EMOJIS.JG)
+      await new Promise((resolve) => setTimeout(resolve, intervalMs))
+      const midUsers = await getReactionUsers(channelId, messageId, ROLE_EMOJIS.MID)
+      await new Promise((resolve) => setTimeout(resolve, intervalMs))
+      const adcUsers = await getReactionUsers(channelId, messageId, ROLE_EMOJIS.ADC)
+      await new Promise((resolve) => setTimeout(resolve, intervalMs))
+      const supUsers = await getReactionUsers(channelId, messageId, ROLE_EMOJIS.SUP)
+      await new Promise((resolve) => setTimeout(resolve, intervalMs))
+      const fillUsers = await getReactionUsers(channelId, messageId, ROLE_EMOJIS.FILL)
 
       // userId -> username マップ構築
       const userNameMap: Record<string, string> = {}
@@ -136,6 +137,11 @@ export const handleRoleRouletteStart = (interaction: APIMessageComponentInteract
       await editWebhookOriginalMessage(application_id, token, content)
     } catch (e) {
       console.error("handleRoleRouletteStart after error:", e)
+      try {
+        await editWebhookOriginalMessage(application_id, token, "⚠️ 抽選中にエラーが発生しました。しばらく待ってから再度お試しください。")
+      } catch (editError) {
+        console.error("handleRoleRouletteStart error message edit failed:", editError)
+      }
     }
   })
 
@@ -154,7 +160,7 @@ export const handleRoleRouletteReset = (interaction: APIMessageComponentInteract
     try {
       await deleteAllReactions(channelId, messageId)
     } catch (e) {
-      console.error("handleRoleRouletteReset deleteAllReactions error:", e)
+      console.error("handleRoleRouletteReset deleteAllReactions error:", e instanceof DiscordApiError ? JSON.stringify(e.details) : e)
       if (e instanceof DiscordApiError && e.status === 403) {
         try {
           await editWebhookOriginalMessage(
@@ -173,12 +179,9 @@ export const handleRoleRouletteReset = (interaction: APIMessageComponentInteract
     }
 
     try {
-      for (const emoji of Object.values(ROLE_EMOJIS)) {
-        await addReaction(channelId, messageId, emoji)
-        await new Promise((resolve) => setTimeout(resolve, 100))
-      }
+      await addReactions(channelId, messageId, Object.values(ROLE_EMOJIS))
     } catch (e) {
-      console.error("handleRoleRouletteReset reaction error:", e)
+      console.error("handleRoleRouletteReset reaction error:", e instanceof DiscordApiError ? JSON.stringify(e.details) : e)
       if (e instanceof DiscordApiError && e.status === 403) {
         try {
           await editWebhookOriginalMessage(
