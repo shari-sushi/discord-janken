@@ -20,6 +20,7 @@ export default function RoleRoulettePage() {
   const [result, setResult] = useState<RouletteResult | null>(null)
 
   const names = parseNames(namesText)
+  const duplicateNames = names.filter((name, i) => names.indexOf(name) !== i)
 
   const handleNamesChange = (text: string) => {
     setNamesText(text)
@@ -113,11 +114,14 @@ export default function RoleRoulettePage() {
       <button
         className="bg-blue-500 hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-6 py-2 rounded mb-6"
         onClick={handleStart}
-        disabled={names.length < 5}
+        disabled={names.length < 5 || duplicateNames.length > 0}
       >
         抽選開始
       </button>
-      {names.length > 0 && names.length < 5 && <span className="ml-3 text-zinc-400 text-sm">※ 5人以上必要です（現在 {names.length} 人）</span>}
+      {duplicateNames.length > 0 && (
+        <span className="ml-3 text-red-400 text-sm">※ 名前が重複しています: {[...new Set(duplicateNames)].join(", ")}</span>
+      )}
+      {duplicateNames.length === 0 && names.length > 0 && names.length < 5 && <span className="ml-3 text-zinc-400 text-sm">※ 5人以上必要です（現在 {names.length} 人）</span>}
 
       {result && (
         <div className={`p-4 rounded border ${result.ok ? "border-green-600 bg-green-900/30" : "border-red-600 bg-red-900/30"}`}>
