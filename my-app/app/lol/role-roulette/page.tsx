@@ -1,11 +1,22 @@
 "use client"
 import { useState, useRef } from "react"
+import Image from "next/image"
 import { ROLE_KEYS, ROLE_LABELS, runRoleRoulette } from "@/app/domains/lol/roleRoulette"
 import type { RoleKey, RouletteResult } from "@/app/domains/lol/roleRoulette"
 
 type RoleOrFill = RoleKey | "FILL"
 const ALL_ROLES: RoleOrFill[] = [...ROLE_KEYS, "FILL"]
 const ROLE_DISPLAY: Record<RoleOrFill, string> = { ...ROLE_LABELS, FILL: "FILL" }
+
+// チェックボックス用（選択ボタン）
+const ROLE_ICON: Record<RoleOrFill, string> = {
+  TOP: "/lol/positions/position-top.svg",
+  JG: "/lol/positions/position-jungle.svg",
+  MID: "/lol/positions/position-middle.svg",
+  ADC: "/lol/positions/position-bottom.svg",
+  SUP: "/lol/positions/position-utility.svg",
+  FILL: "/lol/positions/icon-position-fill.png",
+}
 
 // アニメーションのフレームタイムスタンプを生成（指数的に遅くなる）
 function buildFrames(durationMs: number): number[] {
@@ -174,25 +185,26 @@ export default function RoleRoulettePage() {
       {names.length > 0 && (
         <div className="mb-6 overflow-x-auto">
           <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="border-b border-zinc-600">
-                <th className="text-left py-2 pr-4 font-semibold">名前</th>
-                {ALL_ROLES.map((role) => (
-                  <th key={role} className={`text-center py-2 px-3 font-semibold w-14${role === "FILL" ? " bg-zinc-800" : ""}`}>
-                    {ROLE_DISPLAY[role]}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+            <thead></thead>
             <tbody>
               {names.map((name) => (
                 <tr key={name} className="border-b border-zinc-700">
                   <td className="py-2 pr-4">{name}</td>
-                  {ALL_ROLES.map((role) => (
-                    <td key={role} className={`text-center py-2 px-3${role === "FILL" ? " bg-zinc-800" : ""}`}>
-                      <input type="checkbox" className="w-4 h-4 cursor-pointer accent-blue-500" checked={roleSelections[name]?.has(role) ?? false} onChange={() => toggleRole(name, role)} />
-                    </td>
-                  ))}
+                  {ALL_ROLES.map((role) => {
+                    const selected = roleSelections[name]?.has(role) ?? false
+                    return (
+                      <td key={role} className={`text-center py-2 px-3 ${role === "FILL" && " bg-zinc-800"}`}>
+                        <button
+                          onClick={() => toggleRole(name, role)}
+                          className="mx-auto block rounded p-0.5 transition-opacity cursor-pointer hover:bg-zinc-700"
+                          aria-label={ROLE_DISPLAY[role]}
+                          aria-pressed={selected}
+                        >
+                          <Image src={ROLE_ICON[role]} alt={ROLE_DISPLAY[role]} width={28} height={28} className={`transition-opacity my-1 mx-2 ${selected && "opacity-20"}`} />
+                        </button>
+                      </td>
+                    )
+                  })}
                 </tr>
               ))}
             </tbody>
@@ -207,9 +219,7 @@ export default function RoleRoulettePage() {
       >
         {isAnimating ? "抽選中..." : "抽選開始"}
       </button>
-      {duplicateNames.length > 0 && (
-        <span className="ml-3 text-red-400 text-sm">※ 名前が重複しています: {[...new Set(duplicateNames)].join(", ")}</span>
-      )}
+      {duplicateNames.length > 0 && <span className="ml-3 text-red-400 text-sm">※ 名前が重複しています: {[...new Set(duplicateNames)].join(", ")}</span>}
       {duplicateNames.length === 0 && names.length > 0 && names.length < 5 && <span className="ml-3 text-zinc-400 text-sm">※ 5人以上必要です（現在 {names.length} 人）</span>}
 
       {/* アニメーション表示 */}
@@ -220,13 +230,7 @@ export default function RoleRoulettePage() {
             {ROLE_KEYS.map((role) => (
               <li key={role} className="flex items-center gap-3">
                 <span className="inline-block w-12 font-semibold text-zinc-400">{ROLE_LABELS[role]}</span>
-                <span
-                  className={`font-mono text-lg min-w-24 transition-colors duration-150 ${
-                    lockedRoles.has(role) ? "text-green-400 font-bold" : "text-zinc-500"
-                  }`}
-                >
-                  {animDisplayNames[role]}
-                </span>
+                <span className={`font-mono text-lg min-w-24 transition-colors duration-150 ${lockedRoles.has(role) ? "text-green-400 font-bold" : "text-zinc-500"}`}>{animDisplayNames[role]}</span>
                 {lockedRoles.has(role) && <span className="text-green-500 text-sm">✓</span>}
               </li>
             ))}
