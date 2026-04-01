@@ -1,14 +1,16 @@
 "use client"
-import { useState, useRef } from "react"
+import { Suspense, useState, useRef } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import { ROLE_KEYS, ROLE_LABELS, runRoleRoulette } from "@/app/domains/lol/roleRoulette"
 import type { RoleKey, RouletteResult } from "@/app/domains/lol/roleRoulette"
+
+// ---- 共通定数・型 ----
 
 type RoleOrFill = RoleKey | "FILL"
 const ALL_ROLES: RoleOrFill[] = [...ROLE_KEYS, "FILL"]
 const ROLE_DISPLAY: Record<RoleOrFill, string> = { ...ROLE_LABELS, FILL: "FILL" }
 
-// チェックボックス用（選択ボタン）
 const ROLE_ICON: Record<RoleOrFill, string> = {
   TOP: "/lol/positions/position-top.svg",
   JG: "/lol/positions/position-jungle.svg",
@@ -31,6 +33,77 @@ function buildFrames(durationMs: number): number[] {
   return frames
 }
 
+// ---- 共通UI部品 ----
+
+function RoleButton({ name, role, selected, onClick }: { name: string; role: RoleOrFill; selected: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={!name}
+      className="mx-auto block rounded p-0.5 transition-opacity cursor-pointer hover:bg-zinc-700 disabled:cursor-default disabled:pointer-events-none"
+      aria-label={ROLE_DISPLAY[role]}
+      aria-pressed={selected}
+    >
+      <Image
+        src={ROLE_ICON[role]}
+        alt={ROLE_DISPLAY[role]}
+        width={28}
+        height={28}
+        className={`transition-opacity my-1 mx-2 ${selected ? "" : "opacity-20"}`}
+      />
+    </button>
+  )
+}
+
+function AnimationDisplay({ animDisplayNames, lockedRoles }: { animDisplayNames: Record<RoleKey, string>; lockedRoles: Set<RoleKey> }) {
+  return (
+    <div className="p-4 rounded border border-blue-600 bg-blue-900/20">
+      <p className="font-semibold mb-3 text-blue-300">抽選中...</p>
+      <ul className="space-y-2">
+        {ROLE_KEYS.map((role) => (
+          <li key={role} className="flex items-center gap-3">
+            <span className="inline-block w-12 font-semibold text-zinc-400">{ROLE_LABELS[role]}</span>
+            <span className={`font-mono text-lg min-w-24 transition-colors duration-150 ${lockedRoles.has(role) ? "text-green-400 font-bold" : "text-zinc-500"}`}>
+              {animDisplayNames[role]}
+            </span>
+            {lockedRoles.has(role) && <span className="text-green-500 text-sm">✓</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function ResultDisplay({ result }: { result: RouletteResult }) {
+  return (
+    <div className={`p-4 rounded border ${result.ok ? "border-green-600 bg-green-900/30" : "border-red-600 bg-red-900/30"}`}>
+      {result.ok ? (
+        <>
+          <p className="font-semibold mb-2">抽選結果</p>
+          <ul className="space-y-1">
+            {ROLE_KEYS.map((role) => (
+              <li key={role}>
+                <span className="inline-block w-12 font-semibold">{ROLE_LABELS[role]}</span>
+                {result.assignment[role]}
+              </li>
+            ))}
+            {result.rest.length > 0 && (
+              <li>
+                <span className="inline-block w-12 font-semibold text-zinc-400">休憩</span>
+                <span className="text-zinc-400">{result.rest.join(", ")}</span>
+              </li>
+            )}
+          </ul>
+        </>
+      ) : (
+        <p className="text-red-400">{result.error}</p>
+      )}
+    </div>
+  )
+}
+
+// ---- V1: textareaバージョン ----
+
 function parseNames(text: string): string[] {
   return text
     .split("\n")
@@ -38,7 +111,7 @@ function parseNames(text: string): string[] {
     .filter((line) => line.length > 0)
 }
 
-export default function RoleRoulettePage() {
+function RoleRouletteV1() {
   const [namesText, setNamesText] = useState("")
   const [roleSelections, setRoleSelections] = useState<Record<string, Set<RoleOrFill>>>({})
   const [result, setResult] = useState<RouletteResult | null>(null)
@@ -58,7 +131,6 @@ export default function RoleRoulettePage() {
   const handleNamesChange = (text: string) => {
     setNamesText(text)
     setResult(null)
-    // 消えた名前のチェック状態を削除
     const newNames = new Set(parseNames(text))
     setRoleSelections((prev) => {
       const next: Record<string, Set<RoleOrFill>> = {}
@@ -77,11 +149,9 @@ export default function RoleRoulettePage() {
         current.delete(role)
       } else {
         current.add(role)
-        // FILLを追加したらTOP〜SUPを全て外す
         if (role === "FILL") {
           for (const r of ROLE_KEYS) current.delete(r)
         }
-        // TOP〜SUP全て揃ったらFILLに切り替え
         if (role !== "FILL" && ROLE_KEYS.every((r) => current.has(r))) {
           for (const r of ROLE_KEYS) current.delete(r)
           current.add("FILL")
@@ -94,36 +164,22 @@ export default function RoleRoulettePage() {
   const handleStart = () => {
     clearTimeouts()
 
-    const reactorsByRole: Record<RoleKey | "FILL", string[]> = {
-      TOP: [],
-      JG: [],
-      MID: [],
-      ADC: [],
-      SUP: [],
-      FILL: [],
-    }
+    const reactorsByRole: Record<RoleKey | "FILL", string[]> = { TOP: [], JG: [], MID: [], ADC: [], SUP: [], FILL: [] }
     for (const name of names) {
-      const selected = roleSelections[name] ?? new Set()
-      for (const role of selected) {
+      for (const role of roleSelections[name] ?? new Set()) {
         reactorsByRole[role].push(name)
       }
     }
-    // Web版ではBot除外不要のため空文字を渡す
     const rouletteResult = runRoleRoulette(reactorsByRole, "")
-
-    // エラーは即時表示
     if (!rouletteResult.ok) {
       setResult(rouletteResult)
       return
     }
 
-    // アニメーション開始
     const finalResult = rouletteResult
     const participants = [...names]
     const frames = buildFrames(4000)
     const totalFrames = frames.length
-
-    // ロール確定フレーム（TOP→JG→MID→ADC→SUPの順に確定）
     const lockAtFrame: Record<RoleKey, number> = {
       TOP: Math.floor(totalFrames * 0.55),
       JG: Math.floor(totalFrames * 0.65),
@@ -136,9 +192,7 @@ export default function RoleRoulettePage() {
     setResult(null)
     setLockedRoles(new Set())
 
-    // 各フレームの表示名をオブジェクトとして共有（クロージャで参照）
     const currentDisplay: Record<RoleKey, string> = { TOP: "", JG: "", MID: "", ADC: "", SUP: "" }
-
     frames.forEach((time, frameIdx) => {
       const id = setTimeout(() => {
         const newLocked = new Set<RoleKey>()
@@ -152,8 +206,6 @@ export default function RoleRoulettePage() {
         }
         setAnimDisplayNames({ ...currentDisplay })
         setLockedRoles(newLocked)
-
-        // 最終フレーム後に結果を表示
         if (frameIdx === totalFrames - 1) {
           const finalId = setTimeout(() => {
             setIsAnimating(false)
@@ -169,9 +221,7 @@ export default function RoleRoulettePage() {
   }
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">ロールルーレット</h1>
-
+    <>
       <div className="mb-6">
         <label className="block mb-2 font-semibold">参加者（1行1人）</label>
         <textarea
@@ -195,15 +245,8 @@ export default function RoleRoulettePage() {
                   {ALL_ROLES.map((role) => {
                     const selected = roleSelections[name]?.has(role) ?? false
                     return (
-                      <td key={role} className={`text-center py-2 px-3 ${role === "FILL" && "bg-zinc-800"}`}>
-                        <button
-                          onClick={() => toggleRole(name, role)}
-                          className="mx-auto block rounded p-0.5 transition-opacity cursor-pointer hover:bg-zinc-700"
-                          aria-label={ROLE_DISPLAY[role]}
-                          aria-pressed={selected}
-                        >
-                          <Image src={ROLE_ICON[role]} alt={ROLE_DISPLAY[role]} width={28} height={28} className={`transition-opacity my-1 mx-2 ${selected || "opacity-20"}`} />
-                        </button>
+                      <td key={role} className={`text-center py-2 px-3 ${role === "FILL" ? "bg-zinc-800" : ""}`}>
+                        <RoleButton name={name} role={role} selected={selected} onClick={() => toggleRole(name, role)} />
                       </td>
                     )
                   })}
@@ -224,48 +267,287 @@ export default function RoleRoulettePage() {
       {duplicateNames.length > 0 && <span className="ml-3 text-red-400 text-sm">※ 名前が重複しています: {[...new Set(duplicateNames)].join(", ")}</span>}
       {duplicateNames.length === 0 && names.length > 0 && names.length < 5 && <span className="ml-3 text-zinc-400 text-sm">※ 5人以上必要です（現在 {names.length} 人）</span>}
 
-      {/* アニメーション表示 */}
-      {isAnimating && animDisplayNames && (
-        <div className="p-4 rounded border border-blue-600 bg-blue-900/20">
-          <p className="font-semibold mb-3 text-blue-300">抽選中...</p>
-          <ul className="space-y-2">
-            {ROLE_KEYS.map((role) => (
-              <li key={role} className="flex items-center gap-3">
-                <span className="inline-block w-12 font-semibold text-zinc-400">{ROLE_LABELS[role]}</span>
-                <span className={`font-mono text-lg min-w-24 transition-colors duration-150 ${lockedRoles.has(role) ? "text-green-400 font-bold" : "text-zinc-500"}`}>{animDisplayNames[role]}</span>
-                {lockedRoles.has(role) && <span className="text-green-500 text-sm">✓</span>}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {isAnimating && animDisplayNames && <AnimationDisplay animDisplayNames={animDisplayNames} lockedRoles={lockedRoles} />}
+      {result && <ResultDisplay result={result} />}
+    </>
+  )
+}
 
-      {/* 確定結果表示 */}
-      {result && (
-        <div className={`p-4 rounded border ${result.ok ? "border-green-600 bg-green-900/30" : "border-red-600 bg-red-900/30"}`}>
-          {result.ok ? (
-            <>
-              <p className="font-semibold mb-2">抽選結果</p>
-              <ul className="space-y-1">
-                {ROLE_KEYS.map((role) => (
-                  <li key={role}>
-                    <span className="inline-block w-12 font-semibold">{ROLE_LABELS[role]}</span>
-                    {result.assignment[role]}
-                  </li>
-                ))}
-                {result.rest.length > 0 && (
-                  <li>
-                    <span className="inline-block w-12 font-semibold text-zinc-400">休憩</span>
-                    <span className="text-zinc-400">{result.rest.join(", ")}</span>
-                  </li>
-                )}
-              </ul>
-            </>
-          ) : (
-            <p className="text-red-400">{result.error}</p>
-          )}
+// ---- V2: 個別inputバージョン（Enter/↓↑ナビ・複数行ペースト対応） ----
+
+const MIN_ROWS = 5
+
+function RoleRouletteV2() {
+  const [nameRows, setNameRows] = useState<string[]>(Array(MIN_ROWS).fill(""))
+  const [roleSelections, setRoleSelections] = useState<Record<string, Set<RoleOrFill>>>({})
+  const [result, setResult] = useState<RouletteResult | null>(null)
+  const [animDisplayNames, setAnimDisplayNames] = useState<Record<RoleKey, string> | null>(null)
+  const [lockedRoles, setLockedRoles] = useState<Set<RoleKey>>(new Set())
+  const [isAnimating, setIsAnimating] = useState(false)
+  const timeoutIdsRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  const names = nameRows.map((n) => n.trim()).filter((n) => n.length > 0)
+  const duplicateNames = names.filter((name, i) => names.indexOf(name) !== i)
+
+  const clearTimeouts = () => {
+    for (const id of timeoutIdsRef.current) clearTimeout(id)
+    timeoutIdsRef.current = []
+  }
+
+  const syncRoleSelections = (updatedRows: string[]) => {
+    const newNames = new Set(updatedRows.map((n) => n.trim()).filter((n) => n.length > 0))
+    setRoleSelections((prev) => {
+      const next: Record<string, Set<RoleOrFill>> = {}
+      for (const name of newNames) {
+        next[name] = prev[name] ?? new Set()
+      }
+      return next
+    })
+  }
+
+  const handleRowChange = (index: number, value: string) => {
+    setResult(null)
+    const updatedRows = nameRows.map((n, i) => (i === index ? value : n))
+    if (index === nameRows.length - 1 && value.trim().length > 0) {
+      updatedRows.push("")
+    }
+    while (updatedRows.length > MIN_ROWS) {
+      const lastIdx = updatedRows.length - 1
+      if (updatedRows[lastIdx].trim() === "" && updatedRows[lastIdx - 1]?.trim() === "") {
+        updatedRows.pop()
+      } else {
+        break
+      }
+    }
+    setNameRows(updatedRows)
+    syncRoleSelections(updatedRows)
+  }
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === "ArrowDown") {
+      e.preventDefault()
+      inputRefs.current[index + 1]?.focus()
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      inputRefs.current[index - 1]?.focus()
+    }
+  }
+
+  const handlePaste = (index: number, e: React.ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData("text")
+    const lines = text
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0)
+    if (lines.length <= 1) return
+
+    e.preventDefault()
+    const updatedRows = [...nameRows]
+    lines.forEach((line, i) => {
+      const targetIndex = index + i
+      if (targetIndex < updatedRows.length) {
+        updatedRows[targetIndex] = line
+      } else {
+        updatedRows.push(line)
+      }
+    })
+    if (updatedRows[updatedRows.length - 1].trim() !== "") {
+      updatedRows.push("")
+    }
+    setNameRows(updatedRows)
+    setResult(null)
+    syncRoleSelections(updatedRows)
+  }
+
+  const toggleRole = (name: string, role: RoleOrFill) => {
+    setResult(null)
+    setRoleSelections((prev) => {
+      const current = new Set(prev[name] ?? [])
+      if (current.has(role)) {
+        current.delete(role)
+      } else {
+        current.add(role)
+        if (role === "FILL") {
+          for (const r of ROLE_KEYS) current.delete(r)
+        }
+        if (role !== "FILL" && ROLE_KEYS.every((r) => current.has(r))) {
+          for (const r of ROLE_KEYS) current.delete(r)
+          current.add("FILL")
+        }
+      }
+      return { ...prev, [name]: current }
+    })
+  }
+
+  const handleStart = () => {
+    clearTimeouts()
+
+    const reactorsByRole: Record<RoleKey | "FILL", string[]> = { TOP: [], JG: [], MID: [], ADC: [], SUP: [], FILL: [] }
+    for (const name of names) {
+      for (const role of roleSelections[name] ?? new Set()) {
+        reactorsByRole[role].push(name)
+      }
+    }
+    const rouletteResult = runRoleRoulette(reactorsByRole, "")
+    if (!rouletteResult.ok) {
+      setResult(rouletteResult)
+      return
+    }
+
+    const finalResult = rouletteResult
+    const participants = [...names]
+    const frames = buildFrames(4000)
+    const totalFrames = frames.length
+    const lockAtFrame: Record<RoleKey, number> = {
+      TOP: Math.floor(totalFrames * 0.55),
+      JG: Math.floor(totalFrames * 0.65),
+      MID: Math.floor(totalFrames * 0.75),
+      ADC: Math.floor(totalFrames * 0.85),
+      SUP: totalFrames - 1,
+    }
+
+    setIsAnimating(true)
+    setResult(null)
+    setLockedRoles(new Set())
+
+    const currentDisplay: Record<RoleKey, string> = { TOP: "", JG: "", MID: "", ADC: "", SUP: "" }
+    frames.forEach((time, frameIdx) => {
+      const id = setTimeout(() => {
+        const newLocked = new Set<RoleKey>()
+        for (const role of ROLE_KEYS) {
+          if (frameIdx >= lockAtFrame[role]) {
+            currentDisplay[role] = finalResult.assignment[role]
+            newLocked.add(role)
+          } else {
+            currentDisplay[role] = participants[Math.floor(Math.random() * participants.length)]
+          }
+        }
+        setAnimDisplayNames({ ...currentDisplay })
+        setLockedRoles(newLocked)
+        if (frameIdx === totalFrames - 1) {
+          const finalId = setTimeout(() => {
+            setIsAnimating(false)
+            setAnimDisplayNames(null)
+            setLockedRoles(new Set())
+            setResult(finalResult)
+          }, 600)
+          timeoutIdsRef.current.push(finalId)
+        }
+      }, time)
+      timeoutIdsRef.current.push(id)
+    })
+  }
+
+  return (
+    <>
+      <div className="mb-6 overflow-x-auto">
+        <table className="text-sm border-collapse">
+          <thead>
+            <tr>
+              <th className="w-48 pr-4" />
+              {ALL_ROLES.map((role) => (
+                <th key={role} className={`text-center px-3 pb-1 ${role === "FILL" ? "bg-zinc-800" : ""}`}>
+                  <Image src={ROLE_ICON[role]} alt={ROLE_DISPLAY[role]} width={24} height={24} className="mx-auto opacity-60" />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {nameRows.map((rowName, index) => (
+              <tr key={index} className="border-b border-zinc-700">
+                <td className="py-1 pr-4">
+                  <input
+                    ref={(el) => {
+                      inputRefs.current[index] = el
+                    }}
+                    type="text"
+                    value={rowName}
+                    onChange={(e) => handleRowChange(index, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(index, e)}
+                    onPaste={(e) => handlePaste(index, e)}
+                    placeholder={`player${index + 1}`}
+                    className="w-full bg-zinc-800 border border-zinc-600 text-white text-lg px-2 py-1.5 rounded focus:outline-none focus:border-zinc-400 placeholder-zinc-600"
+                  />
+                </td>
+                {ALL_ROLES.map((role) => {
+                  const name = rowName.trim()
+                  const selected = name ? (roleSelections[name]?.has(role) ?? false) : false
+                  return (
+                    <td key={role} className={`text-center py-1 px-3 ${role === "FILL" ? "bg-zinc-800" : ""}`}>
+                      <RoleButton name={name} role={role} selected={selected} onClick={() => toggleRole(name, role)} />
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <button
+        className="bg-blue-500 hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-6 py-2 rounded mb-6"
+        onClick={handleStart}
+        disabled={names.length < 5 || duplicateNames.length > 0 || isAnimating}
+      >
+        {isAnimating ? "抽選中..." : "抽選開始"}
+      </button>
+      {duplicateNames.length > 0 && <span className="ml-3 text-red-400 text-sm">※ 名前が重複しています: {[...new Set(duplicateNames)].join(", ")}</span>}
+      {duplicateNames.length === 0 && names.length > 0 && names.length < 5 && <span className="ml-3 text-zinc-400 text-sm">※ 5人以上必要です（現在 {names.length} 人）</span>}
+
+      {isAnimating && animDisplayNames && <AnimationDisplay animDisplayNames={animDisplayNames} lockedRoles={lockedRoles} />}
+      {result && <ResultDisplay result={result} />}
+    </>
+  )
+}
+
+// ---- ルーター（セグメントコントロールで分岐） ----
+
+const VERSIONS = [
+  { id: "1", label: "textarea版" },
+  { id: "2", label: "input版" },
+] as const
+type VersionId = (typeof VERSIONS)[number]["id"]
+
+function RoleRouletteRouter() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const [version, setVersion] = useState<VersionId>(() => {
+    const v = searchParams.get("v")
+    if (v === "1" || v === "2") return v
+    return Math.random() < 0.5 ? "1" : "2"
+  })
+
+  const handleVersionChange = (v: VersionId) => {
+    setVersion(v)
+    router.replace(`?v=${v}`, { scroll: false })
+  }
+
+  return (
+    <div className="p-8 max-w-3xl mx-auto">
+      <div className="flex items-center gap-4 mb-6">
+        <h1 className="text-2xl font-bold">ロールルーレット</h1>
+        <div className="flex items-center gap-1 rounded-lg bg-zinc-800 p-1">
+          {VERSIONS.map((v) => (
+            <button
+              key={v.id}
+              onClick={() => handleVersionChange(v.id)}
+              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${version === v.id ? "bg-zinc-600 text-white" : "text-zinc-400 hover:text-white"}`}
+            >
+              {v.label}
+            </button>
+          ))}
         </div>
-      )}
+      </div>
+      {version === "2" ? <RoleRouletteV2 /> : <RoleRouletteV1 />}
     </div>
+  )
+}
+
+export default function RoleRoulettePage() {
+  return (
+    <Suspense>
+      <RoleRouletteRouter />
+    </Suspense>
   )
 }
