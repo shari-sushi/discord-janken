@@ -189,18 +189,20 @@ export default function RoleRoulettePage() {
             <tbody>
               {names.map((name) => (
                 <tr key={name} className="border-b border-zinc-700">
-                  <td className="py-2 pr-4">{name}</td>
+                  <td className="py-2 pr-4 text-2xl w-80 max-w-80 overflow-hidden text-ellipsis whitespace-nowrap" title={name}>
+                    {name}
+                  </td>
                   {ALL_ROLES.map((role) => {
                     const selected = roleSelections[name]?.has(role) ?? false
                     return (
-                      <td key={role} className={`text-center py-2 px-3 ${role === "FILL" && " bg-zinc-800"}`}>
+                      <td key={role} className={`text-center py-2 px-3 ${role === "FILL" && "bg-zinc-800"}`}>
                         <button
                           onClick={() => toggleRole(name, role)}
                           className="mx-auto block rounded p-0.5 transition-opacity cursor-pointer hover:bg-zinc-700"
                           aria-label={ROLE_DISPLAY[role]}
                           aria-pressed={selected}
                         >
-                          <Image src={ROLE_ICON[role]} alt={ROLE_DISPLAY[role]} width={28} height={28} className={`transition-opacity my-1 mx-2 ${selected && "opacity-20"}`} />
+                          <Image src={ROLE_ICON[role]} alt={ROLE_DISPLAY[role]} width={28} height={28} className={`transition-opacity my-1 mx-2 ${selected || "opacity-20"}`} />
                         </button>
                       </td>
                     )
