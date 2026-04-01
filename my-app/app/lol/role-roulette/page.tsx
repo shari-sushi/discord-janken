@@ -1,5 +1,5 @@
 "use client"
-import { Suspense, useState, useRef } from "react"
+import { Suspense, useState, useRef, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import { ROLE_KEYS, ROLE_LABELS, runRoleRoulette } from "@/app/domains/lol/roleRoulette"
@@ -111,9 +111,42 @@ function parseNames(text: string): string[] {
     .filter((line) => line.length > 0)
 }
 
+// ---- 共通 localStorage ----
+
+const LS_NAMES_KEY = "lol-rr-names"
+const LS_SELECTIONS_KEY = "lol-rr-selections"
+
+function loadNamesFromStorage(): string[] {
+  try {
+    const saved = localStorage.getItem(LS_NAMES_KEY)
+    if (saved) return JSON.parse(saved) as string[]
+  } catch {}
+  return []
+}
+
+function loadSelectionsFromStorage(): Record<string, Set<RoleOrFill>> {
+  try {
+    const saved = localStorage.getItem(LS_SELECTIONS_KEY)
+    if (saved) {
+      const parsed = JSON.parse(saved) as Record<string, RoleOrFill[]>
+      return Object.fromEntries(Object.entries(parsed).map(([k, v]) => [k, new Set(v)]))
+    }
+  } catch {}
+  return {}
+}
+
+function saveNamesToStorage(names: string[]): void {
+  localStorage.setItem(LS_NAMES_KEY, JSON.stringify(names))
+}
+
+function saveSelectionsToStorage(selections: Record<string, Set<RoleOrFill>>): void {
+  const serializable = Object.fromEntries(Object.entries(selections).map(([k, v]) => [k, [...v]]))
+  localStorage.setItem(LS_SELECTIONS_KEY, JSON.stringify(serializable))
+}
+
 function RoleRouletteV1() {
-  const [namesText, setNamesText] = useState("")
-  const [roleSelections, setRoleSelections] = useState<Record<string, Set<RoleOrFill>>>({})
+  const [namesText, setNamesText] = useState(() => loadNamesFromStorage().join("\n"))
+  const [roleSelections, setRoleSelections] = useState<Record<string, Set<RoleOrFill>>>(loadSelectionsFromStorage)
   const [result, setResult] = useState<RouletteResult | null>(null)
   const [animDisplayNames, setAnimDisplayNames] = useState<Record<RoleKey, string> | null>(null)
   const [lockedRoles, setLockedRoles] = useState<Set<RoleKey>>(new Set())
@@ -122,6 +155,14 @@ function RoleRouletteV1() {
 
   const names = parseNames(namesText)
   const duplicateNames = names.filter((name, i) => names.indexOf(name) !== i)
+
+  useEffect(() => {
+    saveNamesToStorage(parseNames(namesText))
+  }, [namesText])
+
+  useEffect(() => {
+    saveSelectionsToStorage(roleSelections)
+  }, [roleSelections])
 
   const clearTimeouts = () => {
     for (const id of timeoutIdsRef.current) clearTimeout(id)
@@ -278,8 +319,14 @@ function RoleRouletteV1() {
 const MIN_ROWS = 5
 
 function RoleRouletteV2() {
-  const [nameRows, setNameRows] = useState<string[]>(Array(MIN_ROWS).fill(""))
-  const [roleSelections, setRoleSelections] = useState<Record<string, Set<RoleOrFill>>>({})
+  const [nameRows, setNameRows] = useState<string[]>(() => {
+    const saved = loadNamesFromStorage()
+    const rows = [...saved]
+    while (rows.length < MIN_ROWS) rows.push("")
+    if (rows.length > 0 && rows[rows.length - 1].trim() !== "") rows.push("")
+    return rows
+  })
+  const [roleSelections, setRoleSelections] = useState<Record<string, Set<RoleOrFill>>>(loadSelectionsFromStorage)
   const [result, setResult] = useState<RouletteResult | null>(null)
   const [animDisplayNames, setAnimDisplayNames] = useState<Record<RoleKey, string> | null>(null)
   const [lockedRoles, setLockedRoles] = useState<Set<RoleKey>>(new Set())
@@ -289,6 +336,14 @@ function RoleRouletteV2() {
 
   const names = nameRows.map((n) => n.trim()).filter((n) => n.length > 0)
   const duplicateNames = names.filter((name, i) => names.indexOf(name) !== i)
+
+  useEffect(() => {
+    saveNamesToStorage(nameRows.map((n) => n.trim()).filter((n) => n.length > 0))
+  }, [nameRows])
+
+  useEffect(() => {
+    saveSelectionsToStorage(roleSelections)
+  }, [roleSelections])
 
   const clearTimeouts = () => {
     for (const id of timeoutIdsRef.current) clearTimeout(id)
