@@ -44,13 +44,7 @@ function RoleButton({ name, role, selected, onClick }: { name: string; role: Rol
       aria-label={ROLE_DISPLAY[role]}
       aria-pressed={selected}
     >
-      <Image
-        src={ROLE_ICON[role]}
-        alt={ROLE_DISPLAY[role]}
-        width={28}
-        height={28}
-        className={`transition-opacity my-1 mx-2 ${selected ? "" : "opacity-20"}`}
-      />
+      <Image src={ROLE_ICON[role]} alt={ROLE_DISPLAY[role]} width={28} height={28} className={`transition-opacity my-1 mx-2 ${selected || "opacity-30"}`} />
     </button>
   )
 }
@@ -63,9 +57,7 @@ function AnimationDisplay({ animDisplayNames, lockedRoles }: { animDisplayNames:
         {ROLE_KEYS.map((role) => (
           <li key={role} className="flex items-center gap-3">
             <span className="inline-block w-12 font-semibold text-zinc-400">{ROLE_LABELS[role]}</span>
-            <span className={`font-mono text-lg min-w-24 transition-colors duration-150 ${lockedRoles.has(role) ? "text-green-400 font-bold" : "text-zinc-500"}`}>
-              {animDisplayNames[role]}
-            </span>
+            <span className={`font-mono text-lg min-w-24 transition-colors duration-150 ${lockedRoles.has(role) ? "text-green-400 font-bold" : "text-zinc-500"}`}>{animDisplayNames[role]}</span>
             {lockedRoles.has(role) && <span className="text-green-500 text-sm">✓</span>}
           </li>
         ))}
@@ -115,12 +107,15 @@ function parseNames(text: string): string[] {
 
 const LS_NAMES_KEY = "lol-rr-names"
 const LS_SELECTIONS_KEY = "lol-rr-selections"
+const LS_EXCLUDED_KEY = "lol-rr-excluded"
 
 function loadNamesFromStorage(): string[] {
   try {
     const saved = localStorage.getItem(LS_NAMES_KEY)
     if (saved) return JSON.parse(saved) as string[]
-  } catch {}
+  } catch {
+    console.error("入力情報のlocalStorageへの保存に失敗しました")
+  }
   return []
 }
 
@@ -131,7 +126,9 @@ function loadSelectionsFromStorage(): Record<string, Set<RoleOrFill>> {
       const parsed = JSON.parse(saved) as Record<string, RoleOrFill[]>
       return Object.fromEntries(Object.entries(parsed).map(([k, v]) => [k, new Set(v)]))
     }
-  } catch {}
+  } catch {
+    console.error("入力情報のlocalStorageからの読み込みに失敗しました")
+  }
   return {}
 }
 
@@ -144,9 +141,23 @@ function saveSelectionsToStorage(selections: Record<string, Set<RoleOrFill>>): v
   localStorage.setItem(LS_SELECTIONS_KEY, JSON.stringify(serializable))
 }
 
+function loadExcludedFromStorage(): Set<number> {
+  try {
+    const saved = localStorage.getItem(LS_EXCLUDED_KEY)
+    if (saved) return new Set<number>(JSON.parse(saved) as number[])
+  } catch {
+    console.error("休み情報のlocalStorageからの読み込みに失敗しました")
+  }
+  return new Set()
+}
+
+function saveExcludedToStorage(excluded: Set<number>): void {
+  localStorage.setItem(LS_EXCLUDED_KEY, JSON.stringify([...excluded]))
+}
+
 function RoleRouletteV1() {
-  const [namesText, setNamesText] = useState(() => loadNamesFromStorage().join("\n"))
-  const [roleSelections, setRoleSelections] = useState<Record<string, Set<RoleOrFill>>>(loadSelectionsFromStorage)
+  const [namesText, setNamesText] = useState("")
+  const [roleSelections, setRoleSelections] = useState<Record<string, Set<RoleOrFill>>>({})
   const [result, setResult] = useState<RouletteResult | null>(null)
   const [animDisplayNames, setAnimDisplayNames] = useState<Record<RoleKey, string> | null>(null)
   const [lockedRoles, setLockedRoles] = useState<Set<RoleKey>>(new Set())
@@ -157,12 +168,11 @@ function RoleRouletteV1() {
   const duplicateNames = names.filter((name, i) => names.indexOf(name) !== i)
 
   useEffect(() => {
-    saveNamesToStorage(parseNames(namesText))
-  }, [namesText])
-
-  useEffect(() => {
-    saveSelectionsToStorage(roleSelections)
-  }, [roleSelections])
+    void Promise.resolve().then(() => {
+      setNamesText(loadNamesFromStorage().join("\n"))
+      setRoleSelections(loadSelectionsFromStorage())
+    })
+  }, [])
 
   const clearTimeouts = () => {
     for (const id of timeoutIdsRef.current) clearTimeout(id)
@@ -173,33 +183,33 @@ function RoleRouletteV1() {
     setNamesText(text)
     setResult(null)
     const newNames = new Set(parseNames(text))
-    setRoleSelections((prev) => {
-      const next: Record<string, Set<RoleOrFill>> = {}
-      for (const name of newNames) {
-        next[name] = prev[name] ?? new Set()
-      }
-      return next
-    })
+    const nextSelections: Record<string, Set<RoleOrFill>> = {}
+    for (const name of newNames) {
+      nextSelections[name] = roleSelections[name] ?? new Set()
+    }
+    setRoleSelections(nextSelections)
+    saveNamesToStorage(parseNames(text))
+    saveSelectionsToStorage(nextSelections)
   }
 
   const toggleRole = (name: string, role: RoleOrFill) => {
     setResult(null)
-    setRoleSelections((prev) => {
-      const current = new Set(prev[name] ?? [])
-      if (current.has(role)) {
-        current.delete(role)
-      } else {
-        current.add(role)
-        if (role === "FILL") {
-          for (const r of ROLE_KEYS) current.delete(r)
-        }
-        if (role !== "FILL" && ROLE_KEYS.every((r) => current.has(r))) {
-          for (const r of ROLE_KEYS) current.delete(r)
-          current.add("FILL")
-        }
+    const current = new Set(roleSelections[name] ?? [])
+    if (current.has(role)) {
+      current.delete(role)
+    } else {
+      current.add(role)
+      if (role === "FILL") {
+        for (const r of ROLE_KEYS) current.delete(r)
       }
-      return { ...prev, [name]: current }
-    })
+      if (role !== "FILL" && ROLE_KEYS.every((r) => current.has(r))) {
+        for (const r of ROLE_KEYS) current.delete(r)
+        current.add("FILL")
+      }
+    }
+    const nextSelections = { ...roleSelections, [name]: current }
+    setRoleSelections(nextSelections)
+    saveSelectionsToStorage(nextSelections)
   }
 
   const handleStart = () => {
@@ -319,14 +329,9 @@ function RoleRouletteV1() {
 const MIN_ROWS = 5
 
 function RoleRouletteV2() {
-  const [nameRows, setNameRows] = useState<string[]>(() => {
-    const saved = loadNamesFromStorage()
-    const rows = [...saved]
-    while (rows.length < MIN_ROWS) rows.push("")
-    if (rows.length > 0 && rows[rows.length - 1].trim() !== "") rows.push("")
-    return rows
-  })
-  const [roleSelections, setRoleSelections] = useState<Record<string, Set<RoleOrFill>>>(loadSelectionsFromStorage)
+  const [nameRows, setNameRows] = useState<string[]>(Array.from({ length: MIN_ROWS }, () => ""))
+  const [roleSelections, setRoleSelections] = useState<Record<string, Set<RoleOrFill>>>({})
+  const [excludedRows, setExcludedRows] = useState<Set<number>>(new Set())
   const [result, setResult] = useState<RouletteResult | null>(null)
   const [animDisplayNames, setAnimDisplayNames] = useState<Record<RoleKey, string> | null>(null)
   const [lockedRoles, setLockedRoles] = useState<Set<RoleKey>>(new Set())
@@ -335,30 +340,50 @@ function RoleRouletteV2() {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
   const names = nameRows.map((n) => n.trim()).filter((n) => n.length > 0)
+  const activeNames = nameRows
+    .map((n, i) => ({ name: n.trim(), i }))
+    .filter(({ name, i }) => name.length > 0 && !excludedRows.has(i))
+    .map(({ name }) => name)
   const duplicateNames = names.filter((name, i) => names.indexOf(name) !== i)
 
   useEffect(() => {
-    saveNamesToStorage(nameRows.map((n) => n.trim()).filter((n) => n.length > 0))
-  }, [nameRows])
+    void Promise.resolve().then(() => {
+      const saved = loadNamesFromStorage()
+      const rows = [...saved]
+      while (rows.length < MIN_ROWS) rows.push("")
+      if (rows.length > 0 && rows[rows.length - 1].trim() !== "") rows.push("")
+      setNameRows(rows)
+      setRoleSelections(loadSelectionsFromStorage())
+      setExcludedRows(loadExcludedFromStorage())
+    })
+  }, [])
 
-  useEffect(() => {
-    saveSelectionsToStorage(roleSelections)
-  }, [roleSelections])
+  const toggleExclude = (index: number) => {
+    setExcludedRows((prev) => {
+      const next = new Set(prev)
+      if (next.has(index)) {
+        next.delete(index)
+      } else {
+        next.add(index)
+      }
+      saveExcludedToStorage(next)
+      return next
+    })
+    setResult(null)
+  }
 
   const clearTimeouts = () => {
     for (const id of timeoutIdsRef.current) clearTimeout(id)
     timeoutIdsRef.current = []
   }
 
-  const syncRoleSelections = (updatedRows: string[]) => {
+  const buildNextSelections = (updatedRows: string[], prev: Record<string, Set<RoleOrFill>>) => {
     const newNames = new Set(updatedRows.map((n) => n.trim()).filter((n) => n.length > 0))
-    setRoleSelections((prev) => {
-      const next: Record<string, Set<RoleOrFill>> = {}
-      for (const name of newNames) {
-        next[name] = prev[name] ?? new Set()
-      }
-      return next
-    })
+    const next: Record<string, Set<RoleOrFill>> = {}
+    for (const name of newNames) {
+      next[name] = prev[name] ?? new Set()
+    }
+    return next
   }
 
   const handleRowChange = (index: number, value: string) => {
@@ -375,8 +400,11 @@ function RoleRouletteV2() {
         break
       }
     }
+    const nextSelections = buildNextSelections(updatedRows, roleSelections)
     setNameRows(updatedRows)
-    syncRoleSelections(updatedRows)
+    setRoleSelections(nextSelections)
+    saveNamesToStorage(updatedRows.map((n) => n.trim()).filter((n) => n.length > 0))
+    saveSelectionsToStorage(nextSelections)
   }
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -410,36 +438,39 @@ function RoleRouletteV2() {
     if (updatedRows[updatedRows.length - 1].trim() !== "") {
       updatedRows.push("")
     }
+    const nextSelections = buildNextSelections(updatedRows, roleSelections)
     setNameRows(updatedRows)
+    setRoleSelections(nextSelections)
     setResult(null)
-    syncRoleSelections(updatedRows)
+    saveNamesToStorage(updatedRows.map((n) => n.trim()).filter((n) => n.length > 0))
+    saveSelectionsToStorage(nextSelections)
   }
 
   const toggleRole = (name: string, role: RoleOrFill) => {
     setResult(null)
-    setRoleSelections((prev) => {
-      const current = new Set(prev[name] ?? [])
-      if (current.has(role)) {
-        current.delete(role)
-      } else {
-        current.add(role)
-        if (role === "FILL") {
-          for (const r of ROLE_KEYS) current.delete(r)
-        }
-        if (role !== "FILL" && ROLE_KEYS.every((r) => current.has(r))) {
-          for (const r of ROLE_KEYS) current.delete(r)
-          current.add("FILL")
-        }
+    const current = new Set(roleSelections[name] ?? [])
+    if (current.has(role)) {
+      current.delete(role)
+    } else {
+      current.add(role)
+      if (role === "FILL") {
+        for (const r of ROLE_KEYS) current.delete(r)
       }
-      return { ...prev, [name]: current }
-    })
+      if (role !== "FILL" && ROLE_KEYS.every((r) => current.has(r))) {
+        for (const r of ROLE_KEYS) current.delete(r)
+        current.add("FILL")
+      }
+    }
+    const nextSelections = { ...roleSelections, [name]: current }
+    setRoleSelections(nextSelections)
+    saveSelectionsToStorage(nextSelections)
   }
 
   const handleStart = () => {
     clearTimeouts()
 
     const reactorsByRole: Record<RoleKey | "FILL", string[]> = { TOP: [], JG: [], MID: [], ADC: [], SUP: [], FILL: [] }
-    for (const name of names) {
+    for (const name of activeNames) {
       for (const role of roleSelections[name] ?? new Set()) {
         reactorsByRole[role].push(name)
       }
@@ -451,7 +482,7 @@ function RoleRouletteV2() {
     }
 
     const finalResult = rouletteResult
-    const participants = [...names]
+    const participants = [...activeNames]
     const frames = buildFrames(4000)
     const totalFrames = frames.length
     const lockAtFrame: Record<RoleKey, number> = {
@@ -500,6 +531,7 @@ function RoleRouletteV2() {
         <table className="text-sm border-collapse">
           <thead>
             <tr>
+              <th className="pr-2" />
               <th className="w-48 pr-4" />
               {ALL_ROLES.map((role) => (
                 <th key={role} className={`text-center px-3 pb-1 ${role === "FILL" ? "bg-zinc-800" : ""}`}>
@@ -509,33 +541,52 @@ function RoleRouletteV2() {
             </tr>
           </thead>
           <tbody>
-            {nameRows.map((rowName, index) => (
-              <tr key={index} className="border-b border-zinc-700">
-                <td className="py-1 pr-4">
-                  <input
-                    ref={(el) => {
-                      inputRefs.current[index] = el
-                    }}
-                    type="text"
-                    value={rowName}
-                    onChange={(e) => handleRowChange(index, e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(index, e)}
-                    onPaste={(e) => handlePaste(index, e)}
-                    placeholder={`player${index + 1}`}
-                    className="w-full bg-zinc-800 border border-zinc-600 text-white text-lg px-2 py-1.5 rounded focus:outline-none focus:border-zinc-400 placeholder-zinc-600"
-                  />
-                </td>
-                {ALL_ROLES.map((role) => {
-                  const name = rowName.trim()
-                  const selected = name ? (roleSelections[name]?.has(role) ?? false) : false
-                  return (
-                    <td key={role} className={`text-center py-1 px-3 ${role === "FILL" ? "bg-zinc-800" : ""}`}>
-                      <RoleButton name={name} role={role} selected={selected} onClick={() => toggleRole(name, role)} />
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
+            {nameRows.map((rowName, index) => {
+              const isExcluded = excludedRows.has(index)
+              const hasName = rowName.trim().length > 0
+              return (
+                <tr key={index} className={`border-b border-zinc-700 ${isExcluded ? "opacity-40" : ""}`}>
+                  <td className="py-1 pr-2">
+                    <button
+                      onClick={() => toggleExclude(index)}
+                      disabled={!hasName}
+                      className="block rounded p-1 transition-colors cursor-pointer hover:bg-zinc-700 disabled:cursor-default disabled:pointer-events-none"
+                      aria-label="休憩"
+                      aria-pressed={isExcluded}
+                    >
+                      {isExcluded || !hasName ? (
+                        <Image src="/util/zzz-svgrepo-com.svg" alt="ZZZ" width={20} height={20} className="transition-opacity invert opacity-50" />
+                      ) : (
+                        <Image src="/util/person_raised_hand_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" alt="参加" width={20} height={20} className="transition-opacity opacity-100" />
+                      )}
+                    </button>
+                  </td>
+                  <td className="py-1 pr-4">
+                    <input
+                      ref={(el) => {
+                        inputRefs.current[index] = el
+                      }}
+                      type="text"
+                      value={rowName}
+                      onChange={(e) => handleRowChange(index, e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(index, e)}
+                      onPaste={(e) => handlePaste(index, e)}
+                      placeholder={`player${index + 1}`}
+                      className="w-full bg-zinc-800 border border-zinc-600 text-white text-lg px-2 py-1.5 rounded focus:outline-none focus:border-zinc-400 placeholder-zinc-600"
+                    />
+                  </td>
+                  {ALL_ROLES.map((role) => {
+                    const name = rowName.trim()
+                    const selected = name ? (roleSelections[name]?.has(role) ?? false) : false
+                    return (
+                      <td key={role} className={`text-center py-1 px-3 ${role === "FILL" && "bg-zinc-800"}`}>
+                        <RoleButton name={name} role={role} selected={selected} onClick={() => toggleRole(name, role)} />
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -543,15 +594,17 @@ function RoleRouletteV2() {
       <button
         className="bg-blue-500 hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-6 py-2 rounded mb-6"
         onClick={handleStart}
-        disabled={names.length < 5 || duplicateNames.length > 0 || isAnimating}
+        disabled={activeNames.length < 5 || duplicateNames.length > 0 || isAnimating}
       >
         {isAnimating ? "抽選中..." : "抽選開始"}
       </button>
       {duplicateNames.length > 0 && <span className="ml-3 text-red-400 text-sm">※ 名前が重複しています: {[...new Set(duplicateNames)].join(", ")}</span>}
-      {duplicateNames.length === 0 && names.length > 0 && names.length < 5 && <span className="ml-3 text-zinc-400 text-sm">※ 5人以上必要です（現在 {names.length} 人）</span>}
+      {duplicateNames.length === 0 && activeNames.length > 0 && activeNames.length < 5 && <span className="ml-3 text-zinc-400 text-sm">※ 5人以上必要です（現在 {activeNames.length} 人）</span>}
 
-      {isAnimating && animDisplayNames && <AnimationDisplay animDisplayNames={animDisplayNames} lockedRoles={lockedRoles} />}
-      {result && <ResultDisplay result={result} />}
+      <div className="">
+        {isAnimating && animDisplayNames && <AnimationDisplay animDisplayNames={animDisplayNames} lockedRoles={lockedRoles} />}
+        {result && <ResultDisplay result={result} />}
+      </div>
     </>
   )
 }
@@ -570,7 +623,7 @@ function RoleRouletteRouter() {
   const [version, setVersion] = useState<VersionId>(() => {
     const v = searchParams.get("v")
     if (v === "1" || v === "2") return v
-    return Math.random() < 0.5 ? "1" : "2"
+    return "2"
   })
 
   const handleVersionChange = (v: VersionId) => {
@@ -594,7 +647,8 @@ function RoleRouletteRouter() {
           ))}
         </div>
       </div>
-      {version === "2" ? <RoleRouletteV2 /> : <RoleRouletteV1 />}
+      {version === "1" && <RoleRouletteV1 />}
+      {version === "2" && <RoleRouletteV2 />}
     </div>
   )
 }
