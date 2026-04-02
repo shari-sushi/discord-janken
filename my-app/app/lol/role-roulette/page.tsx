@@ -529,17 +529,7 @@ function RoleRouletteV2() {
     <>
       <div className="mb-6 overflow-x-auto">
         <table className="text-sm border-collapse">
-          <thead>
-            <tr>
-              <th className="pr-2" />
-              <th className="w-48 pr-4" />
-              {ALL_ROLES.map((role) => (
-                <th key={role} className={`text-center px-3 pb-1 ${role === "FILL" ? "bg-zinc-800" : ""}`}>
-                  <Image src={ROLE_ICON[role]} alt={ROLE_DISPLAY[role]} width={24} height={24} className="mx-auto opacity-60" />
-                </th>
-              ))}
-            </tr>
-          </thead>
+          <thead className="p-2"></thead>
           <tbody>
             {nameRows.map((rowName, index) => {
               const isExcluded = excludedRows.has(index)
