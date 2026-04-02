@@ -40,11 +40,11 @@ function RoleButton({ name, role, selected, onClick }: { name: string; role: Rol
     <button
       onClick={onClick}
       disabled={!name}
-      className="mx-auto block rounded p-0.5 transition-opacity cursor-pointer hover:bg-zinc-700 disabled:cursor-default disabled:pointer-events-none"
+      className="mx-auto rounded p-0.5 transition-opacity cursor-pointer hover:bg-zinc-700 disabled:cursor-default disabled:pointer-events-none"
       aria-label={ROLE_DISPLAY[role]}
       aria-pressed={selected}
     >
-      <Image src={ROLE_ICON[role]} alt={ROLE_DISPLAY[role]} width={28} height={28} className={`transition-opacity my-1 mx-2 ${selected || "opacity-30"}`} />
+      <Image src={ROLE_ICON[role]} alt={ROLE_DISPLAY[role]} width={28} height={28} className={`min-w-6 transition-opacity my-1 md:mx-2 ${selected ? "" : "opacity-30"}`} />
     </button>
   )
 }
@@ -536,7 +536,7 @@ function RoleRouletteV2() {
               const hasName = rowName.trim().length > 0
               return (
                 <tr key={index} className={`border-b border-zinc-700 ${isExcluded ? "opacity-40" : ""}`}>
-                  <td className="py-1 pr-2">
+                  <td className="min-w-8">
                     <button
                       onClick={() => toggleExclude(index)}
                       disabled={!hasName}
@@ -545,13 +545,13 @@ function RoleRouletteV2() {
                       aria-pressed={isExcluded}
                     >
                       {isExcluded || !hasName ? (
-                        <Image src="/util/zzz-svgrepo-com.svg" alt="ZZZ" width={20} height={20} className="transition-opacity invert opacity-50" />
+                        <Image src="/util/zzz-svgrepo-com.svg" alt="rest" width={24} height={24} className="transition-opacity invert opacity-50" />
                       ) : (
-                        <Image src="/util/person_raised_hand_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" alt="参加" width={20} height={20} className="transition-opacity opacity-100" />
+                        <Image src="/util/person_raised_hand_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg" alt="参加" width={24} height={24} className="transition-opacity opacity-100" />
                       )}
                     </button>
                   </td>
-                  <td className="py-1 pr-4">
+                  <td className="py-1 md:pr-4 pr-2 min-w-40">
                     <input
                       ref={(el) => {
                         inputRefs.current[index] = el
@@ -569,7 +569,7 @@ function RoleRouletteV2() {
                     const name = rowName.trim()
                     const selected = name ? (roleSelections[name]?.has(role) ?? false) : false
                     return (
-                      <td key={role} className={`text-center py-1 px-3 ${role === "FILL" && "bg-zinc-800"}`}>
+                      <td key={role} className={`text-center py-1 md:px-2 px-0.5 ${role === "FILL" ? "bg-zinc-800" : ""}`}>
                         <RoleButton name={name} role={role} selected={selected} onClick={() => toggleRole(name, role)} />
                       </td>
                     )
