@@ -2,6 +2,9 @@
 
 ※ TODO: READMEちゃんとする
 
+web版　LoLロールルーレット機能  
+https://discord-janken.vercel.app/lol/role-roulette?v=2
+
 ## デプロイ・ブランチ運用
 
 - `main` へ push/merge → 本番へ自動デプロイ、コマンドを PUT で完全更新
