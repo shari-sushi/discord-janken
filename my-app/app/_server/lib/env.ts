@@ -54,6 +54,9 @@ export const REDIS_URL = getOptionalEnv("REDIS_URL", "redis://localhost:6379")
 export const GOOGLE_SERVICE_ACCOUNT_JSON = getRequiredEnv("GOOGLE_SERVICE_ACCOUNT_JSON")
 export const GOOGLE_SHEET_URL = getRequiredEnv("GOOGLE_SHEET_URL")
 
+// Riot Games API
+export const RIOT_API_KEY = getOptionalEnv("RIOT_API_KEY", "")
+
 // QStash（非同期キュー）
 export const QSTASH_URL = getRequiredEnv("QSTASH_URL")
 export const QSTASH_TOKEN = getRequiredEnv("QSTASH_TOKEN")
