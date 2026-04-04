@@ -24,6 +24,13 @@
   - try-catch で適切にエラーを処理し、ユーザーにわかりやすいメッセージを返す
   - 認証認可ではリソースの存在を隠匿するために、必要に応じてクライアントには404を返す
 
+### 環境変数の取得方法
+
+環境変数は `app/_server/lib/env.ts` からインポートして使用する。
+
+- 環境変数は`env.ts` に定義を追加し、使用場所でインポートする
+- 必須の場合は `getRequiredEnv`、省略可能な場合は `getOptionalEnv` を使用する
+
 ### Discord型定義パッケージの使用方針
 
 **採用パッケージ:**
@@ -102,11 +109,13 @@
 ### 配置ルール
 
 **型定義（フロント/サーバー共通）:**
+
 - 配置: `app/domains/{domain}/types.ts`
 - 例: `app/domains/lol/types.ts`, `app/domains/fighting/types.ts`
 - 将来的にWebダッシュボードを作成する可能性を考慮
 
 **サーバー専用ロジック:**
+
 - 配置: `app/domains/{domain}/_server/`
 - ファイル例:
   - `redisKeys.ts`: Redisキー生成関数
@@ -114,6 +123,7 @@
   - `constants.ts`: ドメイン固有の定数・設定値
 
 **ドメイン分類:**
+
 - `lol/`: LoL関連機能（`/lol-*` コマンド）
 - `fighting/`: 格ゲー関連機能（`/fighting-*` コマンド）
 - `user/{feature}/`: ユーザー向け汎用機能（`/user-*` コマンド）
@@ -123,6 +133,7 @@
 ### 横断的ユーティリティ
 
 以下は `app/_server/util/` に配置（全ドメイン共通）：
+
 - `commands.ts`: 全コマンド名・アクション定数
 - `newId.ts`: UUID生成
 
@@ -172,12 +183,12 @@ if (isOrderedTeamData(team1) && isOrderedTeamData(team2)) {
 **実装例:**
 
 ```typescript
-describe('Echo Command', () => {
-  it('success: 正しいメッセージを返す', async () => {
+describe("Echo Command", () => {
+  it("success: 正しいメッセージを返す", async () => {
     // 正常系のテスト
   })
 
-  it('failure: 不正なリクエストで400を返す', async () => {
+  it("failure: 不正なリクエストで400を返す", async () => {
     // 異常系のテスト
   })
 })
