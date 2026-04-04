@@ -28,8 +28,8 @@ function getOptionalEnv(key: string, defaultValue: string): string {
 }
 
 // デプロイ/ビルド環境
-// vercelではデフォルト環境変数
-export const ENV = getRequiredEnv("VERCEL_ENV") as "production" | "preview" | "development"
+// vercelでは自動付与される。ローカル開発時は未設定のため "development" をデフォルトとする
+export const ENV = getOptionalEnv("VERCEL_ENV", "development") as "production" | "preview" | "development"
 
 // Discord関連
 export const DISCORD_PUBLIC_KEY = getRequiredEnv("DISCORD_PUBLIC_KEY")
