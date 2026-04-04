@@ -56,6 +56,8 @@ export const GOOGLE_SHEET_URL = getRequiredEnv("GOOGLE_SHEET_URL")
 
 // Riot Games API
 export const RIOT_API_KEY = getOptionalEnv("RIOT_API_KEY", "")
+// Riot APIレスポンスのキャッシュ秒数（本番: 300秒、それ以外: 1秒）
+export const RIOT_API_REVALIDATE_SECONDS = Number(getOptionalEnv("RIOT_API_REVALIDATE_SECONDS", ENV === "production" ? "300" : "1"))
 
 // QStash（非同期キュー）
 export const QSTASH_URL = getRequiredEnv("QSTASH_URL")
