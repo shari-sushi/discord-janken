@@ -122,6 +122,13 @@
   - `validators.ts`: バリデーション・型ガード
   - `constants.ts`: ドメイン固有の定数・設定値
 
+**クライアント専用ロジック:**
+
+- 配置: `app/domains/{domain}/_client/`
+- 用途: Webページ（ブラウザ）から呼ばれるドメイン固有のAPI通信関数
+- ファイル例:
+  - `opggApiClient.ts`: op.gg機能のWeb APIクライアント（fetch/save/delete）
+
 **ドメイン分類:**
 
 - `lol/`: LoL関連機能（`/lol-*` コマンド）
@@ -136,6 +143,36 @@
 
 - `commands.ts`: 全コマンド名・アクション定数
 - `newId.ts`: UUID生成
+
+## Webページのファイル分割
+
+### ページコンポーネントの分割ルール
+
+ページが複数のコンポーネントを含む場合、`page.tsx` に全て詰め込まず以下の構成に分割する。
+
+```txt
+app/{feature}/
+├── page.tsx              # Suspenseラッパーのみ（薄いエントリーポイント）
+├── _types.ts             # UIステート専用の型（checked状態など、UI固有のもの）
+├── _utils.ts             # このページ専用のユーティリティ関数
+└── _components/          # このページ専用コンポーネント群（_ でルーティング対象外）
+    ├── {PageName}.tsx    # 状態管理・レイアウトを担うメインコンポーネント
+    └── {ComponentName}.tsx
+```
+
+### 型の配置基準
+
+| 型の性質 | 配置先 |
+| --- | --- |
+| ドメインのデータ構造（APIレスポンス等） | `app/domains/{domain}/types.ts` |
+| UIステート（checked, mode など画面固有） | `_types.ts`（ページ側） |
+
+### ユーティリティの配置基準
+
+| ユーティリティの性質 | 配置先 |
+| --- | --- |
+| ドメイン固有のAPI通信（クライアント側） | `app/domains/{domain}/_client/` |
+| ページ固有のURL生成・変換など | `_utils.ts`（ページ側） |
 
 ## 型安全性とエラーハンドリング
 
