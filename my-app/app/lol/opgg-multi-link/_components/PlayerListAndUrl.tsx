@@ -1,13 +1,47 @@
 "use client"
 
+import { useState } from "react"
+import { useOverlay } from "@/app/_client/lib/modal/ModalContext"
 import { OpenInNew } from "@/app/_client/components/OpenInNew"
+import { WEBHOOK_STORAGE_KEY, sendWebhookMessage } from "@/app/_client/lib/discord/webhook"
 import type { Player } from "../_types"
 import { buildMultiUrl, buildPlayerUrl } from "@/app/_client/lib/op-gg/url"
 import { CopyButton } from "./CopyButton"
+import { DiscordWebhookOverlay } from "./DiscordWebhookOverlay"
 
 export function PlayerListAndUrl({ players, onToggle, onOpenRegister }: { players: Player[]; onToggle: (i: number) => void; onOpenRegister?: () => void }) {
   const checkedPlayers = players.filter((p) => p.checked)
   const multiUrl = buildMultiUrl(checkedPlayers.map((p) => p.name))
+  const { open } = useOverlay()
+  const [sendStatus, setSendStatus] = useState<"idle" | "sending" | "done" | "error">("idle")
+
+  const buildDiscordMessage = () => {
+    const multiLine = `- [マルチサーチ：${checkedPlayers.length}人](${multiUrl})`
+    const individualLinks = checkedPlayers.map((p) => `[${p.name}](${buildPlayerUrl(p.name)})`).join("、")
+    const individualLine = `- 個別ページ：${individualLinks}`
+    return `${multiLine}\n${individualLine}`
+  }
+
+  const sendToDiscord = async (webhookUrl: string) => {
+    setSendStatus("sending")
+    try {
+      await sendWebhookMessage(webhookUrl, { content: buildDiscordMessage() })
+      setSendStatus("done")
+      setTimeout(() => setSendStatus("idle"), 3000)
+    } catch {
+      setSendStatus("error")
+      setTimeout(() => setSendStatus("idle"), 3000)
+    }
+  }
+
+  const handleSendToDiscord = () => {
+    const savedUrl = localStorage.getItem(WEBHOOK_STORAGE_KEY)
+    if (savedUrl) {
+      void sendToDiscord(savedUrl)
+    } else {
+      open(<DiscordWebhookOverlay onConfirm={(url) => void sendToDiscord(url)} />)
+    }
+  }
 
   return (
     <div className="mt-4 space-y-4">
@@ -50,6 +84,13 @@ export function PlayerListAndUrl({ players, onToggle, onOpenRegister }: { player
                 チーム登録
               </button>
             )}
+            <button
+              onClick={handleSendToDiscord}
+              disabled={sendStatus === "sending"}
+              className="bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white font-semibold px-4 py-2 rounded text-sm"
+            >
+              {sendStatus === "sending" ? "送信中..." : sendStatus === "done" ? "送信完了!" : sendStatus === "error" ? "送信失敗" : "Discordへ送る"}
+            </button>
           </div>
           <p className="text-xs text-zinc-500">※ 全タブを一括で開くとブラウザのポップアップブロッカーが作動する場合があります。その場合はブラウザの許可設定を確認してください。</p>
         </div>
