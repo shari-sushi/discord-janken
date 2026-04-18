@@ -5,7 +5,7 @@ import { analyzeSummonersText } from "./analyzeSummonersText"
 describe("analyzeSummonersText", () => {
   it("success: LTKダッシュラダーのテキストから自チームを除外して相手チームプレイヤーを返す", () => {
     const text = [
-      "@sushi#magro @santakuro1225#1225 kimura @チャーシュウ#4118 @kimura#jp1 @kinoko#JP1 @月に変わってお仕置きよ#JP1 @グラタン#aaaaa @さんま#御殿 @じゅん じゅわー#jun @ろんふー#JP1 @ゆっけ#1122",
+      "@sushi#magro @santakuro1225#1225 @kimura @チャーシュウ#4118 @kimura#jp1 @kinoko#JP1 @月に変わってお仕置きよ#JP1 @グラタン#aaaaa @さんま#御殿 @じゅん じゅわー#jun @ろんふー#JP1 @ゆっけ#1122",
       "",
       "ZETA DIVISION — LTK Dash Ladder",
       "⚔️  マッチが成立しました！",
