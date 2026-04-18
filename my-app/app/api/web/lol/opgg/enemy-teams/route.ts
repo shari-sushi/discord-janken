@@ -8,13 +8,8 @@ import type { EnemyTeam } from "@/app/domains/lol/types"
  * GET /api/web/lol/opgg/enemy-teams
  * 相手チーム一覧を取得する
  */
-export async function GET(request: NextRequest): Promise<NextResponse> {
+export async function GET(): Promise<NextResponse> {
   try {
-    const authResult = await validateAuthHeader(request.headers.get("Authorization"))
-    if (!authResult.valid) {
-      return NextResponse.json({ success: false, error: authResult.error }, { status: 401 })
-    }
-
     const teams = await redisGet<EnemyTeam[]>(ENEMY_TEAMS_KEY)
     return NextResponse.json({ success: true, teams: teams ?? [] })
   } catch (error) {
@@ -29,11 +24,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
  */
 export async function PUT(request: NextRequest): Promise<NextResponse> {
   try {
-    const authResult = await validateAuthHeader(request.headers.get("Authorization"))
-    if (!authResult.valid) {
-      return NextResponse.json({ success: false, error: authResult.error }, { status: 401 })
-    }
-
     let body: { name: string; members: string[] }
     try {
       body = await request.json()

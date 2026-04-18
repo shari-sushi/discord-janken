@@ -28,11 +28,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
  */
 export async function PUT(request: NextRequest): Promise<NextResponse> {
   try {
-    const authResult = await validateAuthHeader(request.headers.get("Authorization"))
-    if (!authResult.valid) {
-      return NextResponse.json({ success: false, error: authResult.error }, { status: 401 })
-    }
-
     let body: { members: string[] }
     try {
       body = await request.json()

@@ -2,32 +2,18 @@
 
 import { Suspense, useState, useEffect, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
+import { useOverlay } from "@/app/_client/lib/modal/ModalContext"
+
+import { TabSelector } from "@/app/_client/components/TabSelector"
+import { analyzeSummonersText } from "@/app/domains/lol/analyzeSummonersText"
 
 // ---- 型定義 ----
 
-type EnemyTeam = { name: string; members: string[] }
+type TeamMembers = { name: string; members: string[] }
 type Player = { name: string; checked: boolean }
-type Mode = "input" | "team-search"
+type Mode = "input" | "team-search" | "team-login"
 
 // ---- ユーティリティ ----
-
-function parseLine(line: string): string {
-  // 末尾の , を除去してからトリム
-  const trimmed = line.replace(/,/, "").trim()
-  // ロビーログ形式: 「XXX さんが部屋に参加しました。」
-  const m = trimmed.match(/^(.+?) さんが部屋に参加しました。$/)
-  if (m) return m[1]
-  // Discord形式: @Name#TAG
-  if (trimmed.startsWith("@")) return trimmed.slice(1)
-  return trimmed
-}
-
-function parseInput(text: string): string[] {
-  return text
-    .split(/[\n ]/)
-    .map(parseLine)
-    .filter((n) => n.length > 0)
-}
 
 function buildMultiUrl(names: string[]): string {
   return `https://op.gg/ja/lol/multisearch/jp?summoners=${names.map((n) => encodeURIComponent(n)).join(",")}`
@@ -63,14 +49,14 @@ async function saveSelfTeam(auth: string, members: string[]): Promise<void> {
   if (!json.success) throw new Error(json.error ?? "保存失敗")
 }
 
-async function fetchEnemyTeams(auth: string): Promise<EnemyTeam[]> {
+async function fetchEnemyTeams(auth: string): Promise<TeamMembers[]> {
   const res = await fetch(API_ENEMY_TEAMS, { headers: { Authorization: auth } })
-  const json = (await res.json()) as { success: boolean; teams?: EnemyTeam[]; error?: string }
+  const json = (await res.json()) as { success: boolean; teams?: TeamMembers[]; error?: string }
   if (!json.success) throw new Error(json.error ?? "取得失敗")
   return json.teams ?? []
 }
 
-async function saveEnemyTeam(auth: string, team: EnemyTeam): Promise<void> {
+async function saveEnemyTeam(auth: string, team: TeamMembers): Promise<void> {
   const res = await fetch(API_ENEMY_TEAMS, {
     method: "PUT",
     headers: { "Content-Type": "application/json", Authorization: auth },
@@ -106,7 +92,7 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-function PlayerListAndUrl({ players, onToggle }: { players: Player[]; onToggle: (i: number) => void }) {
+function PlayerListAndUrl({ players, onToggle, onOpenRegister }: { players: Player[]; onToggle: (i: number) => void; onOpenRegister?: () => void }) {
   const checkedPlayers = players.filter((p) => p.checked)
   const multiUrl = buildMultiUrl(checkedPlayers.map((p) => p.name))
 
@@ -146,6 +132,11 @@ function PlayerListAndUrl({ players, onToggle }: { players: Player[]; onToggle: 
             >
               全タブを開く
             </button>
+            {onOpenRegister && (
+              <button onClick={onOpenRegister} className="bg-green-700 hover:bg-green-600 text-white font-semibold px-4 py-2 rounded text-sm">
+                チーム登録
+              </button>
+            )}
           </div>
           <p className="text-xs text-zinc-500">※ 全タブを一括で開くとブラウザのポップアップブロッカーが作動する場合があります。その場合はブラウザの許可設定を確認してください。</p>
         </div>
@@ -154,21 +145,128 @@ function PlayerListAndUrl({ players, onToggle }: { players: Player[]; onToggle: 
   )
 }
 
-// ---- 入力モード ----
+// ---- チーム登録オーバーレイ ----
 
-function InputMode({ selfTeam }: { selfTeam: string[] }) {
+type TeamType = "enemy" | "self"
+
+function RegisterTeamOverlay({
+  initialPlayers,
+  auth,
+  onEnemySaved,
+  onSelfSaved,
+}: {
+  initialPlayers: Player[]
+  auth: string
+  onEnemySaved: (teams: TeamMembers[]) => void
+  onSelfSaved: (members: string[]) => void
+}) {
+  const { close } = useOverlay()
+  const [players, setPlayers] = useState<Player[]>(initialPlayers)
+  const [teamType, setTeamType] = useState<TeamType>("enemy")
+  const [teamName, setTeamName] = useState("")
+  const [msg, setMsg] = useState("")
+
+  const togglePlayer = (i: number) => {
+    setPlayers((prev) => prev.map((p, idx) => (idx === i ? { ...p, checked: !p.checked } : p)))
+  }
+
+  const handleRegister = async () => {
+    setMsg("")
+    const members = players.filter((p) => p.checked).map((p) => p.name)
+    if (members.length === 0) {
+      setMsg("メンバーを1人以上選択してください")
+      return
+    }
+    try {
+      if (teamType === "self") {
+        await saveSelfTeam(auth, members)
+        onSelfSaved(members)
+      } else {
+        if (!teamName.trim()) {
+          setMsg("チーム名を入力してください")
+          return
+        }
+        await saveEnemyTeam(auth, { name: teamName.trim(), members })
+        const updated = await fetchEnemyTeams(auth)
+        onEnemySaved(updated)
+      }
+      close()
+    } catch (e) {
+      setMsg(`エラー: ${e instanceof Error ? e.message : "不明"}`)
+    }
+  }
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-700 rounded-lg w-full h-full p-5 overflow-y-auto">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-4 flex-wrap">
+          <h2 className="text-lg font-bold">チーム登録</h2>
+          <TabSelector
+            tabs={[
+              { id: "enemy" as TeamType, label: "相手チーム" },
+              { id: "self" as TeamType, label: "自分のチーム" },
+            ]}
+            selected={teamType}
+            onChange={setTeamType}
+          />
+        </div>
+        <button onClick={close} className="text-zinc-400 hover:text-white text-xl leading-none">
+          ✕
+        </button>
+      </div>
+
+      <PlayerListAndUrl players={players} onToggle={togglePlayer} />
+
+      <div className="mt-4 space-y-3">
+        {teamType === "enemy" && (
+          <input
+            type="text"
+            value={teamName}
+            onChange={(e) => setTeamName(e.target.value)}
+            placeholder="チーム名"
+            className="w-full bg-zinc-800 border border-zinc-600 text-white rounded px-3 py-2 text-sm"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void handleRegister()
+            }}
+          />
+        )}
+        <div className="flex items-center gap-3">
+          <button onClick={() => void handleRegister()} className="bg-green-700 hover:bg-green-600 text-white font-semibold px-4 py-2 rounded text-sm">
+            登録
+          </button>
+          {msg && <span className="text-sm text-red-400">{msg}</span>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---- 入力モード ----
+function InputMode({
+  selfTeam,
+  auth,
+  onEnemyTeamsChange,
+  onSelfTeamChange,
+}: {
+  selfTeam: string[]
+  auth: string
+  onEnemyTeamsChange: (teams: TeamMembers[]) => void
+  onSelfTeamChange: (members: string[]) => void
+}) {
+  const { open } = useOverlay()
   const [text, setText] = useState("")
   const [players, setPlayers] = useState<Player[]>([])
 
   const handleAnalyze = () => {
-    const parsed = parseInput(text)
-    const selfSet = new Set(selfTeam.map((s) => s.toLowerCase()))
-    const filtered = parsed.filter((name) => !selfSet.has(name.toLowerCase()))
-    setPlayers(filtered.map((name) => ({ name, checked: true })))
+    setPlayers(analyzeSummonersText(text, selfTeam))
   }
 
   const togglePlayer = (i: number) => {
     setPlayers((prev) => prev.map((p, idx) => (idx === i ? { ...p, checked: !p.checked } : p)))
+  }
+
+  const handleOpenRegister = () => {
+    open(<RegisterTeamOverlay initialPlayers={players} auth={auth} onEnemySaved={onEnemyTeamsChange} onSelfSaved={onSelfTeamChange} />)
   }
 
   return (
@@ -186,21 +284,21 @@ function InputMode({ selfTeam }: { selfTeam: string[] }) {
         解析・除外
       </button>
       {selfTeam.length > 0 && <span className="ml-3 text-xs text-zinc-500">自チーム {selfTeam.length} 人を除外します</span>}
-      {players.length > 0 && <PlayerListAndUrl players={players} onToggle={togglePlayer} />}
+      {players.length > 0 && <PlayerListAndUrl players={players} onToggle={togglePlayer} onOpenRegister={handleOpenRegister} />}
     </div>
   )
 }
 
 // ---- チーム検索モード ----
 
-function TeamSearchMode({ enemyTeams }: { enemyTeams: EnemyTeam[] }) {
+function TeamSearchMode({ enemyTeams }: { enemyTeams: TeamMembers[] }) {
   const [query, setQuery] = useState("")
-  const [selected, setSelected] = useState<EnemyTeam | null>(null)
+  const [selected, setSelected] = useState<TeamMembers | null>(null)
   const [players, setPlayers] = useState<Player[]>([])
 
   const filtered = enemyTeams.filter((t) => t.name.toLowerCase().includes(query.toLowerCase()))
 
-  const handleSelect = (team: EnemyTeam) => {
+  const handleSelect = (team: TeamMembers) => {
     setSelected(team)
     setPlayers(team.members.map((name) => ({ name, checked: true })))
     setQuery(team.name)
@@ -254,6 +352,117 @@ function TeamSearchMode({ enemyTeams }: { enemyTeams: EnemyTeam[] }) {
   )
 }
 
+// ---- チームログインモード ----
+
+function TeamLoginMode({
+  enemyTeams,
+  selfTeam,
+  onSelfTeamChange,
+  onSwitchToInput,
+}: {
+  enemyTeams: TeamMembers[]
+  selfTeam: string[]
+  onSelfTeamChange: (members: string[]) => void
+  onSwitchToInput: () => void
+}) {
+  const [query, setQuery] = useState("")
+  const [selected, setSelected] = useState<TeamMembers | null>(null)
+  const [confirmed, setConfirmed] = useState(false)
+
+  const filtered = enemyTeams.filter((t) => t.name.toLowerCase().includes(query.toLowerCase()))
+
+  const handleSelect = (team: TeamMembers) => {
+    setSelected(team)
+    setQuery(team.name)
+    setConfirmed(false)
+  }
+
+  const handleConfirm = () => {
+    if (!selected) return
+    onSelfTeamChange(selected.members)
+    setConfirmed(true)
+  }
+
+  return (
+    <div className="space-y-4">
+      {confirmed && selected && (
+        <div className="bg-green-900/40 border border-green-700 rounded px-4 py-3 text-sm text-green-300">
+          「{selected.name}」を自分のチームに設定しました。入力モードで解析すると自動除外されます。
+          <button onClick={onSwitchToInput} className="ml-3 underline hover:text-green-100">
+            入力モードへ
+          </button>
+        </div>
+      )}
+
+      {selfTeam.length > 0 && !confirmed && <p className="text-xs text-zinc-500">現在の自チーム: {selfTeam.join(", ")}</p>}
+
+      <div>
+        <label className="block mb-2 font-semibold text-sm text-zinc-300">チーム名を検索</label>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setSelected(null)
+            setConfirmed(false)
+          }}
+          placeholder="チーム名を入力..."
+          className="w-full bg-zinc-800 border border-zinc-600 text-white rounded px-3 py-2"
+        />
+      </div>
+
+      {!selected && query.length > 0 && filtered.length > 0 && (
+        <div className="border border-zinc-600 rounded overflow-hidden">
+          {filtered.map((team) => (
+            <button key={team.name} onClick={() => handleSelect(team)} className="w-full text-left px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border-b border-zinc-700 last:border-b-0 text-sm">
+              <span className="font-semibold text-white">{team.name}</span>
+              <span className="ml-2 text-zinc-400">({team.members.length}人)</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!selected && query.length > 0 && filtered.length === 0 && (
+        <div className="text-sm text-zinc-500 space-y-1">
+          <p>「{query}」に一致するチームが見つかりません。</p>
+          <p>
+            チームが未登録の場合は、
+            <button onClick={onSwitchToInput} className="text-blue-400 hover:text-blue-300 underline ml-1">
+              入力モード
+            </button>
+            からチーム登録してください。
+          </p>
+        </div>
+      )}
+
+      {enemyTeams.length === 0 && (
+        <div className="text-sm text-zinc-500 space-y-1">
+          <p>チームがまだ登録されていません。</p>
+          <p>
+            <button onClick={onSwitchToInput} className="text-blue-400 hover:text-blue-300 underline">
+              入力モード
+            </button>
+            からチーム登録してください。
+          </p>
+        </div>
+      )}
+
+      {selected && !confirmed && (
+        <div className="space-y-2">
+          <p className="text-sm text-zinc-400">
+            選択中: <span className="text-white font-semibold">{selected.name}</span>
+            <span className="ml-2 text-zinc-500 text-xs">({selected.members.length}人)</span>
+          </p>
+          <p className="text-xs text-zinc-500">{selected.members.join(", ")}</p>
+          <button onClick={handleConfirm} className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-4 py-2 rounded text-sm">
+            このチームを自分のチームとして設定
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ---- 設定セクション ----
 
 function SettingsSection({
@@ -266,10 +475,10 @@ function SettingsSection({
 }: {
   auth: string
   selfTeam: string[]
-  enemyTeams: EnemyTeam[]
+  enemyTeams: TeamMembers[]
   onAuthChange: (auth: string) => void
   onSelfTeamChange: (members: string[]) => void
-  onEnemyTeamsChange: (teams: EnemyTeam[]) => void
+  onEnemyTeamsChange: (teams: TeamMembers[]) => void
 }) {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
@@ -469,6 +678,7 @@ function SettingsSection({
 const MODES = [
   { id: "input" as Mode, label: "入力モード" },
   { id: "team-search" as Mode, label: "チーム検索" },
+  { id: "team-login" as Mode, label: "チームログイン" },
 ]
 
 function OpggMultiLinkPage() {
@@ -477,12 +687,13 @@ function OpggMultiLinkPage() {
 
   const [mode, setMode] = useState<Mode>(() => {
     const m = searchParams.get("mode")
-    return m === "team-search" ? "team-search" : "input"
+    if (m === "team-search" || m === "team-login") return m
+    return "input"
   })
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [auth, setAuth] = useState("")
   const [selfTeam, setSelfTeam] = useState<string[]>([])
-  const [enemyTeams, setEnemyTeams] = useState<EnemyTeam[]>([])
+  const [enemyTeams, setEnemyTeams] = useState<TeamMembers[]>([])
 
   // 保存済み認証情報で自動ロード
   useEffect(() => {
@@ -514,25 +725,16 @@ function OpggMultiLinkPage() {
       {/* ヘッダー */}
       <div className="flex items-center gap-4 mb-6 flex-wrap">
         <h1 className="text-2xl font-bold">op.gg マルチサーチリンク生成</h1>
-        <div className="flex items-center gap-1 rounded-lg bg-zinc-800 p-1">
-          {MODES.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => handleModeChange(m.id)}
-              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${mode === m.id ? "bg-zinc-600 text-white" : "text-zinc-400 hover:text-white"}`}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
+        <TabSelector tabs={MODES} selected={mode} onChange={handleModeChange} />
       </div>
 
       {/* 2カラムグリッド */}
       <div className="grid grid-cols-1 gap-8">
         {/* メインコンテンツ */}
         <div>
-          {mode === "input" && <InputMode selfTeam={selfTeam} />}
+          {mode === "input" && <InputMode selfTeam={selfTeam} auth={auth} onEnemyTeamsChange={setEnemyTeams} onSelfTeamChange={setSelfTeam} />}
           {mode === "team-search" && <TeamSearchMode enemyTeams={enemyTeams} />}
+          {mode === "team-login" && <TeamLoginMode enemyTeams={enemyTeams} selfTeam={selfTeam} onSelfTeamChange={setSelfTeam} onSwitchToInput={() => handleModeChange("input")} />}
         </div>
 
         {/* 設定セクション */}
