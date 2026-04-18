@@ -1,4 +1,4 @@
-import { MessageLinkParsed } from "@/app/domains/user/mentionByReaction/types"
+import { MessageLinkParsed } from "@/app/_domains/user/mentionByReaction/types"
 
 /**
  * Discord メッセージリンクをパースする

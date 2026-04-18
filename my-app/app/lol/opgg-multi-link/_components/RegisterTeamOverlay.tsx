@@ -3,8 +3,8 @@
 import { useState } from "react"
 import { useOverlay } from "@/app/_client/lib/modal/ModalContext"
 import { TabSelector } from "@/app/_client/components/TabSelector"
-import type { EnemyTeam } from "@/app/domains/lol/types"
-import { saveSelfTeam, saveEnemyTeam, fetchEnemyTeams } from "@/app/domains/lol/_client/opggApiClient"
+import type { EnemyTeam } from "@/app/_domains/lol/types"
+import { saveSelfTeam, saveEnemyTeam, fetchEnemyTeams } from "@/app/_domains/lol/_client/opggApiClient"
 import type { Player, TeamType } from "../_types"
 import { PlayerListAndUrl } from "./PlayerListAndUrl"
 

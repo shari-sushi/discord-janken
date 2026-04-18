@@ -1,4 +1,4 @@
-import { TeamFormat, TeamOrderData } from "@/app/domains/fighting/types"
+import { TeamFormat, TeamOrderData } from "@/app/_domains/fighting/types"
 
 // フォーマットごとの出場順ポジション定義
 export const TEAM_FORMAT_POSITIONS: Record<TeamFormat, Array<keyof TeamOrderData>> = {

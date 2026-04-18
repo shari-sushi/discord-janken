@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { RegisteredStatus, registeredStatus } from "./getMatchStatusMessage"
-import { ProtectMatchMeta, ProtectTeamData } from "@/app/domains/lol/types"
+import { ProtectMatchMeta, ProtectTeamData } from "@/app/_domains/lol/types"
 import { newId } from "@/app/_server/util/newId"
 
 describe("getMatchStatusMessage: ", () => {

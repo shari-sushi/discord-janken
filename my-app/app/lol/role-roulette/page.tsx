@@ -2,8 +2,8 @@
 import { Suspense, useState, useRef, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import Image from "next/image"
-import { ROLE_KEYS, ROLE_LABELS, runRoleRoulette } from "@/app/domains/lol/roleRoulette"
-import type { RoleKey, RouletteResult } from "@/app/domains/lol/roleRoulette"
+import { ROLE_KEYS, ROLE_LABELS, runRoleRoulette } from "@/app/_domains/lol/roleRoulette"
+import type { RoleKey, RouletteResult } from "@/app/_domains/lol/roleRoulette"
 import { TabSelector } from "@/app/_client/components/TabSelector"
 
 // ---- 共通定数・型 ----

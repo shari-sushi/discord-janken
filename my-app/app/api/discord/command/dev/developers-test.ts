@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-// import { createMentionReactorsModal } from "@/app/domains/user/mentionByReaction/util/createMentionReactorsModal"
-import { parseMessageLink } from "@/app/domains/user/mentionByReaction/util/parseMessageLink"
+// import { createMentionReactorsModal } from "@/app/_domains/user/mentionByReaction/util/createMentionReactorsModal"
+import { parseMessageLink } from "@/app/_domains/user/mentionByReaction/util/parseMessageLink"
 import { getDiscordMessage } from "@/app/_server/lib/discord/api"
 import {
   APIApplicationCommandInteractionDataOption,

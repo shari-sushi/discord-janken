@@ -1,7 +1,7 @@
 import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { NextResponse } from "next/server"
 import { qstashPublishJSON } from "@/app/_server/lib/qstash/qstash"
-import { parseReminderAt } from "@/app/domains/lol/_server/validators"
+import { parseReminderAt } from "@/app/_domains/lol/_server/validators"
 import { APP_URL } from "@/app/_server/lib/env"
 import { ComponentType, InteractionResponseType, MessageFlags, TextInputStyle } from "discord-api-types/v10"
 

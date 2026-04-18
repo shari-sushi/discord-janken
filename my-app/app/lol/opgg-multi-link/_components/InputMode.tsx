@@ -2,8 +2,8 @@
 
 import { useState } from "react"
 import { useOverlay } from "@/app/_client/lib/modal/ModalContext"
-import { analyzeSummonersText } from "@/app/domains/lol/analyzeSummonersText"
-import type { EnemyTeam } from "@/app/domains/lol/types"
+import { analyzeSummonersText } from "@/app/_domains/lol/analyzeSummonersText"
+import type { EnemyTeam } from "@/app/_domains/lol/types"
 import type { Player } from "../_types"
 import { PlayerListAndUrl } from "./PlayerListAndUrl"
 import { RegisterTeamOverlay } from "./RegisterTeamOverlay"

@@ -1,4 +1,4 @@
-import { MatchKeyType } from "@/app/domains/lol/types"
+import { MatchKeyType } from "@/app/_domains/lol/types"
 
 /**
  * プロテクト機能用のRedisキーを生成する

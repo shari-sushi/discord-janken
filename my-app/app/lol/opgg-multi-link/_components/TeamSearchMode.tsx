@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import type { EnemyTeam } from "@/app/domains/lol/types"
+import type { EnemyTeam } from "@/app/_domains/lol/types"
 import type { Player } from "../_types"
 import { PlayerListAndUrl } from "./PlayerListAndUrl"
 

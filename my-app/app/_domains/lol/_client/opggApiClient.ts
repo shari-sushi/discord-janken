@@ -1,4 +1,4 @@
-import type { EnemyTeam } from "@/app/domains/lol/types"
+import type { EnemyTeam } from "@/app/_domains/lol/types"
 
 const API_SELF_TEAM = "/api/web/lol/opgg/self-team"
 const API_ENEMY_TEAMS = "/api/web/lol/opgg/enemy-teams"

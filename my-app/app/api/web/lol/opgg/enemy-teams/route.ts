@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { validateAuthHeader } from "@/app/_server/lib/auth"
 import { redisGet, redisSet } from "@/app/_server/lib/redis/redis"
-import { ENEMY_TEAMS_KEY } from "@/app/domains/lol/_server/redisKeys"
-import type { EnemyTeam } from "@/app/domains/lol/types"
+import { ENEMY_TEAMS_KEY } from "@/app/_domains/lol/_server/redisKeys"
+import type { EnemyTeam } from "@/app/_domains/lol/types"
 
 /**
  * GET /api/web/lol/opgg/enemy-teams
