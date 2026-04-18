@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import { ROLE_KEYS, ROLE_LABELS, runRoleRoulette } from "@/app/domains/lol/roleRoulette"
 import type { RoleKey, RouletteResult } from "@/app/domains/lol/roleRoulette"
+import { TabSelector } from "@/app/_client/components/TabSelector"
 
 // ---- 共通定数・型 ----
 
@@ -625,17 +626,7 @@ function RoleRouletteRouter() {
     <div className="p-8 max-w-3xl mx-auto">
       <div className="flex items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold">ロールルーレット</h1>
-        <div className="flex items-center gap-1 rounded-lg bg-zinc-800 p-1">
-          {VERSIONS.map((v) => (
-            <button
-              key={v.id}
-              onClick={() => handleVersionChange(v.id)}
-              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${version === v.id ? "bg-zinc-600 text-white" : "text-zinc-400 hover:text-white"}`}
-            >
-              {v.label}
-            </button>
-          ))}
-        </div>
+        <TabSelector tabs={[...VERSIONS]} selected={version} onChange={handleVersionChange} />
       </div>
       {version === "1" && <RoleRouletteV1 />}
       {version === "2" && <RoleRouletteV2 />}
