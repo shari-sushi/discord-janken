@@ -12,7 +12,8 @@ type Mode = "input" | "team-search"
 // ---- ユーティリティ ----
 
 function parseLine(line: string): string {
-  const trimmed = line.trim()
+  // 末尾の , を除去してからトリム
+  const trimmed = line.replace(/,/, "").trim()
   // ロビーログ形式: 「XXX さんが部屋に参加しました。」
   const m = trimmed.match(/^(.+?) さんが部屋に参加しました。$/)
   if (m) return m[1]
