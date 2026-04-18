@@ -5,16 +5,18 @@
 
 /**
  * 必須環境変数を取得する
- * @param key - 環境変数名
- * @returns 環境変数の値
- * @throws {Error} 環境変数が未設定の場合（テスト環境を除く）
+ * - production / preview: 未設定なら起動時に例外を投げる
+ * - development / test / CI: 未設定なら警告ログを出して空文字を返す（起動は続行）
  */
-function getRequiredEnv(key: string): string {
+export function getRequiredEnv(key: string): string {
   const value = process.env[key]
-  if (!value && process.env.NODE_ENV !== "test" && !process.env.GITHUB_ACTIONS) {
-    throw new Error(`環境変数 ${key} が設定されていません`)
+  if (!value) {
+    const isProduction = process.env.VERCEL_ENV === "production" || process.env.VERCEL_ENV === "preview"
+    if (isProduction) throw new Error(`環境変数 ${key} が設定されていません`)
+    console.warn(`[dev] 環境変数 ${key} が未設定です`)
+    return ""
   }
-  return value || ""
+  return value
 }
 
 /**
