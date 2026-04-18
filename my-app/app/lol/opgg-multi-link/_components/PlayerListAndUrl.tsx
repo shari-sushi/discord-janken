@@ -1,32 +1,25 @@
 "use client"
 
+import { OpenInNew } from "@/app/_client/components/OpenInNew"
 import type { Player } from "../_types"
 import { buildMultiUrl, buildPlayerUrl } from "../_utils"
 import { CopyButton } from "./CopyButton"
 
-export function PlayerListAndUrl({
-  players,
-  onToggle,
-  onOpenRegister,
-}: {
-  players: Player[]
-  onToggle: (i: number) => void
-  onOpenRegister?: () => void
-}) {
+export function PlayerListAndUrl({ players, onToggle, onOpenRegister }: { players: Player[]; onToggle: (i: number) => void; onOpenRegister?: () => void }) {
   const checkedPlayers = players.filter((p) => p.checked)
   const multiUrl = buildMultiUrl(checkedPlayers.map((p) => p.name))
 
   return (
     <div className="mt-4 space-y-4">
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+      <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
         {players.map((player, i) => (
-          <div key={i} className="flex items-center gap-2">
+          <div key={i} className="flex items-center gap-1.5 bg-zinc-700 rounded-b-sm px-1 py-0.5 hover:bg-zinc-600">
             <input type="checkbox" id={`player-${i}`} checked={player.checked} onChange={() => onToggle(i)} className="w-4 h-4 rounded accent-blue-500 cursor-pointer" />
             <label htmlFor={`player-${i}`} className={`flex-1 cursor-pointer ${player.checked ? "text-white" : "text-zinc-500 line-through"}`}>
               {player.name}
             </label>
-            <a href={buildPlayerUrl(player.name)} target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-blue-400 text-sm" title="op.gg で個別に開く">
-              🔗
+            <a href={buildPlayerUrl(player.name)} target="_blank" rel="noopener noreferrer" title="op.gg で個別に開く">
+              <OpenInNew className="hover:fill-blue-400" />
             </a>
           </div>
         ))}
@@ -39,8 +32,8 @@ export function PlayerListAndUrl({
             <CopyButton text={multiUrl} />
           </div>
           <div className="flex gap-2 flex-wrap">
-            <a href={multiUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-6 py-2 rounded text-sm">
-              マルチ検索を開く
+            <a href={multiUrl} target="_blank" rel="noopener noreferrer" className="bg-zinc-700 hover:bg-zinc-600 text-white font-semibold px-4 py-2 rounded text-sm">
+              OP.GGマルチサーチを開く
             </a>
             <button
               onClick={() => {
@@ -50,7 +43,7 @@ export function PlayerListAndUrl({
               }}
               className="bg-zinc-700 hover:bg-zinc-600 text-white font-semibold px-4 py-2 rounded text-sm"
             >
-              全タブを開く
+              OP.GGを個別に開く
             </button>
             {onOpenRegister && (
               <button onClick={onOpenRegister} className="bg-green-700 hover:bg-green-600 text-white font-semibold px-4 py-2 rounded text-sm">
