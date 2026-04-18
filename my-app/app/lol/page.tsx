@@ -14,6 +14,11 @@ export default function LolIndexPage() {
             全ランク確認
           </Link>
         </li>
+        <li>
+          <Link href="/lol/opgg-multi-link" className="hover:underline hover:text-zinc-400 text-zinc-100">
+            op.gg マルチサーチリンク生成
+          </Link>
+        </li>
       </ul>
     </main>
   )

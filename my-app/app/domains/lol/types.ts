@@ -36,3 +36,11 @@ export type MatchMembers = {
  */
 export type MatchKeyType = TeamSide | "meta"
 export type TeamSide = "red_team" | "blue_team"
+
+/**
+ * op.gg マルチサーチ - 相手チームデータ
+ */
+export type EnemyTeam = {
+  name: string
+  members: string[]
+}

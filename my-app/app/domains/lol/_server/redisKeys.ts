@@ -9,3 +9,9 @@ import { MatchKeyType } from "@/app/domains/lol/types"
 export const getMatchKey = (matchId: string, keyType: MatchKeyType): string => {
   return `lol:matches:${matchId}:${keyType}`
 }
+
+/** op.gg マルチサーチ - 自チームメンバー */
+export const SELF_TEAM_KEY = "lol:opgg:self-team"
+
+/** op.gg マルチサーチ - 相手チーム一覧 */
+export const ENEMY_TEAMS_KEY = "lol:opgg:enemy-teams"
