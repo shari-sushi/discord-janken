@@ -2,7 +2,7 @@
 
 import { OpenInNew } from "@/app/_client/components/OpenInNew"
 import type { Player } from "../_types"
-import { buildMultiUrl, buildPlayerUrl } from "../_utils"
+import { buildMultiUrl, buildPlayerUrl } from "@/app/_client/lib/op-gg/url"
 import { CopyButton } from "./CopyButton"
 
 export function PlayerListAndUrl({ players, onToggle, onOpenRegister }: { players: Player[]; onToggle: (i: number) => void; onOpenRegister?: () => void }) {

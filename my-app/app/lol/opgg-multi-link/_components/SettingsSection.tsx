@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import type { EnemyTeam } from "@/app/_domains/lol/types"
 import { fetchSelfTeam, saveSelfTeam, fetchEnemyTeams, saveEnemyTeam, deleteEnemyTeam } from "@/app/_domains/lol/_client/opggApiClient"
-import { buildBasicAuth } from "../_utils"
+import { buildBasicAuth } from "@/app/_client/util/auth"
 
 export function SettingsSection({
   auth,

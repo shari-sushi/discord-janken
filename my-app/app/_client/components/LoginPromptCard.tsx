@@ -1,10 +1,7 @@
 "use client"
 
 import { useState } from "react"
-
-function buildBasicAuth(username: string, password: string): string {
-  return `Basic ${btoa(`${username}:${password}`)}`
-}
+import { buildBasicAuth } from "@/app/_client/util/auth"
 
 export function LoginPromptCard({ onLogin }: { onLogin: (auth: string) => void }) {
   const [username, setUsername] = useState("")
