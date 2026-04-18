@@ -99,10 +99,7 @@ function CopyButton({ text }: { text: string }) {
     setTimeout(() => setCopied(false), 1500)
   }, [text])
   return (
-    <button
-      onClick={handle}
-      className="shrink-0 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold px-3 py-1 rounded"
-    >
+    <button onClick={handle} className="shrink-0 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold px-3 py-1 rounded">
       {copied ? "コピーしました" : "コピー"}
     </button>
   )
@@ -114,29 +111,14 @@ function PlayerListAndUrl({ players, onToggle }: { players: Player[]; onToggle: 
 
   return (
     <div className="mt-4 space-y-4">
-      <div className="space-y-1">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
         {players.map((player, i) => (
           <div key={i} className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id={`player-${i}`}
-              checked={player.checked}
-              onChange={() => onToggle(i)}
-              className="w-4 h-4 rounded accent-blue-500 cursor-pointer"
-            />
-            <label
-              htmlFor={`player-${i}`}
-              className={`flex-1 cursor-pointer ${player.checked ? "text-white" : "text-zinc-500 line-through"}`}
-            >
+            <input type="checkbox" id={`player-${i}`} checked={player.checked} onChange={() => onToggle(i)} className="w-4 h-4 rounded accent-blue-500 cursor-pointer" />
+            <label htmlFor={`player-${i}`} className={`flex-1 cursor-pointer ${player.checked ? "text-white" : "text-zinc-500 line-through"}`}>
               {player.name}
             </label>
-            <a
-              href={buildPlayerUrl(player.name)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-zinc-400 hover:text-blue-400 text-sm"
-              title="op.gg で個別に開く"
-            >
+            <a href={buildPlayerUrl(player.name)} target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-blue-400 text-sm" title="op.gg で個別に開く">
               🔗
             </a>
           </div>
@@ -150,12 +132,7 @@ function PlayerListAndUrl({ players, onToggle }: { players: Player[]; onToggle: 
             <CopyButton text={multiUrl} />
           </div>
           <div className="flex gap-2 flex-wrap">
-            <a
-              href={multiUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-6 py-2 rounded text-sm"
-            >
+            <a href={multiUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-6 py-2 rounded text-sm">
               マルチ検索を開く
             </a>
             <button
@@ -169,9 +146,7 @@ function PlayerListAndUrl({ players, onToggle }: { players: Player[]; onToggle: 
               全タブを開く
             </button>
           </div>
-          <p className="text-xs text-zinc-500">
-            ※ 全タブを一括で開くとブラウザのポップアップブロッカーが作動する場合があります。その場合はブラウザの許可設定を確認してください。
-          </p>
+          <p className="text-xs text-zinc-500">※ 全タブを一括で開くとブラウザのポップアップブロッカーが作動する場合があります。その場合はブラウザの許可設定を確認してください。</p>
         </div>
       )}
     </div>
@@ -198,9 +173,7 @@ function InputMode({ selfTeam }: { selfTeam: string[] }) {
   return (
     <div>
       <div className="mb-4">
-        <label className="block mb-2 font-semibold text-sm text-zinc-300">
-          ロビーログ / Discord メンション / プレーンテキストを貼り付け
-        </label>
+        <label className="block mb-2 font-semibold text-sm text-zinc-300">ロビーログ / Discord メンション / プレーンテキストを貼り付け</label>
         <textarea
           className="w-full bg-zinc-800 border border-zinc-600 text-white rounded px-3 py-2 h-40 resize-y text-sm"
           value={text}
@@ -208,16 +181,10 @@ function InputMode({ selfTeam }: { selfTeam: string[] }) {
           placeholder={"ROX Smeb さんが部屋に参加しました。\n@Name#TAG\nplayer3"}
         />
       </div>
-      <button
-        onClick={handleAnalyze}
-        disabled={!text.trim()}
-        className="bg-blue-500 hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-6 py-2 rounded"
-      >
+      <button onClick={handleAnalyze} disabled={!text.trim()} className="bg-blue-500 hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-6 py-2 rounded">
         解析・除外
       </button>
-      {selfTeam.length > 0 && (
-        <span className="ml-3 text-xs text-zinc-500">自チーム {selfTeam.length} 人を除外します</span>
-      )}
+      {selfTeam.length > 0 && <span className="ml-3 text-xs text-zinc-500">自チーム {selfTeam.length} 人を除外します</span>}
       {players.length > 0 && <PlayerListAndUrl players={players} onToggle={togglePlayer} />}
     </div>
   )
@@ -262,11 +229,7 @@ function TeamSearchMode({ enemyTeams }: { enemyTeams: EnemyTeam[] }) {
       {!selected && query.length > 0 && filtered.length > 0 && (
         <div className="mb-4 border border-zinc-600 rounded overflow-hidden">
           {filtered.map((team) => (
-            <button
-              key={team.name}
-              onClick={() => handleSelect(team)}
-              className="w-full text-left px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border-b border-zinc-700 last:border-b-0 text-sm"
-            >
+            <button key={team.name} onClick={() => handleSelect(team)} className="w-full text-left px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border-b border-zinc-700 last:border-b-0 text-sm">
               <span className="font-semibold text-white">{team.name}</span>
               <span className="ml-2 text-zinc-400">({team.members.length}人)</span>
             </button>
@@ -274,13 +237,9 @@ function TeamSearchMode({ enemyTeams }: { enemyTeams: EnemyTeam[] }) {
         </div>
       )}
 
-      {!selected && query.length > 0 && filtered.length === 0 && (
-        <p className="text-zinc-500 text-sm mb-4">「{query}」に一致するチームが見つかりません</p>
-      )}
+      {!selected && query.length > 0 && filtered.length === 0 && <p className="text-zinc-500 text-sm mb-4">「{query}」に一致するチームが見つかりません</p>}
 
-      {enemyTeams.length === 0 && (
-        <p className="text-zinc-500 text-sm mb-4">相手チームが登録されていません。設定から登録してください。</p>
-      )}
+      {enemyTeams.length === 0 && <p className="text-zinc-500 text-sm mb-4">相手チームが登録されていません。設定から登録してください。</p>}
 
       {selected && players.length > 0 && (
         <div>
@@ -416,10 +375,7 @@ function SettingsSection({
               if (e.key === "Enter") void handleLogin()
             }}
           />
-          <button
-            onClick={() => void handleLogin()}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-4 py-1.5 rounded text-sm"
-          >
+          <button onClick={() => void handleLogin()} className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-4 py-1.5 rounded text-sm">
             ログイン
           </button>
         </div>
@@ -441,10 +397,7 @@ function SettingsSection({
           placeholder={"player1\nplayer2\nplayer3"}
         />
         <div className="flex items-center gap-3 mt-2">
-          <button
-            onClick={() => void handleSaveSelfTeam()}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-4 py-1.5 rounded text-sm"
-          >
+          <button onClick={() => void handleSaveSelfTeam()} className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-4 py-1.5 rounded text-sm">
             保存
           </button>
           {selfTeamMsg && <span className="text-sm text-zinc-400">{selfTeamMsg}</span>}
@@ -464,10 +417,7 @@ function SettingsSection({
                   <span className="font-semibold text-white">{team.name}</span>
                   <span className="ml-2 text-zinc-400 text-xs">({team.members.length}人)</span>
                 </span>
-                <button
-                  onClick={() => void handleDeleteEnemyTeam(team.name)}
-                  className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded hover:bg-zinc-700"
-                >
+                <button onClick={() => void handleDeleteEnemyTeam(team.name)} className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded hover:bg-zinc-700">
                   削除
                 </button>
               </div>
@@ -491,10 +441,7 @@ function SettingsSection({
             placeholder={"player1\nplayer2\nplayer3\nplayer4\nplayer5"}
           />
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => void handleAddEnemyTeam()}
-              className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-4 py-1.5 rounded text-sm"
-            >
+            <button onClick={() => void handleAddEnemyTeam()} className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-4 py-1.5 rounded text-sm">
               追加・更新
             </button>
             {enemyTeamMsg && <span className="text-sm text-zinc-400">{enemyTeamMsg}</span>}
@@ -562,7 +509,7 @@ function OpggMultiLinkPage() {
   }
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
+    <div className="p-8 max-w-6xl mx-auto">
       {/* ヘッダー */}
       <div className="flex items-center gap-4 mb-6 flex-wrap">
         <h1 className="text-2xl font-bold">op.gg マルチサーチリンク生成</h1>
@@ -571,9 +518,7 @@ function OpggMultiLinkPage() {
             <button
               key={m.id}
               onClick={() => handleModeChange(m.id)}
-              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                mode === m.id ? "bg-zinc-600 text-white" : "text-zinc-400 hover:text-white"
-              }`}
+              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${mode === m.id ? "bg-zinc-600 text-white" : "text-zinc-400 hover:text-white"}`}
             >
               {m.label}
             </button>
@@ -581,33 +526,31 @@ function OpggMultiLinkPage() {
         </div>
       </div>
 
-      {/* メインコンテンツ */}
-      {mode === "input" && <InputMode selfTeam={selfTeam} />}
-      {mode === "team-search" && <TeamSearchMode enemyTeams={enemyTeams} />}
+      {/* 2カラムグリッド */}
+      <div className="grid grid-cols-1 gap-8">
+        {/* メインコンテンツ */}
+        <div>
+          {mode === "input" && <InputMode selfTeam={selfTeam} />}
+          {mode === "team-search" && <TeamSearchMode enemyTeams={enemyTeams} />}
+        </div>
 
-      {/* 設定セクション */}
-      <div className="mt-10 border border-zinc-700 rounded-lg">
-        <button
-          onClick={() => setSettingsOpen((v) => !v)}
-          className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
-        >
-          <span>⚙ 設定</span>
-          <span className="text-zinc-500">{settingsOpen ? "▲" : "▼"}</span>
-        </button>
-        {settingsOpen && (
-          <div className="px-4 pb-4 border-t border-zinc-700">
-            <div className="pt-4">
-              <SettingsSection
-                auth={auth}
-                selfTeam={selfTeam}
-                enemyTeams={enemyTeams}
-                onAuthChange={setAuth}
-                onSelfTeamChange={setSelfTeam}
-                onEnemyTeamsChange={setEnemyTeams}
-              />
+        {/* 設定セクション */}
+        <div className="border border-zinc-700 rounded-lg self-start">
+          <button
+            onClick={() => setSettingsOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+          >
+            <span>⚙ 設定</span>
+            <span className="text-zinc-500">{settingsOpen ? "▲" : "▼"}</span>
+          </button>
+          {settingsOpen && (
+            <div className="px-4 pb-4 border-t border-zinc-700">
+              <div className="pt-4">
+                <SettingsSection auth={auth} selfTeam={selfTeam} enemyTeams={enemyTeams} onAuthChange={setAuth} onSelfTeamChange={setSelfTeam} onEnemyTeamsChange={setEnemyTeams} />
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   )
