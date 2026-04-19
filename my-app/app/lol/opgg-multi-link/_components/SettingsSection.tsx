@@ -2,23 +2,18 @@
 
 import { useState, useEffect } from "react"
 import type { EnemyTeam } from "@/app/_domains/lol/types"
-import { fetchSelfTeam, saveSelfTeam, fetchEnemyTeams, saveEnemyTeam, deleteEnemyTeam } from "@/app/_domains/lol/_client/opggApiClient"
-import { buildBasicAuth } from "@/app/_client/util/auth"
+import { fetchTeams, saveTeam, deleteTeam } from "@/app/_domains/lol/_client/opggApiClient"
 
 export function SettingsSection({
-  auth,
-  selfTeam,
-  enemyTeams,
-  onAuthChange,
-  onSelfTeamChange,
-  onEnemyTeamsChange,
+  myTeamName,
+  teams,
+  onMyTeamNameChange,
+  onTeamsChange,
 }: {
-  auth: string
-  selfTeam: string[]
-  enemyTeams: EnemyTeam[]
-  onAuthChange: (auth: string) => void
-  onSelfTeamChange: (members: string[]) => void
-  onEnemyTeamsChange: (teams: EnemyTeam[]) => void
+  myTeamName: string
+  teams: EnemyTeam[]
+  onMyTeamNameChange: (name: string) => void
+  onTeamsChange: (teams: EnemyTeam[]) => void
 }) {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
@@ -72,17 +67,17 @@ export function SettingsSection({
       .map((l) => l.trim())
       .filter((l) => l.length > 0)
     if (!newTeamName.trim()) {
-      setEnemyTeamMsg("チーム名を入力してください")
+      setTeamMsg("チーム名を入力してください")
       return
     }
     if (members.length === 0) {
-      setEnemyTeamMsg("メンバーを入力してください")
+      setTeamMsg("メンバーを入力してください")
       return
     }
     try {
-      await saveEnemyTeam(auth, { name: newTeamName.trim(), members })
-      const updated = await fetchEnemyTeams(auth)
-      onEnemyTeamsChange(updated)
+      await saveTeam({ name: newTeamName.trim(), members })
+      const updated = await fetchTeams()
+      onTeamsChange(updated)
       setNewTeamName("")
       setNewTeamMembers("")
       setEnemyTeamMsg("保存しました")
@@ -95,8 +90,11 @@ export function SettingsSection({
   const handleDeleteEnemyTeam = async (name: string) => {
     setEnemyTeamMsg("")
     try {
-      await deleteEnemyTeam(auth, name)
-      onEnemyTeamsChange(enemyTeams.filter((t) => t.name !== name))
+      await deleteTeam(name)
+      onTeamsChange(teams.filter((t) => t.name !== name))
+      if (myTeamName === name) {
+        onMyTeamNameChange("")
+      }
     } catch (e) {
       setEnemyTeamMsg(`エラー: ${e instanceof Error ? e.message : "不明"}`)
     }

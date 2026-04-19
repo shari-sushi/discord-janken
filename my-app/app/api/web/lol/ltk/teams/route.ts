@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { validateAuthHeader } from "@/app/_server/lib/auth"
 import { redisGet, redisSet } from "@/app/_server/lib/redis/redis"
 import { ENEMY_TEAMS_KEY } from "@/app/_domains/lol/_server/redisKeys"
 import type { EnemyTeam } from "@/app/_domains/lol/types"
 
 /**
- * GET /api/web/lol/opgg/enemy-teams
+ * GET /api/web/lol/ltk/teams
  * 相手チーム一覧を取得する
  */
 export async function GET(): Promise<NextResponse> {
@@ -13,13 +12,13 @@ export async function GET(): Promise<NextResponse> {
     const teams = await redisGet<EnemyTeam[]>(ENEMY_TEAMS_KEY)
     return NextResponse.json({ success: true, teams: teams ?? [] })
   } catch (error) {
-    console.error("GET /api/web/lol/opgg/enemy-teams error:", error)
+    console.error("GET /api/web/lol/ltk/teams error:", error)
     return NextResponse.json({ success: false, error: "サーバーエラーが発生しました" }, { status: 500 })
   }
 }
 
 /**
- * PUT /api/web/lol/opgg/enemy-teams
+ * PUT /api/web/lol/ltk/teams
  * 相手チームを追加・更新する（同名チームがあればメンバーを上書き）
  */
 export async function PUT(request: NextRequest): Promise<NextResponse> {
@@ -48,22 +47,17 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     await redisSet(ENEMY_TEAMS_KEY, teams)
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("PUT /api/web/lol/opgg/enemy-teams error:", error)
+    console.error("PUT /api/web/lol/ltk/teams error:", error)
     return NextResponse.json({ success: false, error: "サーバーエラーが発生しました" }, { status: 500 })
   }
 }
 
 /**
- * DELETE /api/web/lol/opgg/enemy-teams
+ * DELETE /api/web/lol/ltk/teams
  * 相手チームを削除する
  */
 export async function DELETE(request: NextRequest): Promise<NextResponse> {
   try {
-    const authResult = await validateAuthHeader(request.headers.get("Authorization"))
-    if (!authResult.valid) {
-      return NextResponse.json({ success: false, error: authResult.error }, { status: 401 })
-    }
-
     let body: { name: string }
     try {
       body = await request.json()
@@ -80,7 +74,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
     await redisSet(ENEMY_TEAMS_KEY, filtered)
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("DELETE /api/web/lol/opgg/enemy-teams error:", error)
+    console.error("DELETE /api/web/lol/ltk/teams error:", error)
     return NextResponse.json({ success: false, error: "サーバーエラーが発生しました" }, { status: 500 })
   }
 }

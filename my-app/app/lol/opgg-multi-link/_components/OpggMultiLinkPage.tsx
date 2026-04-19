@@ -4,9 +4,8 @@ import { useState, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { TabSelector } from "@/app/_client/components/TabSelector"
 import type { EnemyTeam } from "@/app/_domains/lol/types"
-import { fetchSelfTeam, fetchEnemyTeams } from "@/app/_domains/lol/_client/opggApiClient"
+import { fetchTeams } from "@/app/_domains/lol/_client/opggApiClient"
 import type { Mode } from "../_types"
-import { buildBasicAuth } from "@/app/_client/util/auth"
 import { InputMode } from "./InputMode"
 import { TeamSearchMode } from "./TeamSearchMode"
 import { TeamLoginMode } from "./TeamLoginMode"
@@ -32,24 +31,9 @@ export function OpggMultiLinkPage() {
   const [selfTeam, setSelfTeam] = useState<string[]>([])
   const [enemyTeams, setEnemyTeams] = useState<EnemyTeam[]>([])
 
-  // 保存済み認証情報で自動ロード
+  // チーム一覧をロード
   useEffect(() => {
-    const username = localStorage.getItem("lol-opgg-username")
-    const password = localStorage.getItem("lol-opgg-password")
-    if (!username || !password) return
-
-    const a = buildBasicAuth(username, password)
-    void Promise.all([fetchSelfTeam(a), fetchEnemyTeams(a)])
-      .then(([st, et]) => {
-        setAuth(a)
-        setSelfTeam(st)
-        setEnemyTeams(et)
-      })
-      .catch(() => {
-        // 認証失敗は無視（設定セクションで再ログインを促す）
-        localStorage.removeItem("lol-opgg-username")
-        localStorage.removeItem("lol-opgg-password")
-      })
+    void fetchTeams().then(setTeams).catch(() => {})
   }, [])
 
   const handleModeChange = (m: Mode) => {
