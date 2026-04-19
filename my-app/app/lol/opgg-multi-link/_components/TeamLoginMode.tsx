@@ -4,21 +4,21 @@ import { useState } from "react"
 import type { EnemyTeam } from "@/app/_domains/lol/types"
 
 export function TeamLoginMode({
-  enemyTeams,
-  selfTeam,
-  onSelfTeamChange,
+  teams,
+  myTeamName,
+  onMyTeamNameChange,
   onSwitchToInput,
 }: {
-  enemyTeams: EnemyTeam[]
-  selfTeam: string[]
-  onSelfTeamChange: (members: string[]) => void
+  teams: EnemyTeam[]
+  myTeamName: string
+  onMyTeamNameChange: (name: string) => void
   onSwitchToInput: () => void
 }) {
   const [query, setQuery] = useState("")
   const [selected, setSelected] = useState<EnemyTeam | null>(null)
   const [confirmed, setConfirmed] = useState(false)
 
-  const filtered = enemyTeams.filter((t) => t.name.toLowerCase().includes(query.toLowerCase()))
+  const filtered = teams.filter((t) => t.name.toLowerCase().includes(query.toLowerCase()))
 
   const handleSelect = (team: EnemyTeam) => {
     setSelected(team)
@@ -28,7 +28,7 @@ export function TeamLoginMode({
 
   const handleConfirm = () => {
     if (!selected) return
-    onSelfTeamChange(selected.members)
+    onMyTeamNameChange(selected.name)
     setConfirmed(true)
   }
 
@@ -43,7 +43,7 @@ export function TeamLoginMode({
         </div>
       )}
 
-      {selfTeam.length > 0 && !confirmed && <p className="text-xs text-zinc-500">現在の自チーム: {selfTeam.join(", ")}</p>}
+      {myTeamName && !confirmed && <p className="text-xs text-zinc-500">現在の自チーム: {myTeamName}</p>}
 
       <div>
         <label className="block mb-2 font-semibold text-sm text-zinc-300">チーム名を検索</label>
@@ -84,7 +84,7 @@ export function TeamLoginMode({
         </div>
       )}
 
-      {enemyTeams.length === 0 && (
+      {teams.length === 0 && (
         <div className="text-sm text-zinc-500 space-y-1">
           <p>チームがまだ登録されていません。</p>
           <p>

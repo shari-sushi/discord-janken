@@ -5,12 +5,12 @@ import type { EnemyTeam } from "@/app/_domains/lol/types"
 import type { Player } from "../_types"
 import { PlayerListAndUrl } from "./PlayerListAndUrl"
 
-export function TeamSearchMode({ enemyTeams }: { enemyTeams: EnemyTeam[] }) {
+export function TeamSearchMode({ teams }: { teams: EnemyTeam[] }) {
   const [query, setQuery] = useState("")
   const [selected, setSelected] = useState<EnemyTeam | null>(null)
   const [players, setPlayers] = useState<Player[]>([])
 
-  const filtered = enemyTeams.filter((t) => t.name.toLowerCase().includes(query.toLowerCase()))
+  const filtered = teams.filter((t) => t.name.toLowerCase().includes(query.toLowerCase()))
 
   const handleSelect = (team: EnemyTeam) => {
     setSelected(team)
@@ -52,7 +52,7 @@ export function TeamSearchMode({ enemyTeams }: { enemyTeams: EnemyTeam[] }) {
 
       {!selected && query.length > 0 && filtered.length === 0 && <p className="text-zinc-500 text-sm mb-4">「{query}」に一致するチームが見つかりません</p>}
 
-      {enemyTeams.length === 0 && <p className="text-zinc-500 text-sm mb-4">相手チームが登録されていません。設定から登録してください。</p>}
+      {teams.length === 0 && <p className="text-zinc-500 text-sm mb-4">相手チームが登録されていません。設定から登録してください。</p>}
 
       {selected && players.length > 0 && (
         <div>

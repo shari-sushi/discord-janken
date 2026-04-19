@@ -10,21 +10,20 @@ import { RegisterTeamOverlay } from "./RegisterTeamOverlay"
 
 export function InputMode({
   selfTeam,
-  auth,
-  onEnemyTeamsChange,
-  onSelfTeamChange,
+  onTeamsChange,
+  onMyTeamNameChange,
 }: {
   selfTeam: string[]
-  auth: string
-  onEnemyTeamsChange: (teams: EnemyTeam[]) => void
-  onSelfTeamChange: (members: string[]) => void
+  onTeamsChange: (teams: EnemyTeam[]) => void
+  onMyTeamNameChange: (name: string) => void
 }) {
   const { open } = useOverlay()
   const [text, setText] = useState("")
   const [players, setPlayers] = useState<Player[]>([])
+  const [excludeSelf, setExcludeSelf] = useState(true)
 
   const handleAnalyze = () => {
-    setPlayers(analyzeSummonersText(text, selfTeam))
+    setPlayers(analyzeSummonersText(text, excludeSelf ? selfTeam : []))
   }
 
   const togglePlayer = (i: number) => {
@@ -32,7 +31,7 @@ export function InputMode({
   }
 
   const handleOpenRegister = () => {
-    open(<RegisterTeamOverlay initialPlayers={players} auth={auth} onEnemySaved={onEnemyTeamsChange} onSelfSaved={onSelfTeamChange} />)
+    open(<RegisterTeamOverlay initialPlayers={players} onTeamsSaved={onTeamsChange} onMyTeamNameChange={onMyTeamNameChange} onPlayersChange={setPlayers} />)
   }
 
   return (
@@ -46,10 +45,17 @@ export function InputMode({
           placeholder={"ROX Smeb さんが部屋に参加しました。\n@Name#TAG\nplayer3"}
         />
       </div>
-      <button onClick={handleAnalyze} disabled={!text.trim()} className="bg-blue-500 hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-6 py-2 rounded">
-        解析・除外
-      </button>
-      {selfTeam.length > 0 && <span className="ml-3 text-xs text-zinc-500">自チーム {selfTeam.length} 人を除外します</span>}
+      <div className="flex items-center gap-3 flex-wrap">
+        <button onClick={handleAnalyze} disabled={!text.trim()} className="bg-blue-500 hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-6 py-2 rounded">
+          解析・除外
+        </button>
+        {selfTeam.length > 0 && (
+          <label className="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none">
+            <input type="checkbox" checked={excludeSelf} onChange={(e) => setExcludeSelf(e.target.checked)} className="accent-blue-500" />
+            自チーム {selfTeam.length} 人を除外
+          </label>
+        )}
+      </div>
       {players.length > 0 && <PlayerListAndUrl players={players} onToggle={togglePlayer} onOpenRegister={handleOpenRegister} />}
     </div>
   )

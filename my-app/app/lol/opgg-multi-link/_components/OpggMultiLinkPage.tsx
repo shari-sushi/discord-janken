@@ -11,10 +11,12 @@ import { TeamSearchMode } from "./TeamSearchMode"
 import { TeamLoginMode } from "./TeamLoginMode"
 import { SettingsSection } from "./SettingsSection"
 
+const MY_TEAM_NAME_KEY = "lol-my-team-name"
+
 const MODES = [
   { id: "input" as Mode, label: "入力モード" },
   { id: "team-search" as Mode, label: "チーム検索" },
-  { id: "team-login" as Mode, label: "チームログイン" },
+  { id: "my-team" as Mode, label: "自チーム設定" },
 ]
 
 export function OpggMultiLinkPage() {
@@ -23,18 +25,27 @@ export function OpggMultiLinkPage() {
 
   const [mode, setMode] = useState<Mode>(() => {
     const m = searchParams.get("mode")
-    if (m === "team-search" || m === "team-login") return m
+    if (m === "team-search" || m === "my-team") return m
     return "input"
   })
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [auth, setAuth] = useState("")
-  const [selfTeam, setSelfTeam] = useState<string[]>([])
-  const [enemyTeams, setEnemyTeams] = useState<EnemyTeam[]>([])
+  const [myTeamName, setMyTeamName] = useState(() => {
+    if (typeof window === "undefined") return ""
+    return localStorage.getItem(MY_TEAM_NAME_KEY) ?? ""
+  })
+  const [teams, setTeams] = useState<EnemyTeam[]>([])
 
   // チーム一覧をロード
   useEffect(() => {
     void fetchTeams().then(setTeams).catch(() => {})
   }, [])
+
+  const handleMyTeamNameChange = (name: string) => {
+    setMyTeamName(name)
+    localStorage.setItem(MY_TEAM_NAME_KEY, name)
+  }
+
+  const selfTeam = teams.find((t) => t.name === myTeamName)?.members ?? []
 
   const handleModeChange = (m: Mode) => {
     setMode(m)
@@ -53,9 +64,9 @@ export function OpggMultiLinkPage() {
       <div className="grid grid-cols-1 gap-8">
         {/* メインコンテンツ */}
         <div>
-          {mode === "input" && <InputMode selfTeam={selfTeam} auth={auth} onEnemyTeamsChange={setEnemyTeams} onSelfTeamChange={setSelfTeam} />}
-          {mode === "team-search" && <TeamSearchMode enemyTeams={enemyTeams} />}
-          {mode === "team-login" && <TeamLoginMode enemyTeams={enemyTeams} selfTeam={selfTeam} onSelfTeamChange={setSelfTeam} onSwitchToInput={() => handleModeChange("input")} />}
+          {mode === "input" && <InputMode selfTeam={selfTeam} onTeamsChange={setTeams} onMyTeamNameChange={handleMyTeamNameChange} />}
+          {mode === "team-search" && <TeamSearchMode teams={teams} />}
+          {mode === "my-team" && <TeamLoginMode teams={teams} myTeamName={myTeamName} onMyTeamNameChange={handleMyTeamNameChange} onSwitchToInput={() => handleModeChange("input")} />}
         </div>
 
         {/* 設定セクション */}
@@ -70,7 +81,7 @@ export function OpggMultiLinkPage() {
           {settingsOpen && (
             <div className="px-4 pb-4 border-t border-zinc-700">
               <div className="pt-4">
-                <SettingsSection auth={auth} selfTeam={selfTeam} enemyTeams={enemyTeams} onAuthChange={setAuth} onSelfTeamChange={setSelfTeam} onEnemyTeamsChange={setEnemyTeams} />
+                <SettingsSection myTeamName={myTeamName} teams={teams} onMyTeamNameChange={handleMyTeamNameChange} onTeamsChange={setTeams} />
               </div>
             </div>
           )}

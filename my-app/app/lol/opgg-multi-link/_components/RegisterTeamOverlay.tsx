@@ -12,10 +12,12 @@ export function RegisterTeamOverlay({
   initialPlayers,
   onTeamsSaved,
   onMyTeamNameChange,
+  onPlayersChange,
 }: {
   initialPlayers: Player[]
   onTeamsSaved: (teams: EnemyTeam[]) => void
   onMyTeamNameChange: (name: string) => void
+  onPlayersChange?: (players: Player[]) => void
 }) {
   const { close } = useOverlay()
   const [players, setPlayers] = useState<Player[]>(initialPlayers)
@@ -24,7 +26,9 @@ export function RegisterTeamOverlay({
   const [msg, setMsg] = useState("")
 
   const togglePlayer = (i: number) => {
-    setPlayers((prev) => prev.map((p, idx) => (idx === i ? { ...p, checked: !p.checked } : p)))
+    const updated = players.map((p, idx) => (idx === i ? { ...p, checked: !p.checked } : p))
+    setPlayers(updated)
+    onPlayersChange?.(updated)
   }
 
   const handleRegister = async () => {
@@ -69,7 +73,7 @@ export function RegisterTeamOverlay({
           if (e.key === "Enter") void handleRegister()
         }}
       />
-      <PlayerCheckboxList players={players} onToggle={togglePlayer} />
+      <PlayerCheckboxList players={players} onToggle={togglePlayer} idPrefix="overlay-player" />
 
       <div className="mt-4 space-y-3">
         <div className="flex justify-end items-center gap-3">
