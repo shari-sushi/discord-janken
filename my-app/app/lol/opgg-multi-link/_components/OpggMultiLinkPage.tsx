@@ -9,7 +9,6 @@ import type { Mode } from "../_types"
 import { InputMode } from "./InputMode"
 import { TeamSearchMode } from "./TeamSearchMode"
 import { TeamLoginMode } from "./TeamLoginMode"
-import { SettingsSection } from "./SettingsSection"
 
 const MY_TEAM_NAME_KEY = "lol-my-team-name"
 
@@ -28,7 +27,6 @@ export function OpggMultiLinkPage() {
     if (m === "team-search" || m === "my-team") return m
     return "input"
   })
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const [myTeamName, setMyTeamName] = useState(() => {
     if (typeof window === "undefined") return ""
     return localStorage.getItem(MY_TEAM_NAME_KEY) ?? ""
@@ -37,7 +35,9 @@ export function OpggMultiLinkPage() {
 
   // チーム一覧をロード
   useEffect(() => {
-    void fetchTeams().then(setTeams).catch(() => {})
+    void fetchTeams()
+      .then(setTeams)
+      .catch(() => {})
   }, [])
 
   const handleMyTeamNameChange = (name: string) => {
@@ -67,24 +67,6 @@ export function OpggMultiLinkPage() {
           {mode === "input" && <InputMode selfTeam={selfTeam} onTeamsChange={setTeams} onMyTeamNameChange={handleMyTeamNameChange} />}
           {mode === "team-search" && <TeamSearchMode teams={teams} />}
           {mode === "my-team" && <TeamLoginMode teams={teams} myTeamName={myTeamName} onMyTeamNameChange={handleMyTeamNameChange} onSwitchToInput={() => handleModeChange("input")} />}
-        </div>
-
-        {/* 設定セクション */}
-        <div className="border border-zinc-700 rounded-lg self-start">
-          <button
-            onClick={() => setSettingsOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
-          >
-            <span>⚙ 設定</span>
-            <span className="text-zinc-500">{settingsOpen ? "▲" : "▼"}</span>
-          </button>
-          {settingsOpen && (
-            <div className="px-4 pb-4 border-t border-zinc-700">
-              <div className="pt-4">
-                <SettingsSection myTeamName={myTeamName} teams={teams} onMyTeamNameChange={handleMyTeamNameChange} onTeamsChange={setTeams} />
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
