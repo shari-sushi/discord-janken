@@ -11,12 +11,24 @@ export function TeamLoginMode({
   onMyTeamNameChange,
   onTeamsChange,
   onSwitchToInput,
+  selectQuery,
+  onSelectQueryChange,
+  selectSelected,
+  onSelectSelectedChange,
+  selectConfirmed,
+  onSelectConfirmedChange,
 }: {
   teams: EnemyTeam[]
   myTeamName: string
   onMyTeamNameChange: (name: string) => void
   onTeamsChange: (teams: EnemyTeam[]) => void
   onSwitchToInput: () => void
+  selectQuery: string
+  onSelectQueryChange: (q: string) => void
+  selectSelected: EnemyTeam | null
+  onSelectSelectedChange: (t: EnemyTeam | null) => void
+  selectConfirmed: boolean
+  onSelectConfirmedChange: (v: boolean) => void
 }) {
   const myTeam = teams.find((t) => t.name === myTeamName) ?? null
 
@@ -36,6 +48,12 @@ export function TeamLoginMode({
       myTeamName={myTeamName}
       onMyTeamNameChange={onMyTeamNameChange}
       onSwitchToInput={onSwitchToInput}
+      query={selectQuery}
+      onQueryChange={onSelectQueryChange}
+      selected={selectSelected}
+      onSelectedChange={onSelectSelectedChange}
+      confirmed={selectConfirmed}
+      onConfirmedChange={onSelectConfirmedChange}
     />
   )
 }
@@ -216,28 +234,36 @@ function TeamSelectForm({
   myTeamName,
   onMyTeamNameChange,
   onSwitchToInput,
+  query,
+  onQueryChange,
+  selected,
+  onSelectedChange,
+  confirmed,
+  onConfirmedChange,
 }: {
   teams: EnemyTeam[]
   myTeamName: string
   onMyTeamNameChange: (name: string) => void
   onSwitchToInput: () => void
+  query: string
+  onQueryChange: (q: string) => void
+  selected: EnemyTeam | null
+  onSelectedChange: (t: EnemyTeam | null) => void
+  confirmed: boolean
+  onConfirmedChange: (v: boolean) => void
 }) {
-  const [query, setQuery] = useState("")
-  const [selected, setSelected] = useState<EnemyTeam | null>(null)
-  const [confirmed, setConfirmed] = useState(false)
-
   const filtered = teams.filter((t) => t.name.toLowerCase().includes(query.toLowerCase()))
 
   const handleSelect = (team: EnemyTeam) => {
-    setSelected(team)
-    setQuery(team.name)
-    setConfirmed(false)
+    onSelectedChange(team)
+    onQueryChange(team.name)
+    onConfirmedChange(false)
   }
 
   const handleConfirm = () => {
     if (!selected) return
     onMyTeamNameChange(selected.name)
-    setConfirmed(true)
+    onConfirmedChange(true)
   }
 
   return (
@@ -259,9 +285,9 @@ function TeamSelectForm({
           type="text"
           value={query}
           onChange={(e) => {
-            setQuery(e.target.value)
-            setSelected(null)
-            setConfirmed(false)
+            onQueryChange(e.target.value)
+            onSelectedChange(null)
+            onConfirmedChange(false)
           }}
           placeholder="チーム名を入力..."
           className="w-full bg-zinc-800 border border-zinc-600 text-white rounded px-3 py-2"

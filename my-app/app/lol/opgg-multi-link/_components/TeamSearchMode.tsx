@@ -1,25 +1,36 @@
 "use client"
 
-import { useState } from "react"
 import type { EnemyTeam } from "@/app/_domains/lol/types"
 import type { Player } from "../_types"
 import { PlayerListAndUrl } from "./PlayerListAndUrl"
 
-export function TeamSearchMode({ teams }: { teams: EnemyTeam[] }) {
-  const [query, setQuery] = useState("")
-  const [selected, setSelected] = useState<EnemyTeam | null>(null)
-  const [players, setPlayers] = useState<Player[]>([])
-
+export function TeamSearchMode({
+  teams,
+  query,
+  onQueryChange,
+  selected,
+  onSelectedChange,
+  players,
+  onPlayersChange,
+}: {
+  teams: EnemyTeam[]
+  query: string
+  onQueryChange: (q: string) => void
+  selected: EnemyTeam | null
+  onSelectedChange: (t: EnemyTeam | null) => void
+  players: Player[]
+  onPlayersChange: (players: Player[]) => void
+}) {
   const filtered = teams.filter((t) => t.name.toLowerCase().includes(query.toLowerCase()))
 
   const handleSelect = (team: EnemyTeam) => {
-    setSelected(team)
-    setPlayers(team.members.map((name) => ({ name, checked: true })))
-    setQuery(team.name)
+    onSelectedChange(team)
+    onPlayersChange(team.members.map((name) => ({ name, checked: true })))
+    onQueryChange(team.name)
   }
 
   const togglePlayer = (i: number) => {
-    setPlayers((prev) => prev.map((p, idx) => (idx === i ? { ...p, checked: !p.checked } : p)))
+    onPlayersChange(players.map((p, idx) => (idx === i ? { ...p, checked: !p.checked } : p)))
   }
 
   return (
@@ -30,9 +41,9 @@ export function TeamSearchMode({ teams }: { teams: EnemyTeam[] }) {
           type="text"
           value={query}
           onChange={(e) => {
-            setQuery(e.target.value)
-            setSelected(null)
-            setPlayers([])
+            onQueryChange(e.target.value)
+            onSelectedChange(null)
+            onPlayersChange([])
           }}
           placeholder="チーム名を入力..."
           className="w-full bg-zinc-800 border border-zinc-600 text-white rounded px-3 py-2"
