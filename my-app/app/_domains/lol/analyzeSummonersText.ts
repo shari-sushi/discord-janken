@@ -1,8 +1,9 @@
 export const analyzeSummonersText = (text: string, selfTeam: string[] = []) => {
   const parsed = parseLine(text)
   const selfSet = new Set(selfTeam.map((s) => s.toLowerCase()))
-  const filtered = parsed.filter((name) => !selfSet.has(name.toLowerCase()))
-  return filtered.map((name) => ({ name, checked: true }))
+  // 自チームメンバーはチェックを外した状態でリストに残す（除外はせず表示）
+  // lolのサモナーネームは大文字小文字を区別しないため存在チェックはloweCaseでまとめて行う
+  return parsed.map((name) => ({ name, checked: !selfSet.has(name.toLowerCase()) }))
 }
 
 // TODO: 記述ミスを考慮し、何らかの形で除外されたものも返すようにするか検討する

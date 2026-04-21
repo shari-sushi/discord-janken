@@ -73,7 +73,7 @@ export function RegisterTeamOverlay({
           if (e.key === "Enter") void handleRegister()
         }}
       />
-      <PlayerCheckboxList players={players} onToggle={togglePlayer} idPrefix="overlay-player" />
+      <PlayerCheckboxList players={players} onToggle={togglePlayer} />
 
       <div className="mt-4 space-y-3">
         <div className="flex justify-end items-center gap-3">
