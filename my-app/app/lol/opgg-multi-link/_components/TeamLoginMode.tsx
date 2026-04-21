@@ -1,9 +1,217 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import type { EnemyTeam } from "@/app/_domains/lol/types"
+import { fetchTeams, updateTeam, removeMember } from "@/app/_domains/lol/_client/opggApiClient"
+import { PlayerListAndUrl } from "./PlayerListAndUrl"
 
 export function TeamLoginMode({
+  teams,
+  myTeamName,
+  onMyTeamNameChange,
+  onTeamsChange,
+  onSwitchToInput,
+}: {
+  teams: EnemyTeam[]
+  myTeamName: string
+  onMyTeamNameChange: (name: string) => void
+  onTeamsChange: (teams: EnemyTeam[]) => void
+  onSwitchToInput: () => void
+}) {
+  const myTeam = teams.find((t) => t.name === myTeamName) ?? null
+
+  if (myTeam) {
+    return (
+      <TeamManageView
+        myTeam={myTeam}
+        onMyTeamNameChange={onMyTeamNameChange}
+        onTeamsChange={onTeamsChange}
+      />
+    )
+  }
+
+  return (
+    <TeamSelectForm
+      teams={teams}
+      myTeamName={myTeamName}
+      onMyTeamNameChange={onMyTeamNameChange}
+      onSwitchToInput={onSwitchToInput}
+    />
+  )
+}
+
+// 自チーム設定済み時の管理UI。myTeam が確定している前提で mount されるため
+// useState の初期値を myTeam から安全に取れる。
+function TeamManageView({
+  myTeam,
+  onMyTeamNameChange,
+  onTeamsChange,
+}: {
+  myTeam: EnemyTeam
+  onMyTeamNameChange: (name: string) => void
+  onTeamsChange: (teams: EnemyTeam[]) => void
+}) {
+  // チェック外しを追跡するセット（デフォルト全員チェック済み）
+  const [uncheckedMembers, setUncheckedMembers] = useState<Set<string>>(new Set())
+  const [addMemberInput, setAddMemberInput] = useState("")
+  const [renameInput, setRenameInput] = useState(myTeam.name)
+  const [actionMsg, setActionMsg] = useState("")
+
+  const players = useMemo(
+    () => myTeam.members.map((name) => ({ name, checked: !uncheckedMembers.has(name) })),
+    [myTeam.members, uncheckedMembers],
+  )
+
+  const showMsg = (msg: string) => {
+    setActionMsg(msg)
+    setTimeout(() => setActionMsg(""), 2500)
+  }
+
+  const refreshTeams = async () => {
+    const updated = await fetchTeams()
+    onTeamsChange(updated)
+  }
+
+  const handleAddMember = async () => {
+    const member = addMemberInput.trim()
+    if (!member) return
+    if (myTeam.members.includes(member)) {
+      showMsg("すでに登録されているメンバーです")
+      return
+    }
+    try {
+      await updateTeam(myTeam.name, { members: [...myTeam.members, member] })
+      await refreshTeams()
+      setAddMemberInput("")
+      showMsg("追加しました")
+    } catch (e) {
+      showMsg(`エラー: ${e instanceof Error ? e.message : "不明"}`)
+    }
+  }
+
+  const handleRemoveMember = async (member: string) => {
+    try {
+      await removeMember(myTeam.name, member)
+      await refreshTeams()
+      showMsg(`${member} を除名しました`)
+    } catch (e) {
+      showMsg(`エラー: ${e instanceof Error ? e.message : "不明"}`)
+    }
+  }
+
+  const handleRenameTeam = async () => {
+    const newName = renameInput.trim()
+    if (!newName || newName === myTeam.name) return
+    try {
+      await updateTeam(myTeam.name, { name: newName })
+      await refreshTeams()
+      onMyTeamNameChange(newName)
+      showMsg("チーム名を変更しました")
+    } catch (e) {
+      showMsg(`エラー: ${e instanceof Error ? e.message : "不明"}`)
+    }
+  }
+
+  const togglePlayer = (i: number) => {
+    const member = players[i]?.name
+    if (!member) return
+    setUncheckedMembers((prev) => {
+      const next = new Set(prev)
+      if (next.has(member)) {
+        next.delete(member)
+      } else {
+        next.add(member)
+      }
+      return next
+    })
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* ヘッダー */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <h2 className="text-sm font-semibold text-zinc-300">
+          自チーム: <span className="text-white">{myTeam.name}</span>
+        </h2>
+        <button onClick={() => onMyTeamNameChange("")} className="text-xs text-zinc-400 hover:text-zinc-200 underline">
+          設定解除
+        </button>
+      </div>
+
+      {/* メンバー管理 */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-zinc-300">メンバー管理</h3>
+
+        {/* メンバーリスト + 除名ボタン */}
+        <div className="space-y-1">
+          {myTeam.members.map((member) => (
+            <div key={member} className="flex items-center gap-2 bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5">
+              <span className="flex-1 text-sm text-white">{member}</span>
+              <button
+                onClick={() => void handleRemoveMember(member)}
+                className="text-xs text-red-400 hover:text-red-300 px-2 py-0.5 rounded hover:bg-zinc-700"
+              >
+                除名
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* メンバー追加 */}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={addMemberInput}
+            onChange={(e) => setAddMemberInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void handleAddMember()
+            }}
+            placeholder="追加するメンバー名"
+            className="flex-1 bg-zinc-800 border border-zinc-600 text-white rounded px-3 py-1.5 text-sm"
+          />
+          <button onClick={() => void handleAddMember()} className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-3 py-1.5 rounded">
+            追加
+          </button>
+        </div>
+
+        {/* チーム名変更 */}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={renameInput}
+            onChange={(e) => setRenameInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void handleRenameTeam()
+            }}
+            placeholder="新しいチーム名"
+            className="flex-1 bg-zinc-800 border border-zinc-600 text-white rounded px-3 py-1.5 text-sm"
+          />
+          <button
+            onClick={() => void handleRenameTeam()}
+            disabled={!renameInput.trim() || renameInput.trim() === myTeam.name}
+            className="bg-zinc-600 hover:bg-zinc-500 disabled:opacity-40 text-white text-sm font-semibold px-3 py-1.5 rounded"
+          >
+            チーム名変更
+          </button>
+        </div>
+
+        {actionMsg && <p className="text-xs text-zinc-400">{actionMsg}</p>}
+      </div>
+
+      {/* op.gg URL生成（TeamSearchMode と同じUI） */}
+      {players.length > 0 && (
+        <div>
+          <p className="text-sm text-zinc-400 mb-2">
+            選択: <span className="text-white font-semibold">{myTeam.name}</span>
+          </p>
+          <PlayerListAndUrl players={players} onToggle={togglePlayer} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TeamSelectForm({
   teams,
   myTeamName,
   onMyTeamNameChange,

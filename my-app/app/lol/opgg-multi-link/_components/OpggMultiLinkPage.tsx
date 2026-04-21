@@ -66,7 +66,7 @@ export function OpggMultiLinkPage() {
         <div>
           {mode === "input" && <InputMode selfTeam={selfTeam} onTeamsChange={setTeams} onMyTeamNameChange={handleMyTeamNameChange} />}
           {mode === "team-search" && <TeamSearchMode teams={teams} />}
-          {mode === "my-team" && <TeamLoginMode teams={teams} myTeamName={myTeamName} onMyTeamNameChange={handleMyTeamNameChange} onSwitchToInput={() => handleModeChange("input")} />}
+          {mode === "my-team" && <TeamLoginMode teams={teams} myTeamName={myTeamName} onMyTeamNameChange={handleMyTeamNameChange} onTeamsChange={setTeams} onSwitchToInput={() => handleModeChange("input")} />}
         </div>
       </div>
     </div>
