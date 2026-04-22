@@ -101,6 +101,7 @@ export function OpggMultiLinkPage() {
               onSelectedChange={setSearchSelected}
               players={searchPlayers}
               onPlayersChange={setSearchPlayers}
+              onSwitchToInput={() => handleModeChange("input")}
             />
           )}
           {mode === "my-team" && (

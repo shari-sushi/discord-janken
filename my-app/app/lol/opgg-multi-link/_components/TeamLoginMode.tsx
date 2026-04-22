@@ -75,6 +75,8 @@ function TeamManageView({
   const [addMemberInput, setAddMemberInput] = useState("")
   const [renameInput, setRenameInput] = useState(myTeam.name)
   const [actionMsg, setActionMsg] = useState("")
+  const [removingMember, setRemovingMember] = useState<string | null>(null)
+  const [isAddingMember, setIsAddingMember] = useState(false)
 
   const players = useMemo(
     () => myTeam.members.map((name) => ({ name, checked: !uncheckedMembers.has(name) })),
@@ -103,6 +105,7 @@ function TeamManageView({
       showMsg("すでに登録されているメンバーです")
       return
     }
+    setIsAddingMember(true)
     try {
       await updateTeam(myTeam.name, { members: [...myTeam.members, member] })
       await refreshTeams()
@@ -110,16 +113,21 @@ function TeamManageView({
       showMsg("追加しました")
     } catch (e) {
       showMsg(`エラー: ${e instanceof Error ? e.message : "不明"}`)
+    } finally {
+      setIsAddingMember(false)
     }
   }
 
   const handleRemoveMember = async (member: string) => {
+    setRemovingMember(member)
     try {
       await removeMember(myTeam.name, member)
       await refreshTeams()
       showMsg(`${member} を除名しました`)
     } catch (e) {
       showMsg(`エラー: ${e instanceof Error ? e.message : "不明"}`)
+    } finally {
+      setRemovingMember(null)
     }
   }
 
@@ -173,9 +181,10 @@ function TeamManageView({
               <span className="flex-1 text-sm text-white">{member}</span>
               <button
                 onClick={() => void handleRemoveMember(member)}
-                className="text-xs text-red-400 hover:text-red-300 px-2 py-0.5 rounded hover:bg-zinc-700"
+                disabled={removingMember !== null}
+                className="text-xs text-red-400 hover:text-red-300 px-2 py-0.5 rounded hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                除名
+                {removingMember === member ? "除名中…" : "除名"}
               </button>
             </div>
           ))}
@@ -193,8 +202,12 @@ function TeamManageView({
             placeholder="追加するメンバー名"
             className="flex-1 bg-zinc-800 border border-zinc-600 text-white rounded px-3 py-1.5 text-sm"
           />
-          <button onClick={() => void handleAddMember()} className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-3 py-1.5 rounded">
-            追加
+          <button
+            onClick={() => void handleAddMember()}
+            disabled={isAddingMember}
+            className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-3 py-1.5 rounded"
+          >
+            {isAddingMember ? "追加中…" : "追加"}
           </button>
         </div>
 

@@ -12,6 +12,7 @@ export function TeamSearchMode({
   onSelectedChange,
   players,
   onPlayersChange,
+  onSwitchToInput,
 }: {
   teams: EnemyTeam[]
   query: string
@@ -20,6 +21,7 @@ export function TeamSearchMode({
   onSelectedChange: (t: EnemyTeam | null) => void
   players: Player[]
   onPlayersChange: (players: Player[]) => void
+  onSwitchToInput?: () => void
 }) {
   const filtered = teams.filter((t) => t.name.toLowerCase().includes(query.toLowerCase()))
 
@@ -51,7 +53,7 @@ export function TeamSearchMode({
       </div>
 
       {!selected && query.length > 0 && filtered.length > 0 && (
-        <div className="mb-4 border border-zinc-600 rounded overflow-hidden">
+        <div className="border border-zinc-600 rounded overflow-hidden">
           {filtered.map((team) => (
             <button key={team.name} onClick={() => handleSelect(team)} className="w-full text-left px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border-b border-zinc-700 last:border-b-0 text-sm">
               <span className="font-semibold text-white">{team.name}</span>
@@ -61,9 +63,30 @@ export function TeamSearchMode({
         </div>
       )}
 
-      {!selected && query.length > 0 && filtered.length === 0 && <p className="text-zinc-500 text-sm mb-4">「{query}」に一致するチームが見つかりません</p>}
+      {!selected && query.length > 0 && filtered.length === 0 && (
+        <div className="text-sm text-zinc-500 space-y-1">
+          <p>「{query}」に一致するチームが見つかりません。</p>
+          <p>
+            チームが未登録の場合は、
+            <button onClick={onSwitchToInput} className="text-blue-400 hover:text-blue-300 underline ml-1">
+              入力モード
+            </button>
+            からチーム登録してください。
+          </p>
+        </div>
+      )}
 
-      {teams.length === 0 && <p className="text-zinc-500 text-sm mb-4">相手チームが登録されていません。設定から登録してください。</p>}
+      {teams.length === 0 && (
+        <div className="text-sm text-zinc-500 space-y-1">
+          <p>チームがまだ登録されていません。</p>
+          <p>
+            <button onClick={onSwitchToInput} className="text-blue-400 hover:text-blue-300 underline">
+              入力モード
+            </button>
+            からチーム登録してください。
+          </p>
+        </div>
+      )}
 
       {selected && players.length > 0 && (
         <div>
