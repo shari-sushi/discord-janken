@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react"
 import type { EnemyTeam } from "@/app/_domains/lol/types"
 import { fetchTeams, updateTeam, removeMember } from "@/app/_domains/lol/_client/opggApiClient"
+import { validateRiotId } from "@/app/_domains/lol/riotId"
 import { PlayerListAndUrl } from "./PlayerListAndUrl"
 
 export function TeamLoginMode({
@@ -93,6 +94,11 @@ function TeamManageView({
   const handleAddMember = async () => {
     const member = addMemberInput.trim()
     if (!member) return
+    const validation = validateRiotId(member)
+    if (!validation.valid) {
+      showMsg(validation.error)
+      return
+    }
     if (myTeam.members.includes(member)) {
       showMsg("すでに登録されているメンバーです")
       return

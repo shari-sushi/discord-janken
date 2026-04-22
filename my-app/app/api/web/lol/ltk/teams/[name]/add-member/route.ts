@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { redisGet, redisSet } from "@/app/_server/lib/redis/redis"
 import { ENEMY_TEAMS_KEY } from "@/app/_domains/lol/_server/redisKeys"
 import type { EnemyTeam } from "@/app/_domains/lol/types"
+import { validateRiotId } from "@/app/_domains/lol/riotId"
 
 /**
  * POST /api/web/lol/ltk/teams/[name]/add-member
@@ -35,6 +36,15 @@ export async function POST(
 
     if (body.members !== undefined && (!Array.isArray(body.members) || body.members.some((m) => typeof m !== "string"))) {
       return NextResponse.json({ success: false, error: "members は string[] である必要があります" }, { status: 400 })
+    }
+
+    if (body.members !== undefined) {
+      for (const member of body.members) {
+        const result = validateRiotId(member)
+        if (!result.valid) {
+          return NextResponse.json({ success: false, error: `メンバー「${member}」: ${result.error}` }, { status: 400 })
+        }
+      }
     }
 
     const teams = (await redisGet<EnemyTeam[]>(ENEMY_TEAMS_KEY)) ?? []
