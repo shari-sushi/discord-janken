@@ -43,12 +43,12 @@ export async function updateTeam(currentName: string, update: { name?: string; m
   return json.team!
 }
 
-/** チームから1人を除名する */
+/** チームからメンバーを除名する */
 export async function removeMember(teamName: string, member: string): Promise<EnemyTeam> {
   const res = await fetch(`${teamUrl(teamName)}/remove-member`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ member }),
+    body: JSON.stringify({ members: [member] }),
   })
   const json = (await res.json()) as { success: boolean; team?: EnemyTeam; error?: string }
   if (!json.success) throw new Error(json.error ?? "除名失敗")

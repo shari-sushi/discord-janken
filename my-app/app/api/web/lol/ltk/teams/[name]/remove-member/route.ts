@@ -15,15 +15,15 @@ export async function POST(
     const { name: currentName } = await params
     const teamName = decodeURIComponent(currentName)
 
-    let body: { member: string }
+    let body: { members: string[] }
     try {
       body = await request.json()
     } catch {
       return NextResponse.json({ success: false, error: "不正なJSONフォーマットです" }, { status: 400 })
     }
 
-    if (!body.member || typeof body.member !== "string") {
-      return NextResponse.json({ success: false, error: "member は必須です" }, { status: 400 })
+    if (!Array.isArray(body.members) || body.members.length === 0 || body.members.some((m) => typeof m !== "string")) {
+      return NextResponse.json({ success: false, error: "members は1つ以上の string[] である必要があります" }, { status: 400 })
     }
 
     const teams = (await redisGet<EnemyTeam[]>(ENEMY_TEAMS_KEY)) ?? []
@@ -33,9 +33,10 @@ export async function POST(
       return NextResponse.json({ success: false, error: "指定されたチームが見つかりません" }, { status: 404 })
     }
 
+    const removeSet = new Set(body.members)
     const updated: EnemyTeam = {
       name: teams[idx].name,
-      members: teams[idx].members.filter((m) => m !== body.member),
+      members: teams[idx].members.filter((m) => !removeSet.has(m)),
     }
 
     teams[idx] = updated
