@@ -34,13 +34,7 @@ export function TeamLoginMode({
   const myTeam = teams.find((t) => t.name === myTeamName) ?? null
 
   if (myTeam) {
-    return (
-      <TeamManageView
-        myTeam={myTeam}
-        onMyTeamNameChange={onMyTeamNameChange}
-        onTeamsChange={onTeamsChange}
-      />
-    )
+    return <TeamManageView myTeam={myTeam} onMyTeamNameChange={onMyTeamNameChange} onTeamsChange={onTeamsChange} />
   }
 
   return (
@@ -61,15 +55,7 @@ export function TeamLoginMode({
 
 // 自チーム設定済み時の管理UI。myTeam が確定している前提で mount されるため
 // useState の初期値を myTeam から安全に取れる。
-function TeamManageView({
-  myTeam,
-  onMyTeamNameChange,
-  onTeamsChange,
-}: {
-  myTeam: EnemyTeam
-  onMyTeamNameChange: (name: string) => void
-  onTeamsChange: (teams: EnemyTeam[]) => void
-}) {
+function TeamManageView({ myTeam, onMyTeamNameChange, onTeamsChange }: { myTeam: EnemyTeam; onMyTeamNameChange: (name: string) => void; onTeamsChange: (teams: EnemyTeam[]) => void }) {
   // チェック外しを追跡するセット（デフォルト全員チェック済み）
   const [uncheckedMembers, setUncheckedMembers] = useState<Set<string>>(new Set())
   const [addMemberInput, setAddMemberInput] = useState("")
@@ -78,10 +64,7 @@ function TeamManageView({
   const [removingMember, setRemovingMember] = useState<string | null>(null)
   const [isAddingMember, setIsAddingMember] = useState(false)
 
-  const players = useMemo(
-    () => myTeam.members.map((name) => ({ name, checked: !uncheckedMembers.has(name) })),
-    [myTeam.members, uncheckedMembers],
-  )
+  const players = useMemo(() => myTeam.members.map((name) => ({ name, checked: !uncheckedMembers.has(name) })), [myTeam.members, uncheckedMembers])
 
   const showMsg = (msg: string) => {
     setActionMsg(msg)
@@ -182,7 +165,7 @@ function TeamManageView({
               <button
                 onClick={() => void handleRemoveMember(member)}
                 disabled={removingMember !== null}
-                className="text-xs text-red-400 hover:text-red-300 px-2 py-0.5 rounded hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w- text-xs text-red-400 hover:text-red-300 px-2 py-0.5 rounded hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {removingMember === member ? "除名中…" : "除名"}
               </button>
@@ -316,9 +299,12 @@ function TeamSelectForm({
       {!selected && query.length > 0 && filtered.length > 0 && (
         <div className="border border-zinc-600 rounded overflow-hidden">
           {filtered.map((team) => (
-            <button key={team.name} onClick={() => handleSelect(team)} className="w-full text-left px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border-b border-zinc-700 last:border-b-0 text-sm">
-              <span className="font-semibold text-white">{team.name}</span>
-              <span className="ml-2 text-zinc-400">({team.members.length}人)</span>
+            <button key={team.name} onClick={() => handleSelect(team)} className="w-full text-left px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border-b border-zinc-700 last:border-b-0 text-sm min-w-0">
+              <div className="flex items-baseline min-w-0 overflow-hidden">
+                <span className="font-semibold text-white shrink-0">{team.name}</span>
+                <span className="text-zinc-400 shrink-0 mr-1">({team.members.length}人)：</span>
+                <span className="text-zinc-500 truncate">{team.members.join(", ")}</span>
+              </div>
             </button>
           ))}
         </div>
