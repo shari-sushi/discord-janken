@@ -1,0 +1,121 @@
+import type { ScheduleEntry, ScheduleStatus, TeamSchedule } from "@/app/_domains/teamSchedules/types"
+import type { CellStatus, DateCell } from "./_types"
+
+const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"]
+
+/** セルのタップ循環順: 未記入 → ○ → △ → × → 未記入 */
+const CYCLE: CellStatus[] = ["none", "ok", "maybe", "ng"]
+
+/** 次の状態を返す（タップ循環） */
+export function cycleStatus(current: CellStatus): CellStatus {
+  const i = CYCLE.indexOf(current)
+  return CYCLE[(i + 1) % CYCLE.length]
+}
+
+/** 各状態の表示設定（記号・色・ラベル） */
+export const STATUS_STYLE: Record<CellStatus, { symbol: string; className: string; label: string }> = {
+  none: { symbol: "–", className: "border border-slate-300 bg-white text-slate-300", label: "未記入" },
+  ok: { symbol: "○", className: "bg-emerald-500 text-white", label: "参加可" },
+  maybe: { symbol: "△", className: "bg-amber-400 text-white", label: "検討中" },
+  ng: { symbol: "×", className: "bg-rose-400 text-white", label: "不可" },
+}
+
+/** Date を YYYY-MM-DD（ローカル日付）に変換。TZ事故を避けるため UTC変換は使わない */
+export function toDayKey(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, "0")
+  const d = String(date.getDate()).padStart(2, "0")
+  return `${y}-${m}-${d}`
+}
+
+/** 開始日から numDays 日ぶんの日付セルを生成 */
+export function buildDateRange(start: Date, numDays: number): DateCell[] {
+  const cells: DateCell[] = []
+  for (let i = 0; i < numDays; i++) {
+    const d = new Date(start)
+    d.setDate(start.getDate() + i)
+    const weekday = d.getDay()
+    cells.push({
+      key: toDayKey(d),
+      label: `${d.getMonth() + 1}/${d.getDate()}`,
+      weekday: WEEKDAYS[weekday],
+      isSunday: weekday === 0,
+      isSaturday: weekday === 6,
+    })
+  }
+  return cells
+}
+
+/**
+ * チームの予定を userId → (day → entry) の二段Mapに索引化する。
+ * セル描画時の O(1) 参照用。
+ */
+export function indexSchedules(schedules: ScheduleEntry[]): Map<string, Map<string, ScheduleEntry>> {
+  const map = new Map<string, Map<string, ScheduleEntry>>()
+  for (const s of schedules) {
+    let byDay = map.get(s.userId)
+    if (!byDay) {
+      byDay = new Map()
+      map.set(s.userId, byDay)
+    }
+    byDay.set(s.day, s)
+  }
+  return map
+}
+
+/** ある日のチーム集計 */
+export type DayAggregate = {
+  okCount: number
+  maybeCount: number
+  ngCount: number
+  /** 所属人数（未記入は行が無いので team_members 基準で数える） */
+  memberCount: number
+  /** 活動可能: ok数 >= requiredCount */
+  active: boolean
+  /** 詰み: (所属人数 - ng数) < requiredCount（もう必要人数に届かない確定の日） */
+  impossible: boolean
+}
+
+/** 索引化済みの予定から、指定日のチーム集計を計算する */
+export function aggregateDay(team: TeamSchedule, indexed: Map<string, Map<string, ScheduleEntry>>, day: string): DayAggregate {
+  let okCount = 0
+  let maybeCount = 0
+  let ngCount = 0
+  for (const member of team.members) {
+    const status = indexed.get(member.userId)?.get(day)?.status
+    if (status === "ok") okCount++
+    else if (status === "maybe") maybeCount++
+    else if (status === "ng") ngCount++
+  }
+  const memberCount = team.members.length
+  return {
+    okCount,
+    maybeCount,
+    ngCount,
+    memberCount,
+    active: okCount >= team.requiredCount,
+    impossible: memberCount - ngCount < team.requiredCount,
+  }
+}
+
+/**
+ * 相手チームを1列で表すための代表ステータスを導出する。
+ * 相手チームは requiredCount=1・代表1人想定だが、複数人でも破綻しないように集約する。
+ * 活動可能(○) > 検討中(△) > 不可(×) > 未記入(–) の優先で1記号にまとめる。
+ */
+export function summarizeTeamStatus(agg: DayAggregate): CellStatus {
+  if (agg.active) return "ok"
+  if (agg.maybeCount > 0) return "maybe"
+  if (agg.ngCount > 0) return "ng"
+  return "none"
+}
+
+/** ScheduleEntry の status を CellStatus に正規化（未記入 = entry無し = none） */
+export function toCellStatus(entry: ScheduleEntry | undefined): CellStatus {
+  return entry?.status ?? "none"
+}
+
+/** CellStatus を ScheduleStatus に変換（none は null） */
+export function toScheduleStatus(status: CellStatus): ScheduleStatus | null {
+  return status === "none" ? null : status
+}

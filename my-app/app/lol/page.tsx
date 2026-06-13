@@ -19,6 +19,11 @@ export default function LolIndexPage() {
             op.gg マルチサーチリンク生成
           </Link>
         </li>
+        <li>
+          <Link href="/team_schedules" className="hover:underline hover:text-zinc-400 text-zinc-100">
+            スクリム調整
+          </Link>
+        </li>
       </ul>
     </main>
   )
