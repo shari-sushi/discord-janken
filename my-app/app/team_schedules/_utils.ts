@@ -1,4 +1,4 @@
-import type { ScheduleEntry, ScheduleStatus, TeamSchedule } from "@/app/_domains/teamSchedules/types"
+import type { ScheduleEntry, ScheduleStatus, TeamDayStatusEntry, TeamSchedule } from "@/app/_domains/teamSchedules/types"
 import type { CellStatus, DateCell } from "./_types"
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"]
@@ -76,8 +76,28 @@ export type DayAggregate = {
   impossible: boolean
 }
 
-/** 索引化済みの予定から、指定日のチーム集計を計算する */
+/** team_day_status を day → entry の Map に索引化する */
+export function indexTeamStatus(entries: TeamDayStatusEntry[]): Map<string, TeamDayStatusEntry> {
+  return new Map(entries.map((e) => [e.day, e]))
+}
+
+/**
+ * 索引化済みの予定から、指定日のチーム集計を計算する。
+ * team モードのチームは team_day_status の単一状態で判定する（ok=活動可能・ng=詰み）。
+ */
 export function aggregateDay(team: TeamSchedule, indexed: Map<string, Map<string, ScheduleEntry>>, day: string): DayAggregate {
+  if (team.managementMode === "team") {
+    const status = team.teamStatus.find((e) => e.day === day)?.status
+    return {
+      okCount: status === "ok" ? 1 : 0,
+      maybeCount: status === "maybe" ? 1 : 0,
+      ngCount: status === "ng" ? 1 : 0,
+      memberCount: 1,
+      active: status === "ok",
+      impossible: status === "ng",
+    }
+  }
+
   let okCount = 0
   let maybeCount = 0
   let ngCount = 0

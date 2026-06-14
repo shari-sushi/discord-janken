@@ -36,7 +36,8 @@ export type ScheduleColumn = {
   id: string
   /** 列見出し */
   label: string
-  kind: "own-member" | "opponent"
+  /** own-member: members モードのメンバー列 / opponent: members モード相手列 / team: チーム単位モードの1列 */
+  kind: "own-member" | "opponent" | "team"
   teamId: string
   /** 編集対象のユーザーID（自メンバー列=そのメンバー / 相手列=ログインユーザー）。編集不可なら null */
   editTargetUserId: string | null

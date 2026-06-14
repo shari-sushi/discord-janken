@@ -4,6 +4,7 @@ import { db } from "@/app/_server/lib/db"
 import { discordLinks, users } from "@/app/_domains/teamSchedules/_server/schema"
 import { magicLinkKey } from "@/app/_domains/teamSchedules/_server/redisKeys"
 import { createUserSession, sessionCookieOptions, TS_SESSION_COOKIE } from "@/app/_domains/teamSchedules/_server/session"
+import { canCreateTeam } from "@/app/_domains/teamSchedules/_server/authz"
 import { redisGet, redisDelete } from "@/app/_server/lib/redis/redis"
 import type { MagicLinkPayload } from "@/app/api/discord/command/team-schedule/login"
 
@@ -44,6 +45,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     } else {
       // passwordless（Discord magic-link）。password_hash は schema 上 notNull のため空文字で埋める
       // （認証方式が確定済みなので、将来別マイグレーションで列ごと削除予定）
+      // 既知のリスク: neon-http はトランザクション非対応のため users / discord_links を逐次 INSERT。
+      // users INSERT 成功後に discord_links INSERT が失敗すると、次回ログインでリンクが見つからず
+      // 別 user が再作成され重複する。重要度は高いがエッジ。恒久対応は別 Issue で検討（teams POST と同件）。
       const inserted = await db.insert(users).values({ displayName: username, passwordHash: "" }).returning({ userId: users.userId, displayName: users.displayName })
       userId = inserted[0].userId
       displayName = inserted[0].displayName
@@ -52,7 +56,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const sessionToken = await createUserSession(userId)
 
-    const res = NextResponse.json({ success: true, user: { userId, displayName } })
+    const allowed = await canCreateTeam(userId)
+    const res = NextResponse.json({ success: true, user: { userId, displayName, canCreateTeam: allowed } })
     res.cookies.set(TS_SESSION_COOKIE, sessionToken, sessionCookieOptions())
     return res
   } catch (error) {

@@ -42,12 +42,22 @@ export const DISCORD_COMMAND_GUILD_ID = getOptionalEnv("DISCORD_COMMAND_GUILD_ID
 export const DISCORD_API_BASE_URL = "https://discord.com/api/v10"
 
 // アプリURL
-export const APP_URL = getRequiredEnv("APP_URL")
+// scheme（https://）が無いと Discord 等でリンクとして認識されないため正規化する。
+// 末尾スラッシュも除去し、`${APP_URL}/path` で二重スラッシュにならないようにする。
+function normalizeAppUrl(value: string): string {
+  if (!value) return value
+  const withScheme = /^https?:\/\//i.test(value) ? value : `https://${value}`
+  return withScheme.replace(/\/+$/, "")
+}
+
+export const APP_URL = normalizeAppUrl(getRequiredEnv("APP_URL"))
 
 // 認証・アクセス制御
 export const ALLOWED_USERS = getRequiredEnv("ALLOWED_USERS")
 export const ADMIN_PASSWORD = getRequiredEnv("ADMIN_PASSWORD")
 export const WEB_API_SECRET = getRequiredEnv("WEB_API_SECRET")
+// スクリム調整: チームを作成できる Discord ユーザーID（カンマ区切り。空なら誰も作成不可）
+export const TEAM_SCHEDULE_CREATOR_DISCORD_IDS = getOptionalEnv("TEAM_SCHEDULE_CREATOR_DISCORD_IDS", "")
 
 // データベース
 export const REDIS_URL = getOptionalEnv("REDIS_URL", "redis://localhost:6379")

@@ -1,4 +1,4 @@
-import type { DayKey, ScheduleStatus, SessionUser, TeamSchedule, TeamSummary } from "@/app/_domains/teamSchedules/types"
+import type { DayKey, ScheduleStatus, SessionUser, TeamManagementMode, TeamSchedule, TeamSummary } from "@/app/_domains/teamSchedules/types"
 
 /**
  * スクリム調整機能の Web API クライアント。
@@ -51,6 +51,38 @@ export async function fetchTeamSchedule(teamId: string, from: DayKey, to: DayKey
   return json.team
 }
 
+/** チームを新規作成する（要ログイン + 作成権限）。作成者は admin になる */
+export async function createTeam(input: { name: string; description: string | null; managementMode: TeamManagementMode; requiredCount: number }): Promise<TeamSummary> {
+  const res = await fetch(`${API_BASE}/teams`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  })
+  const json = await parse<{ team?: TeamSummary }>(res, "チームの作成に失敗しました")
+  if (!json.team) throw new Error("チームの作成に失敗しました")
+  return json.team
+}
+
+/** チームの招待リンクを発行する（要ログイン + admin）。参加用URLを返す */
+export async function createInvite(teamId: string): Promise<{ url: string; expiryDays: number }> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}/invite`, { method: "POST" })
+  const json = await parse<{ url?: string; expiryDays?: number }>(res, "招待リンクの発行に失敗しました")
+  if (!json.url) throw new Error("招待リンクの発行に失敗しました")
+  return { url: json.url, expiryDays: json.expiryDays ?? 0 }
+}
+
+/** 招待トークンでチームに参加する（要ログイン）。参加したチームを返す */
+export async function joinTeam(token: string): Promise<TeamSummary> {
+  const res = await fetch(`${API_BASE}/join`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  })
+  const json = await parse<{ team?: TeamSummary }>(res, "チームへの参加に失敗しました")
+  if (!json.team) throw new Error("チームへの参加に失敗しました")
+  return json.team
+}
+
 /** 自分の予定を1日ぶん登録/更新（要ログイン） */
 export async function upsertSchedule(input: { teamId: string; day: DayKey; status: ScheduleStatus; note: string | null }): Promise<void> {
   const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(input.teamId)}/schedule`, {
@@ -69,4 +101,24 @@ export async function deleteSchedule(input: { teamId: string; day: DayKey }): Pr
     body: JSON.stringify({ day: input.day }),
   })
   await parse(res, "予定の削除に失敗しました")
+}
+
+/** チーム単位モードの日別状態を1日ぶん登録/更新（要ログイン + admin） */
+export async function upsertTeamStatus(input: { teamId: string; day: DayKey; status: ScheduleStatus; note: string | null }): Promise<void> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(input.teamId)}/team-status`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ day: input.day, status: input.status, note: input.note }),
+  })
+  await parse(res, "チーム状態の保存に失敗しました")
+}
+
+/** チーム単位モードの日別状態を1日ぶん削除（未記入に戻す・要ログイン + admin） */
+export async function deleteTeamStatus(input: { teamId: string; day: DayKey }): Promise<void> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(input.teamId)}/team-status`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ day: input.day }),
+  })
+  await parse(res, "チーム状態の削除に失敗しました")
 }

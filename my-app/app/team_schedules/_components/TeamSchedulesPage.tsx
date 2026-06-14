@@ -4,15 +4,31 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useOverlay } from "@/app/_client/lib/modal/ModalContext"
 import type { ScheduleEntry, ScheduleStatus, SessionUser, TeamSchedule, TeamSummary } from "@/app/_domains/teamSchedules/types"
-import { deleteSchedule, fetchSession, fetchTeamSchedule, fetchTeams, upsertSchedule, verifyMagicLink } from "@/app/_domains/teamSchedules/_client/teamSchedulesApiClient"
+import {
+  createInvite,
+  deleteSchedule,
+  deleteTeamStatus,
+  fetchSession,
+  fetchTeamSchedule,
+  fetchTeams,
+  joinTeam,
+  upsertSchedule,
+  upsertTeamStatus,
+  verifyMagicLink,
+} from "@/app/_domains/teamSchedules/_client/teamSchedulesApiClient"
 import type { CellStatus, GridRow, ScheduleColumn } from "../_types"
-import { aggregateDay, buildDateRange, cycleStatus, indexSchedules, summarizeTeamStatus, toCellStatus, toScheduleStatus } from "../_utils"
+import { aggregateDay, buildDateRange, cycleStatus, indexSchedules, indexTeamStatus, summarizeTeamStatus, toCellStatus, toScheduleStatus } from "../_utils"
 import { ControlBar } from "./ControlBar"
+import { CreateTeamModal } from "./CreateTeamModal"
+import { InviteModal } from "./InviteModal"
 import { LoginModal } from "./LoginModal"
 import { ScheduleGrid } from "./ScheduleGrid"
 import { TeamCompareSelector } from "./TeamCompareSelector"
 
 const NUM_DAYS = 14
+
+/** 招待リンクからの参加トークンを、ログイン往復をまたいで保持する sessionStorage キー */
+const PENDING_JOIN_KEY = "ts_pending_join"
 
 export function TeamSchedulesPage() {
   const { open, close } = useOverlay()
@@ -57,6 +73,19 @@ export function TeamSchedulesPage() {
       cancelled = true
     }
   }, [token, router])
+
+  // 招待リンク着地: ?join= があれば参加トークンを sessionStorage に退避し、URLを掃除する。
+  // （未ログインならログイン往復をまたぐため、ログイン後に実行する）
+  const joinToken = searchParams.get("join")
+  useEffect(() => {
+    if (!joinToken) return
+    try {
+      window.sessionStorage.setItem(PENDING_JOIN_KEY, joinToken)
+    } catch {
+      // sessionStorage が使えない環境ではこの後の参加処理が走らないだけ
+    }
+    router.replace("/team_schedules")
+  }, [joinToken, router])
 
   // 初期ロード: セッション + チーム一覧
   useEffect(() => {
@@ -125,6 +154,56 @@ export function TeamSchedulesPage() {
     open(<LoginModal onClose={close} />)
   }, [open, close])
 
+  // チーム一覧を再取得（作成・参加の直後に反映するため）
+  const reloadTeams = useCallback(async () => {
+    const list = await fetchTeams().catch(() => null)
+    if (list) setTeams(list)
+  }, [])
+
+  // 退避済みの参加トークンを処理する。
+  // - ログイン済み: そのまま参加 → チーム一覧を再取得して自チームに選択
+  // - 未ログイン: ログイン案内を出す（ログイン後にこの effect が再実行される）
+  useEffect(() => {
+    if (loading) return
+    let pending: string | null = null
+    try {
+      pending = window.sessionStorage.getItem(PENDING_JOIN_KEY)
+    } catch {
+      pending = null
+    }
+    if (!pending) return
+
+    if (!session) {
+      openLogin()
+      return
+    }
+
+    let cancelled = false
+    void joinTeam(pending)
+      .then((team) => {
+        if (cancelled) return
+        try {
+          window.sessionStorage.removeItem(PENDING_JOIN_KEY)
+        } catch {
+          // 失敗しても致命的ではない
+        }
+        void reloadTeams()
+        setOwnTeamId(team.teamId)
+        // 自チーム未選択なら参加チームを自チームに、選択済みなら相手候補として扱えるよう一覧更新のみ
+      })
+      .catch(() => {
+        // 失効・無効トークン等。退避を消して諦める
+        try {
+          window.sessionStorage.removeItem(PENDING_JOIN_KEY)
+        } catch {
+          // noop
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [loading, session, openLogin, reloadTeams])
+
   // セルの状態トグル
   const handleCycle = useCallback(
     ({ teamId, userId, day, current }: { teamId: string; userId: string; day: string; current: CellStatus }) => {
@@ -157,6 +236,99 @@ export function TeamSchedulesPage() {
     [session, schedulesByTeam, applyLocalEdit, persist, openLogin],
   )
 
+  // チーム単位モード: ローカルの状態を更新（楽観的更新）
+  const applyLocalTeamEdit = useCallback((teamId: string, day: string, status: CellStatus, note: string) => {
+    setSchedulesByTeam((prev) => {
+      const team = prev[teamId]
+      if (!team) return prev
+      const others = team.teamStatus.filter((s) => s.day !== day)
+      const scheduleStatus = toScheduleStatus(status)
+      const next = scheduleStatus === null ? others : [...others, { day, status: scheduleStatus, note: note || null }]
+      return { ...prev, [teamId]: { ...team, teamStatus: next } }
+    })
+  }, [])
+
+  // チーム単位モード: 現在の note を取得
+  const currentTeamNote = useCallback(
+    (teamId: string, day: string): string => {
+      const team = schedulesByTeam[teamId]
+      return team?.teamStatus.find((s) => s.day === day)?.note ?? ""
+    },
+    [schedulesByTeam],
+  )
+
+  // チーム単位モード: 永続化
+  const persistTeam = useCallback((teamId: string, day: string, status: ScheduleStatus | null, note: string) => {
+    if (status === null) {
+      void deleteTeamStatus({ teamId, day }).catch(() => {})
+    } else {
+      void upsertTeamStatus({ teamId, day, status, note: note || null }).catch(() => {})
+    }
+  }, [])
+
+  // チーム単位モード: セルの状態トグル
+  const handleTeamCycle = useCallback(
+    ({ teamId, day, current }: { teamId: string; day: string; current: CellStatus }) => {
+      if (!session) {
+        openLogin()
+        return
+      }
+      const next = cycleStatus(current)
+      const note = currentTeamNote(teamId, day)
+      applyLocalTeamEdit(teamId, day, next, note)
+      persistTeam(teamId, day, toScheduleStatus(next), note)
+    },
+    [session, currentTeamNote, applyLocalTeamEdit, persistTeam, openLogin],
+  )
+
+  // チーム単位モード: セルの時間メモ変更
+  const handleTeamNoteChange = useCallback(
+    ({ teamId, day, value }: { teamId: string; day: string; value: string }) => {
+      if (!session) {
+        openLogin()
+        return
+      }
+      const team = schedulesByTeam[teamId]
+      const existing = team?.teamStatus.find((s) => s.day === day)
+      const status: CellStatus = existing?.status ?? "none"
+      applyLocalTeamEdit(teamId, day, status, value)
+      if (status !== "none") persistTeam(teamId, day, status, value)
+    },
+    [session, schedulesByTeam, applyLocalTeamEdit, persistTeam, openLogin],
+  )
+
+  // チーム作成モーダルを開く（作成後は一覧を更新して自チームに選択）
+  const openCreate = useCallback(() => {
+    open(
+      <CreateTeamModal
+        onClose={close}
+        onCreated={(team) => {
+          void reloadTeams()
+          setOwnTeamId(team.teamId)
+          close()
+        }}
+      />,
+    )
+  }, [open, close, reloadTeams])
+
+  // 選択中の自チームで、ログインユーザーが admin か
+  const isOwnAdmin = useMemo(() => {
+    if (!session || !ownTeamId) return false
+    const ownTeam = schedulesByTeam[ownTeamId]
+    return !!ownTeam?.members.some((m) => m.userId === session.userId && m.teamRole === "admin")
+  }, [session, ownTeamId, schedulesByTeam])
+
+  // 招待リンクを発行して表示する
+  const handleInvite = useCallback(async () => {
+    if (!ownTeamId) return
+    try {
+      const { url, expiryDays } = await createInvite(ownTeamId)
+      open(<InviteModal url={url} expiryDays={expiryDays} onClose={close} />)
+    } catch {
+      // 発行失敗時は何もしない（権限喪失など）
+    }
+  }, [ownTeamId, open, close])
+
   // ビューモデル構築
   const view = useMemo(() => {
     const ownTeam = ownTeamId ? schedulesByTeam[ownTeamId] : undefined
@@ -166,26 +338,57 @@ export function TeamSchedulesPage() {
     const ownIndexed = indexSchedules(ownTeam.schedules)
     const oppIndexed = new Map(opponents.map((t) => [t.teamId, indexSchedules(t.schedules)]))
 
-    // 自メンバー列
-    const memberColumns: ScheduleColumn[] = ownTeam.members.map((m) => {
+    // ログインユーザーがそのチームの admin か
+    const isAdminOf = (team: TeamSchedule): boolean => !!session && team.members.some((m) => m.userId === session.userId && m.teamRole === "admin")
+
+    // チーム単位モードのチームを1列にまとめる（own/opponent 共通）
+    const buildTeamColumn = (team: TeamSchedule, idPrefix: string): ScheduleColumn => {
+      const indexed = indexTeamStatus(team.teamStatus)
       const cells = new Map<string, { status: CellStatus; note: string }>()
       for (const day of dayKeys) {
-        const e = ownIndexed.get(m.userId)?.get(day)
-        cells.set(day, { status: toCellStatus(e), note: e?.note ?? "" })
+        const e = indexed.get(day)
+        cells.set(day, { status: e?.status ?? "none", note: e?.note ?? "" })
       }
       return {
-        id: `own:${m.userId}`,
-        label: m.displayName,
-        kind: "own-member",
-        teamId: ownTeam.teamId,
-        editTargetUserId: m.userId,
-        editable: session?.userId === m.userId,
+        id: `${idPrefix}:${team.teamId}`,
+        label: team.name,
+        kind: "team",
+        teamId: team.teamId,
+        editTargetUserId: null,
+        editable: isAdminOf(team),
         cells,
       }
-    })
+    }
 
-    // 相手チーム列（1チーム1列・代表ステータスに集約）
+    // 自チーム列: members モードはメンバーごと、team モードはチーム1列
+    const memberColumns: ScheduleColumn[] =
+      ownTeam.managementMode === "team"
+        ? [buildTeamColumn(ownTeam, "ownteam")]
+        : ownTeam.members.map((m) => {
+            const cells = new Map<string, { status: CellStatus; note: string }>()
+            for (const day of dayKeys) {
+              const e = ownIndexed.get(m.userId)?.get(day)
+              cells.set(day, { status: toCellStatus(e), note: e?.note ?? "" })
+            }
+            return {
+              id: `own:${m.userId}`,
+              label: m.displayName,
+              kind: "own-member" as const,
+              teamId: ownTeam.teamId,
+              editTargetUserId: m.userId,
+              editable: session?.userId === m.userId,
+              cells,
+            }
+          })
+
+    // 相手チーム列（1チーム1列）
     const opponentColumns: ScheduleColumn[] = opponents.map((team) => {
+      // team モードの相手はチーム1列（admin なら編集可）
+      if (team.managementMode === "team") {
+        return buildTeamColumn(team, "opp")
+      }
+
+      // members モード: 自分が所属していれば自分の行を編集、非メンバーは集約表示
       const indexed = oppIndexed.get(team.teamId)!
       const isMember = !!session && team.members.some((m) => m.userId === session.userId)
       const editTargetUserId = isMember ? session!.userId : null
@@ -212,7 +415,7 @@ export function TeamSchedulesPage() {
       return {
         id: `opp:${team.teamId}`,
         label: team.name,
-        kind: "opponent",
+        kind: "opponent" as const,
         teamId: team.teamId,
         editTargetUserId,
         editable: isMember,
@@ -235,14 +438,36 @@ export function TeamSchedulesPage() {
       }
     })
 
-    return { memberColumns, opponentColumns, rows, threshold: ownTeam.requiredCount }
+    // team モードは単一状態（ok=活動可能）なので閾値は 1
+    const threshold = ownTeam.managementMode === "team" ? 1 : ownTeam.requiredCount
+    return { memberColumns, opponentColumns, rows, threshold }
   }, [ownTeamId, opponentTeamIds, schedulesByTeam, dates, dayKeys, session])
 
   return (
     <div className="min-h-screen bg-slate-50 p-3 text-slate-800 sm:p-6">
       <div className="mx-auto max-w-6xl">
-        <h1 className="text-lg font-bold tracking-tight text-slate-900">スクリム調整</h1>
-        <p className="mt-0.5 text-sm text-slate-500">必要人数そろって、相手も空いてる日を探す</p>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h1 className="text-lg font-bold tracking-tight text-slate-900">スクリム調整</h1>
+            <p className="mt-0.5 text-sm text-slate-500">必要人数そろって、相手も空いてる日を探す</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {isOwnAdmin && (
+              <button
+                type="button"
+                onClick={() => void handleInvite()}
+                className="rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50"
+              >
+                招待リンクを発行
+              </button>
+            )}
+            {session?.canCreateTeam && (
+              <button type="button" onClick={openCreate} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">
+                チームを作成
+              </button>
+            )}
+          </div>
+        </div>
 
         {loadError && (
           <div className="mt-3 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700">
@@ -276,12 +501,14 @@ export function TeamSchedulesPage() {
               memberColumns={view.memberColumns}
               onCycle={handleCycle}
               onNoteChange={handleNoteChange}
+              onTeamCycle={handleTeamCycle}
+              onTeamNoteChange={handleTeamNoteChange}
             />
           )}
         </div>
 
         <p className="mt-3 text-xs leading-relaxed text-slate-500">
-          ※ セルをタップで 未記入→○→△→× を循環。○数が必要人数以上かつ相手が空いている日が「成立」。×が増えて必要人数に届かない確定の日は行を薄く表示。相手の不可セルは薄く表示。時間は自由記入のため、○数は時間の重なりまでは見ていません。
+          ※ セルをタップで 未記入→○→△→× を循環。○数が必要人数以上かつ相手が空いている日が「成立」。×が増えて必要人数に届かない確定の日は行を薄く表示。相手の不可セルは薄く表示。チーム単位モードのチームは管理者が1列でまとめて入力します。時間は自由記入のため、○数は時間の重なりまでは見ていません。
         </p>
       </div>
     </div>

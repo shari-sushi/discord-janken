@@ -56,14 +56,7 @@ async function buildLoginLinkResponse(user: APIUser | undefined): Promise<NextRe
   return NextResponse.json({
     type: InteractionResponseType.ChannelMessageWithSource,
     data: {
-      content: [
-        "🔑 スクリム調整のログイン用リンクです（あなたにだけ表示されています）。",
-        "",
-        url,
-        "",
-        // -# はDiscordのサブテキスト（小さいグレー文字）
-        `-# 有効期限: ${expiryMinutes}分・1回のみ有効`,
-      ].join("\n"),
+      content: ["🔑 スクリム調整のログイン用リンクです（他の人に教えないでください）。", "", `${url}`, "", `-# 有効期限: ${expiryMinutes}分・1回のみ有効`].join("\n"),
       flags: MessageFlags.Ephemeral,
       components: [
         {
