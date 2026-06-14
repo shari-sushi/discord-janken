@@ -42,7 +42,15 @@ export const DISCORD_COMMAND_GUILD_ID = getOptionalEnv("DISCORD_COMMAND_GUILD_ID
 export const DISCORD_API_BASE_URL = "https://discord.com/api/v10"
 
 // アプリURL
-export const APP_URL = getRequiredEnv("APP_URL")
+// scheme（https://）が無いと Discord 等でリンクとして認識されないため正規化する。
+// 末尾スラッシュも除去し、`${APP_URL}/path` で二重スラッシュにならないようにする。
+function normalizeAppUrl(value: string): string {
+  if (!value) return value
+  const withScheme = /^https?:\/\//i.test(value) ? value : `https://${value}`
+  return withScheme.replace(/\/+$/, "")
+}
+
+export const APP_URL = normalizeAppUrl(getRequiredEnv("APP_URL"))
 
 // 認証・アクセス制御
 export const ALLOWED_USERS = getRequiredEnv("ALLOWED_USERS")
