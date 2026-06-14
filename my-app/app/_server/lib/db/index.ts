@@ -9,7 +9,7 @@
 // 判定は DATABASE_URL のホストが neon.tech かどうか。
 // ローカルは docker-compose.yml の Postgres を使う想定（本番DBを触らない）。
 
-import { drizzle as drizzleNeon } from "drizzle-orm/neon-http"
+import { drizzle as drizzleNeon, type NeonHttpDatabase } from "drizzle-orm/neon-http"
 import { drizzle as drizzlePg } from "drizzle-orm/node-postgres"
 import { neon } from "@neondatabase/serverless"
 import { Pool } from "pg"
@@ -19,6 +19,10 @@ import * as schema from "../../../_domains/teamSchedules/_server/schema"
 const isNeon = DATABASE_URL.includes("neon.tech")
 
 // neon-http と node-postgres でクエリAPIは共通。利用側は同じ db を使える。
-export const db = isNeon ? drizzleNeon({ client: neon(DATABASE_URL), schema }) : drizzlePg({ client: new Pool({ connectionString: DATABASE_URL }), schema })
+// 型は片方（NeonHttpDatabase）に寄せる。2ドライバの union のままだと
+// .returning() 等のオーバーロードが解決できず型エラーになるため。
+export const db: NeonHttpDatabase<typeof schema> = isNeon
+  ? drizzleNeon({ client: neon(DATABASE_URL), schema })
+  : (drizzlePg({ client: new Pool({ connectionString: DATABASE_URL }), schema }) as unknown as NeonHttpDatabase<typeof schema>)
 
 export { schema }

@@ -10,7 +10,7 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
       </p>
       <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm text-slate-700">
         <li>
-          Discord で <code className="rounded bg-slate-100 px-1 py-0.5 text-[13px]">/team_schedule_login</code> を実行
+          Discord で <code className="rounded bg-slate-100 px-1 py-0.5 text-[13px]">/team-schedule-login</code> を実行
         </li>
         <li>bot から本人にだけ届くログイン用リンクをクリック</li>
         <li>このページに戻ると、予定を編集できるようになります</li>

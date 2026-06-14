@@ -2,6 +2,7 @@ const LOL_PREF = "lol-"
 const DEV_PREF = "dev-"
 const USER_PREF = "user-"
 const FIGHTING_PREF = "fighting-"
+const TEAM_SCHEDULE_PREF = "team-schedule-"
 
 export const COMMANDS = {
   LOL: {
@@ -17,6 +18,9 @@ export const COMMANDS = {
   },
   FIGHTING: {
     TEAM_ORDER: FIGHTING_PREF + "team-order",
+  },
+  TEAM_SCHEDULE: {
+    LOGIN: TEAM_SCHEDULE_PREF + "login",
   },
   // 開発者用
   DEV: {

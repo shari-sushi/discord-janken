@@ -15,6 +15,18 @@ async function parse<T>(res: Response, fallbackError: string): Promise<ApiResult
   return json
 }
 
+/** magic-link トークンを検証してログインする（成功でセッションCookieが設定される） */
+export async function verifyMagicLink(token: string): Promise<SessionUser> {
+  const res = await fetch(`${API_BASE}/auth/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  })
+  const json = await parse<{ user?: SessionUser }>(res, "ログインに失敗しました")
+  if (!json.user) throw new Error("ログインに失敗しました")
+  return json.user
+}
+
 /** ログイン中ユーザーを取得（未ログインなら null） */
 export async function fetchSession(): Promise<SessionUser | null> {
   const res = await fetch(`${API_BASE}/session`, { cache: "no-store" })

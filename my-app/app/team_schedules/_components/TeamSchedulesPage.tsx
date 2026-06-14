@@ -1,12 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useOverlay } from "@/app/_client/lib/modal/ModalContext"
 import type { ScheduleEntry, ScheduleStatus, SessionUser, TeamSchedule, TeamSummary } from "@/app/_domains/teamSchedules/types"
-import { deleteSchedule, fetchSession, fetchTeamSchedule, fetchTeams, upsertSchedule } from "@/app/_domains/teamSchedules/_client/teamSchedulesApiClient"
+import { deleteSchedule, fetchSession, fetchTeamSchedule, fetchTeams, upsertSchedule, verifyMagicLink } from "@/app/_domains/teamSchedules/_client/teamSchedulesApiClient"
 import type { CellStatus, GridRow, ScheduleColumn } from "../_types"
 import { aggregateDay, buildDateRange, cycleStatus, indexSchedules, summarizeTeamStatus, toCellStatus, toScheduleStatus } from "../_utils"
-import { buildMockData } from "../_mockData"
 import { ControlBar } from "./ControlBar"
 import { LoginModal } from "./LoginModal"
 import { ScheduleGrid } from "./ScheduleGrid"
@@ -16,6 +16,8 @@ const NUM_DAYS = 14
 
 export function TeamSchedulesPage() {
   const { open, close } = useOverlay()
+  const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [start] = useState(() => {
     const d = new Date()
@@ -30,39 +32,54 @@ export function TeamSchedulesPage() {
   const [schedulesByTeam, setSchedulesByTeam] = useState<Record<string, TeamSchedule>>({})
   const [ownTeamId, setOwnTeamId] = useState<string | null>(null)
   const [opponentTeamIds, setOpponentTeamIds] = useState<string[]>([])
-  const [usingMock, setUsingMock] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
-  // 初期ロード: セッション + チーム一覧。失敗したらモックにフォールバック
+  // ログイン着地: URLに ?token= があれば magic-link を検証してセッションを確立し、URLを掃除する
+  const token = searchParams.get("token")
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    void verifyMagicLink(token)
+      .then((user) => {
+        if (cancelled) return
+        setSession(user)
+      })
+      .catch(() => {
+        // 失効/使用済みトークン等。未ログインのまま続行（書き込み時にログイン案内が出る）
+      })
+      .finally(() => {
+        if (cancelled) return
+        // トークンをURLから除去（再読込・共有時の誤用を防ぐ）
+        router.replace("/team_schedules")
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token, router])
+
+  // 初期ロード: セッション + チーム一覧
   useEffect(() => {
     let cancelled = false
     Promise.all([fetchSession().catch(() => null), fetchTeams()])
       .then(([s, t]) => {
         if (cancelled) return
-        setSession(s)
+        setSession((prev) => prev ?? s)
         setTeams(t)
         setLoading(false)
       })
       .catch(() => {
         if (cancelled) return
-        // API未接続: モックデータで表示
-        const mock = buildMockData(dayKeys)
-        setSession(mock.session)
-        setTeams(mock.teams)
-        setSchedulesByTeam(mock.schedulesByTeam)
-        setOwnTeamId("own")
-        setOpponentTeamIds(["opp-a", "opp-b"])
-        setUsingMock(true)
+        setLoadError(true)
         setLoading(false)
       })
     return () => {
       cancelled = true
     }
-  }, [dayKeys])
+  }, [])
 
-  // 選択中チームの予定を取得（実API接続時のみ）
+  // 選択中チームの予定を取得
   useEffect(() => {
-    if (usingMock) return
     const ids = [ownTeamId, ...opponentTeamIds].filter((id): id is string => !!id)
     const from = dayKeys[0]
     const to = dayKeys[dayKeys.length - 1]
@@ -72,7 +89,7 @@ export function TeamSchedulesPage() {
         .then((team) => setSchedulesByTeam((prev) => ({ ...prev, [id]: team })))
         .catch(() => {})
     })
-  }, [usingMock, ownTeamId, opponentTeamIds, dayKeys, schedulesByTeam])
+  }, [ownTeamId, opponentTeamIds, dayKeys, schedulesByTeam])
 
   // ローカルの予定を更新（楽観的更新）
   const applyLocalEdit = useCallback((teamId: string, userId: string, day: string, status: CellStatus, note: string) => {
@@ -95,18 +112,14 @@ export function TeamSchedulesPage() {
     [schedulesByTeam],
   )
 
-  // 永続化（モック時はスキップ）
-  const persist = useCallback(
-    (teamId: string, day: string, status: ScheduleStatus | null, note: string) => {
-      if (usingMock) return
-      if (status === null) {
-        void deleteSchedule({ teamId, day }).catch(() => {})
-      } else {
-        void upsertSchedule({ teamId, day, status, note: note || null }).catch(() => {})
-      }
-    },
-    [usingMock],
-  )
+  // 永続化
+  const persist = useCallback((teamId: string, day: string, status: ScheduleStatus | null, note: string) => {
+    if (status === null) {
+      void deleteSchedule({ teamId, day }).catch(() => {})
+    } else {
+      void upsertSchedule({ teamId, day, status, note: note || null }).catch(() => {})
+    }
+  }, [])
 
   const openLogin = useCallback(() => {
     open(<LoginModal onClose={close} />)
@@ -231,9 +244,9 @@ export function TeamSchedulesPage() {
         <h1 className="text-lg font-bold tracking-tight text-slate-900">スクリム調整</h1>
         <p className="mt-0.5 text-sm text-slate-500">必要人数そろって、相手も空いてる日を探す</p>
 
-        {usingMock && (
-          <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            モックデータを表示中（サーバーAPI未接続）。実装が接続されると実データに切り替わります。
+        {loadError && (
+          <div className="mt-3 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+            データの読み込みに失敗しました。時間をおいて再読み込みしてください。
           </div>
         )}
 
