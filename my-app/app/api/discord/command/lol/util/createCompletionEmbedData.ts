@@ -1,5 +1,5 @@
 import { APIEmbed, APIEmbedField } from "discord-api-types/v10"
-import { ProtectMatchMeta, ProtectTeamData } from "@/app/domains/lol/types"
+import { ProtectMatchMeta, ProtectTeamData } from "@/app/_domains/lol/types"
 
 /**
  * 両チーム完了時のEmbedデータを生成（3カラムテーブル形式）

@@ -24,6 +24,13 @@
   - try-catch で適切にエラーを処理し、ユーザーにわかりやすいメッセージを返す
   - 認証認可ではリソースの存在を隠匿するために、必要に応じてクライアントには404を返す
 
+### 環境変数の取得方法
+
+環境変数は `app/_server/lib/env.ts` からインポートして使用する。
+
+- 環境変数は`env.ts` に定義を追加し、使用場所でインポートする
+- 必須の場合は `getRequiredEnv`、省略可能な場合は `getOptionalEnv` を使用する
+
 ### Discord型定義パッケージの使用方針
 
 **採用パッケージ:**
@@ -102,18 +109,28 @@
 ### 配置ルール
 
 **型定義（フロント/サーバー共通）:**
+
 - 配置: `app/domains/{domain}/types.ts`
 - 例: `app/domains/lol/types.ts`, `app/domains/fighting/types.ts`
 - 将来的にWebダッシュボードを作成する可能性を考慮
 
 **サーバー専用ロジック:**
+
 - 配置: `app/domains/{domain}/_server/`
 - ファイル例:
   - `redisKeys.ts`: Redisキー生成関数
   - `validators.ts`: バリデーション・型ガード
   - `constants.ts`: ドメイン固有の定数・設定値
 
+**クライアント専用ロジック:**
+
+- 配置: `app/domains/{domain}/_client/`
+- 用途: Webページ（ブラウザ）から呼ばれるドメイン固有のAPI通信関数
+- ファイル例:
+  - `opggApiClient.ts`: op.gg機能のWeb APIクライアント（fetch/save/delete）
+
 **ドメイン分類:**
+
 - `lol/`: LoL関連機能（`/lol-*` コマンド）
 - `fighting/`: 格ゲー関連機能（`/fighting-*` コマンド）
 - `user/{feature}/`: ユーザー向け汎用機能（`/user-*` コマンド）
@@ -123,8 +140,39 @@
 ### 横断的ユーティリティ
 
 以下は `app/_server/util/` に配置（全ドメイン共通）：
+
 - `commands.ts`: 全コマンド名・アクション定数
 - `newId.ts`: UUID生成
+
+## Webページのファイル分割
+
+### ページコンポーネントの分割ルール
+
+ページが複数のコンポーネントを含む場合、`page.tsx` に全て詰め込まず以下の構成に分割する。
+
+```txt
+app/{feature}/
+├── page.tsx              # Suspenseラッパーのみ（薄いエントリーポイント）
+├── _types.ts             # UIステート専用の型（checked状態など、UI固有のもの）
+├── _utils.ts             # このページ専用のユーティリティ関数
+└── _components/          # このページ専用コンポーネント群（_ でルーティング対象外）
+    ├── {PageName}.tsx    # 状態管理・レイアウトを担うメインコンポーネント
+    └── {ComponentName}.tsx
+```
+
+### 型の配置基準
+
+| 型の性質 | 配置先 |
+| --- | --- |
+| ドメインのデータ構造（APIレスポンス等） | `app/domains/{domain}/types.ts` |
+| UIステート（checked, mode など画面固有） | `_types.ts`（ページ側） |
+
+### ユーティリティの配置基準
+
+| ユーティリティの性質 | 配置先 |
+| --- | --- |
+| ドメイン固有のAPI通信（クライアント側） | `app/domains/{domain}/_client/` |
+| ページ固有のURL生成・変換など | `_utils.ts`（ページ側） |
 
 ## 型安全性とエラーハンドリング
 
@@ -172,12 +220,12 @@ if (isOrderedTeamData(team1) && isOrderedTeamData(team2)) {
 **実装例:**
 
 ```typescript
-describe('Echo Command', () => {
-  it('success: 正しいメッセージを返す', async () => {
+describe("Echo Command", () => {
+  it("success: 正しいメッセージを返す", async () => {
     // 正常系のテスト
   })
 
-  it('failure: 不正なリクエストで400を返す', async () => {
+  it("failure: 不正なリクエストで400を返す", async () => {
     // 異常系のテスト
   })
 })

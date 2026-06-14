@@ -17,7 +17,7 @@ import { createProtectComponents } from "./util/createProtectMessageComponents"
 import { extractModalSubmitInteractionData } from "./util/extractModalSubmitInteractionData"
 import { extractMatchId, extractMessageId } from "./util/extractCustomIdParam"
 import { DISCORD_PUBLIC_KEY } from "@/app/_server/lib/env"
-import { FeedBackType } from "@/app/domains/user/feedback/types"
+import { FeedBackType } from "@/app/_domains/user/feedback/types"
 import {
   APIInteraction,
   InteractionResponseType,

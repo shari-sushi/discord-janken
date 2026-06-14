@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   redis:
@@ -10,6 +10,19 @@ services:
       - redis_data:/data
     command: redis-server --appendonly yes
     restart: unless-stopped
+  my-app:
+    build:
+      context: ./my-app
+    container_name: discord-janken-my-app
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./my-app/.env.local
+    depends_on:
+      - redis
+    volumes:
+      - ./my-app:/app
+      - /app/node_modules
 
 volumes:
   redis_data:

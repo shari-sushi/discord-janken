@@ -1,7 +1,7 @@
 import { redisGet, redisMGet } from "@/app/_server/lib/redis/redis"
-import { getMatchKey } from "@/app/domains/lol/_server/redisKeys"
+import { getMatchKey } from "@/app/_domains/lol/_server/redisKeys"
 import { createCompletionEmbedData } from "./createCompletionEmbedData"
-import { ProtectMatchMeta, ProtectTeamData } from "@/app/domains/lol/types"
+import { ProtectMatchMeta, ProtectTeamData } from "@/app/_domains/lol/types"
 import { APIEmbed } from "discord-api-types/v10"
 
 /**

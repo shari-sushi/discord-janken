@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getDiscordMessage, getAllReactionFields } from "@/app/_server/lib/discord/api"
-import { createReactionEmbed } from "@/app/domains/user/mentionByReaction/util/createReactionEmbed"
-import { parseMessageLink } from "@/app/domains/user/mentionByReaction/util/parseMessageLink"
+import { createReactionEmbed } from "@/app/_domains/user/mentionByReaction/util/createReactionEmbed"
+import { parseMessageLink } from "@/app/_domains/user/mentionByReaction/util/parseMessageLink"
 import {
   APIApplicationCommandInteractionDataBasicOption,
   APIApplicationCommandInteractionDataOption,

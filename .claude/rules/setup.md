@@ -17,6 +17,15 @@
 - `ADMIN_PASSWORD`: 管理者パスワード
 - `WEB_API_SECRET`: Web API の秘密鍵
 
+**Riot Games API:**
+
+- `RIOT_API_KEY`: Riot Games API キー（[Developer Portal](https://developer.riotgames.com/) で取得）
+  - `/lol/all-ranked` ページのサモナーランク検索に使用
+  - 開発キーは24時間で失効するため、本番環境では本番キーを申請すること
+- `RIOT_API_REVALIDATE_SECONDS`: Riot APIレスポンスのキャッシュ秒数（省略可）
+  - 未設定時のデフォルト: 本番環境 `300`（5分）、それ以外 `1`（1秒）
+  - ローカル開発時は `.env.local` への記載不要（自動で1秒になる）
+
 **データベース:**
 
 - `REDIS_URL`: Redis接続URL

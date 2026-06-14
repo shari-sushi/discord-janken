@@ -1,7 +1,7 @@
 import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { DISCORD_APPLICATION_ID } from "@/app/_server/lib/env"
 import { addReactions, deleteAllReactions, editWebhookOriginalMessage, getReactionUsers, getWebhookOriginalMessage, DiscordApiError } from "@/app/_server/lib/discord/api"
-import { ROLE_EMOJIS, ROLE_KEYS, ROLE_LABELS, RoleKey, runRoleRoulette } from "@/app/domains/lol/_server/roleRoulette"
+import { ROLE_EMOJIS, ROLE_KEYS, ROLE_LABELS, RoleKey, runRoleRoulette } from "@/app/_domains/lol/roleRoulette"
 import { NextResponse } from "next/server"
 import { after } from "next/server"
 import { APIChatInputApplicationCommandInteraction, APIMessageComponentInteraction, ButtonStyle, ComponentType, InteractionResponseType } from "discord-api-types/v10"

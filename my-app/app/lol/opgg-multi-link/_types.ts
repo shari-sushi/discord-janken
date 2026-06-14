@@ -1,0 +1,2 @@
+export type Player = { name: string; checked: boolean }
+export type Mode = "input" | "team-search" | "my-team"

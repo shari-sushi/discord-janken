@@ -54,12 +54,14 @@ League of Legends（LoL）のカスタムゲームを円滑に運営するため
 ```txt
 my-app/
 ├── app/
-│   ├── domains/                      # ドメイン知識（型定義 + サーバー専用ロジック）
+│   ├── domains/                      # ドメイン知識（型定義 + ロジック）
 │   │   ├── lol/
 │   │   │   ├── types.ts              # 型定義（フロント/サーバー共通）
-│   │   │   └── _server/              # サーバー専用ロジック
-│   │   │       ├── redisKeys.ts      # Redisキー生成
-│   │   │       └── validators.ts     # バリデーション・パース
+│   │   │   ├── _server/              # サーバー専用ロジック
+│   │   │   │   ├── redisKeys.ts      # Redisキー生成
+│   │   │   │   └── validators.ts     # バリデーション・パース
+│   │   │   └── _client/              # クライアント専用ロジック
+│   │   │       └── opggApiClient.ts  # op.gg機能のWeb APIクライアント
 │   │   ├── fighting/
 │   │   │   ├── types.ts              # 型定義（フロント/サーバー共通）
 │   │   │   └── _server/              # サーバー専用ロジック
@@ -128,6 +130,20 @@ my-app/
 │   │       └── timer/                # 汎用タイマーコールバック
 │   │           └── execute/route.ts
 │   │
+│   ├── lol/                          # LoL向けWebページ
+│   │   └── opgg-multi-link/          # op.gg マルチサーチリンク生成
+│   │       ├── page.tsx              # Suspenseラッパーのみ（薄いエントリーポイント）
+│   │       ├── _types.ts             # UIステート型（Player, Mode, TeamType）
+│   │       ├── _utils.ts             # URL生成・Basic認証ヘルパー
+│   │       └── _components/          # このページ専用コンポーネント群
+│   │           ├── OpggMultiLinkPage.tsx   # 状態管理・レイアウト
+│   │           ├── InputMode.tsx           # 入力モード
+│   │           ├── TeamSearchMode.tsx      # チーム検索モード
+│   │           ├── TeamLoginMode.tsx       # チームログインモード
+│   │           ├── SettingsSection.tsx     # 設定セクション
+│   │           ├── PlayerListAndUrl.tsx    # プレイヤーリスト+URL表示
+│   │           ├── RegisterTeamOverlay.tsx # チーム登録オーバーレイ
+│   │           └── CopyButton.tsx          # コピーボタン
 │   ├── login/                        # ログインページ
 │   │   └── page.tsx
 │   ├── page.tsx                      # トップページ（開発者用Redis管理UI）

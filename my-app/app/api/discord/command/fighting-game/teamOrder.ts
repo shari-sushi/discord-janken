@@ -16,10 +16,10 @@ import {
   TextInputStyle,
 } from "discord-api-types/v10"
 import { APIApplicationCommandInteractionDataOption, APIApplicationCommandInteractionDataBasicOption, InteractionType } from "discord-api-types/v10"
-import { TeamFormat, TeamOrderData, FightingTeamOrderMeta, TeamData, OrderedTeamData } from "@/app/domains/fighting/types"
-import { getMetaKey, getTeamKey } from "@/app/domains/fighting/_server/redisKeys"
-import { isOrderedTeamData } from "@/app/domains/fighting/_server/validators"
-import { TEAM_FORMAT_POSITIONS, getPositionLabel } from "@/app/domains/fighting/_server/constants"
+import { TeamFormat, TeamOrderData, FightingTeamOrderMeta, TeamData, OrderedTeamData } from "@/app/_domains/fighting/types"
+import { getMetaKey, getTeamKey } from "@/app/_domains/fighting/_server/redisKeys"
+import { isOrderedTeamData } from "@/app/_domains/fighting/_server/validators"
+import { TEAM_FORMAT_POSITIONS, getPositionLabel } from "@/app/_domains/fighting/_server/constants"
 import { getValue } from "../../util/getComponentValue"
 import { customId } from "../../util/customId"
 

@@ -5,16 +5,18 @@
 
 /**
  * 必須環境変数を取得する
- * @param key - 環境変数名
- * @returns 環境変数の値
- * @throws {Error} 環境変数が未設定の場合（テスト環境を除く）
+ * - production / preview: 未設定なら起動時に例外を投げる
+ * - development / test / CI: 未設定なら警告ログを出して空文字を返す（起動は続行）
  */
-function getRequiredEnv(key: string): string {
+export function getRequiredEnv(key: string): string {
   const value = process.env[key]
-  if (!value && process.env.NODE_ENV !== "test" && !process.env.GITHUB_ACTIONS) {
-    throw new Error(`環境変数 ${key} が設定されていません`)
+  if (!value) {
+    const isProduction = process.env.VERCEL_ENV === "production" || process.env.VERCEL_ENV === "preview"
+    if (isProduction) throw new Error(`環境変数 ${key} が設定されていません`)
+    console.warn(`[dev] 環境変数 ${key} が未設定です`)
+    return ""
   }
-  return value || ""
+  return value
 }
 
 /**
@@ -28,8 +30,8 @@ function getOptionalEnv(key: string, defaultValue: string): string {
 }
 
 // デプロイ/ビルド環境
-// vercelではデフォルト環境変数
-export const ENV = getRequiredEnv("VERCEL_ENV") as "production" | "preview" | "development"
+// vercelでは自動付与される。ローカル開発時は未設定のため "development" をデフォルトとする
+export const ENV = getOptionalEnv("VERCEL_ENV", "development") as "production" | "preview" | "development"
 
 // Discord関連
 export const DISCORD_PUBLIC_KEY = getRequiredEnv("DISCORD_PUBLIC_KEY")
@@ -53,6 +55,11 @@ export const REDIS_URL = getOptionalEnv("REDIS_URL", "redis://localhost:6379")
 // Google Sheets
 export const GOOGLE_SERVICE_ACCOUNT_JSON = getRequiredEnv("GOOGLE_SERVICE_ACCOUNT_JSON")
 export const GOOGLE_SHEET_URL = getRequiredEnv("GOOGLE_SHEET_URL")
+
+// Riot Games API
+export const RIOT_API_KEY = getOptionalEnv("RIOT_API_KEY", "")
+// Riot APIレスポンスのキャッシュ秒数（本番: 300秒、それ以外: 1秒）
+export const RIOT_API_REVALIDATE_SECONDS = Number(getOptionalEnv("RIOT_API_REVALIDATE_SECONDS", ENV === "production" ? "300" : "1"))
 
 // QStash（非同期キュー）
 export const QSTASH_URL = getRequiredEnv("QSTASH_URL")
