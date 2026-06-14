@@ -102,3 +102,23 @@ export async function deleteSchedule(input: { teamId: string; day: DayKey }): Pr
   })
   await parse(res, "予定の削除に失敗しました")
 }
+
+/** チーム単位モードの日別状態を1日ぶん登録/更新（要ログイン + admin） */
+export async function upsertTeamStatus(input: { teamId: string; day: DayKey; status: ScheduleStatus; note: string | null }): Promise<void> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(input.teamId)}/team-status`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ day: input.day, status: input.status, note: input.note }),
+  })
+  await parse(res, "チーム状態の保存に失敗しました")
+}
+
+/** チーム単位モードの日別状態を1日ぶん削除（未記入に戻す・要ログイン + admin） */
+export async function deleteTeamStatus(input: { teamId: string; day: DayKey }): Promise<void> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(input.teamId)}/team-status`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ day: input.day }),
+  })
+  await parse(res, "チーム状態の削除に失敗しました")
+}

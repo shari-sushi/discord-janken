@@ -4,9 +4,20 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useOverlay } from "@/app/_client/lib/modal/ModalContext"
 import type { ScheduleEntry, ScheduleStatus, SessionUser, TeamSchedule, TeamSummary } from "@/app/_domains/teamSchedules/types"
-import { createInvite, deleteSchedule, fetchSession, fetchTeamSchedule, fetchTeams, joinTeam, upsertSchedule, verifyMagicLink } from "@/app/_domains/teamSchedules/_client/teamSchedulesApiClient"
+import {
+  createInvite,
+  deleteSchedule,
+  deleteTeamStatus,
+  fetchSession,
+  fetchTeamSchedule,
+  fetchTeams,
+  joinTeam,
+  upsertSchedule,
+  upsertTeamStatus,
+  verifyMagicLink,
+} from "@/app/_domains/teamSchedules/_client/teamSchedulesApiClient"
 import type { CellStatus, GridRow, ScheduleColumn } from "../_types"
-import { aggregateDay, buildDateRange, cycleStatus, indexSchedules, summarizeTeamStatus, toCellStatus, toScheduleStatus } from "../_utils"
+import { aggregateDay, buildDateRange, cycleStatus, indexSchedules, indexTeamStatus, summarizeTeamStatus, toCellStatus, toScheduleStatus } from "../_utils"
 import { ControlBar } from "./ControlBar"
 import { CreateTeamModal } from "./CreateTeamModal"
 import { InviteModal } from "./InviteModal"
@@ -225,6 +236,67 @@ export function TeamSchedulesPage() {
     [session, schedulesByTeam, applyLocalEdit, persist, openLogin],
   )
 
+  // チーム単位モード: ローカルの状態を更新（楽観的更新）
+  const applyLocalTeamEdit = useCallback((teamId: string, day: string, status: CellStatus, note: string) => {
+    setSchedulesByTeam((prev) => {
+      const team = prev[teamId]
+      if (!team) return prev
+      const others = team.teamStatus.filter((s) => s.day !== day)
+      const scheduleStatus = toScheduleStatus(status)
+      const next = scheduleStatus === null ? others : [...others, { day, status: scheduleStatus, note: note || null }]
+      return { ...prev, [teamId]: { ...team, teamStatus: next } }
+    })
+  }, [])
+
+  // チーム単位モード: 現在の note を取得
+  const currentTeamNote = useCallback(
+    (teamId: string, day: string): string => {
+      const team = schedulesByTeam[teamId]
+      return team?.teamStatus.find((s) => s.day === day)?.note ?? ""
+    },
+    [schedulesByTeam],
+  )
+
+  // チーム単位モード: 永続化
+  const persistTeam = useCallback((teamId: string, day: string, status: ScheduleStatus | null, note: string) => {
+    if (status === null) {
+      void deleteTeamStatus({ teamId, day }).catch(() => {})
+    } else {
+      void upsertTeamStatus({ teamId, day, status, note: note || null }).catch(() => {})
+    }
+  }, [])
+
+  // チーム単位モード: セルの状態トグル
+  const handleTeamCycle = useCallback(
+    ({ teamId, day, current }: { teamId: string; day: string; current: CellStatus }) => {
+      if (!session) {
+        openLogin()
+        return
+      }
+      const next = cycleStatus(current)
+      const note = currentTeamNote(teamId, day)
+      applyLocalTeamEdit(teamId, day, next, note)
+      persistTeam(teamId, day, toScheduleStatus(next), note)
+    },
+    [session, currentTeamNote, applyLocalTeamEdit, persistTeam, openLogin],
+  )
+
+  // チーム単位モード: セルの時間メモ変更
+  const handleTeamNoteChange = useCallback(
+    ({ teamId, day, value }: { teamId: string; day: string; value: string }) => {
+      if (!session) {
+        openLogin()
+        return
+      }
+      const team = schedulesByTeam[teamId]
+      const existing = team?.teamStatus.find((s) => s.day === day)
+      const status: CellStatus = existing?.status ?? "none"
+      applyLocalTeamEdit(teamId, day, status, value)
+      if (status !== "none") persistTeam(teamId, day, status, value)
+    },
+    [session, schedulesByTeam, applyLocalTeamEdit, persistTeam, openLogin],
+  )
+
   // チーム作成モーダルを開く（作成後は一覧を更新して自チームに選択）
   const openCreate = useCallback(() => {
     open(
@@ -266,26 +338,57 @@ export function TeamSchedulesPage() {
     const ownIndexed = indexSchedules(ownTeam.schedules)
     const oppIndexed = new Map(opponents.map((t) => [t.teamId, indexSchedules(t.schedules)]))
 
-    // 自メンバー列
-    const memberColumns: ScheduleColumn[] = ownTeam.members.map((m) => {
+    // ログインユーザーがそのチームの admin か
+    const isAdminOf = (team: TeamSchedule): boolean => !!session && team.members.some((m) => m.userId === session.userId && m.teamRole === "admin")
+
+    // チーム単位モードのチームを1列にまとめる（own/opponent 共通）
+    const buildTeamColumn = (team: TeamSchedule, idPrefix: string): ScheduleColumn => {
+      const indexed = indexTeamStatus(team.teamStatus)
       const cells = new Map<string, { status: CellStatus; note: string }>()
       for (const day of dayKeys) {
-        const e = ownIndexed.get(m.userId)?.get(day)
-        cells.set(day, { status: toCellStatus(e), note: e?.note ?? "" })
+        const e = indexed.get(day)
+        cells.set(day, { status: e?.status ?? "none", note: e?.note ?? "" })
       }
       return {
-        id: `own:${m.userId}`,
-        label: m.displayName,
-        kind: "own-member",
-        teamId: ownTeam.teamId,
-        editTargetUserId: m.userId,
-        editable: session?.userId === m.userId,
+        id: `${idPrefix}:${team.teamId}`,
+        label: team.name,
+        kind: "team",
+        teamId: team.teamId,
+        editTargetUserId: null,
+        editable: isAdminOf(team),
         cells,
       }
-    })
+    }
 
-    // 相手チーム列（1チーム1列・代表ステータスに集約）
+    // 自チーム列: members モードはメンバーごと、team モードはチーム1列
+    const memberColumns: ScheduleColumn[] =
+      ownTeam.managementMode === "team"
+        ? [buildTeamColumn(ownTeam, "ownteam")]
+        : ownTeam.members.map((m) => {
+            const cells = new Map<string, { status: CellStatus; note: string }>()
+            for (const day of dayKeys) {
+              const e = ownIndexed.get(m.userId)?.get(day)
+              cells.set(day, { status: toCellStatus(e), note: e?.note ?? "" })
+            }
+            return {
+              id: `own:${m.userId}`,
+              label: m.displayName,
+              kind: "own-member" as const,
+              teamId: ownTeam.teamId,
+              editTargetUserId: m.userId,
+              editable: session?.userId === m.userId,
+              cells,
+            }
+          })
+
+    // 相手チーム列（1チーム1列）
     const opponentColumns: ScheduleColumn[] = opponents.map((team) => {
+      // team モードの相手はチーム1列（admin なら編集可）
+      if (team.managementMode === "team") {
+        return buildTeamColumn(team, "opp")
+      }
+
+      // members モード: 自分が所属していれば自分の行を編集、非メンバーは集約表示
       const indexed = oppIndexed.get(team.teamId)!
       const isMember = !!session && team.members.some((m) => m.userId === session.userId)
       const editTargetUserId = isMember ? session!.userId : null
@@ -312,7 +415,7 @@ export function TeamSchedulesPage() {
       return {
         id: `opp:${team.teamId}`,
         label: team.name,
-        kind: "opponent",
+        kind: "opponent" as const,
         teamId: team.teamId,
         editTargetUserId,
         editable: isMember,
@@ -335,7 +438,9 @@ export function TeamSchedulesPage() {
       }
     })
 
-    return { memberColumns, opponentColumns, rows, threshold: ownTeam.requiredCount }
+    // team モードは単一状態（ok=活動可能）なので閾値は 1
+    const threshold = ownTeam.managementMode === "team" ? 1 : ownTeam.requiredCount
+    return { memberColumns, opponentColumns, rows, threshold }
   }, [ownTeamId, opponentTeamIds, schedulesByTeam, dates, dayKeys, session])
 
   return (
@@ -396,12 +501,14 @@ export function TeamSchedulesPage() {
               memberColumns={view.memberColumns}
               onCycle={handleCycle}
               onNoteChange={handleNoteChange}
+              onTeamCycle={handleTeamCycle}
+              onTeamNoteChange={handleTeamNoteChange}
             />
           )}
         </div>
 
         <p className="mt-3 text-xs leading-relaxed text-slate-500">
-          ※ セルをタップで 未記入→○→△→× を循環。○数が必要人数以上かつ相手が空いている日が「成立」。×が増えて必要人数に届かない確定の日は行を薄く表示。相手の不可セルは薄く表示。時間は自由記入のため、○数は時間の重なりまでは見ていません。
+          ※ セルをタップで 未記入→○→△→× を循環。○数が必要人数以上かつ相手が空いている日が「成立」。×が増えて必要人数に届かない確定の日は行を薄く表示。相手の不可セルは薄く表示。チーム単位モードのチームは管理者が1列でまとめて入力します。時間は自由記入のため、○数は時間の重なりまでは見ていません。
         </p>
       </div>
     </div>

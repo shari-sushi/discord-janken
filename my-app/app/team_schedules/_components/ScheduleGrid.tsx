@@ -6,6 +6,7 @@ import type { CellStatus, GridRow, ScheduleColumn } from "../_types"
 import { ScheduleCell } from "./ScheduleCell"
 
 type EditPayload = { teamId: string; userId: string; day: string }
+type TeamEditPayload = { teamId: string; day: string }
 
 type ScheduleGridProps = {
   rows: GridRow[]
@@ -14,6 +15,9 @@ type ScheduleGridProps = {
   memberColumns: ScheduleColumn[]
   onCycle: (payload: EditPayload & { current: CellStatus }) => void
   onNoteChange: (payload: EditPayload & { value: string }) => void
+  /** チーム単位モード列の状態トグル（userId を持たない） */
+  onTeamCycle: (payload: TeamEditPayload & { current: CellStatus }) => void
+  onTeamNoteChange: (payload: TeamEditPayload & { value: string }) => void
 }
 
 const SIZE = { date: 76, count: 52, opponent: 70, success: 60, member: 78 }
@@ -37,8 +41,22 @@ function pinnedStyle(column: Column<GridRow>, isHeader: boolean): React.CSSPrope
   }
 }
 
-export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, onCycle, onNoteChange }: ScheduleGridProps) {
+export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, onCycle, onNoteChange, onTeamCycle, onTeamNoteChange }: ScheduleGridProps) {
   const columns = useMemo<ColumnDef<GridRow>[]>(() => {
+    // 列の種別に応じた編集ハンドラ。team モードは userId を持たないため別経路
+    const cellHandlers = (col: ScheduleColumn, day: string, current: CellStatus) => {
+      if (col.kind === "team") {
+        return {
+          onCycle: () => onTeamCycle({ teamId: col.teamId, day, current }),
+          onNoteChange: (value: string) => onTeamNoteChange({ teamId: col.teamId, day, value }),
+        }
+      }
+      return {
+        onCycle: () => col.editTargetUserId && onCycle({ teamId: col.teamId, userId: col.editTargetUserId, day, current }),
+        onNoteChange: (value: string) => col.editTargetUserId && onNoteChange({ teamId: col.teamId, userId: col.editTargetUserId, day, value }),
+      }
+    }
+
     const dateCol: ColumnDef<GridRow> = {
       id: "date",
       header: "日付",
@@ -77,16 +95,8 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
       cell: ({ row }) => {
         const day = row.original.date.key
         const view = col.cells.get(day) ?? { status: "none" as CellStatus, note: "" }
-        return (
-          <ScheduleCell
-            status={view.status}
-            note={view.note}
-            editable={col.editable}
-            dim={view.status === "ng"}
-            onCycle={() => col.editTargetUserId && onCycle({ teamId: col.teamId, userId: col.editTargetUserId, day, current: view.status })}
-            onNoteChange={(value) => col.editTargetUserId && onNoteChange({ teamId: col.teamId, userId: col.editTargetUserId, day, value })}
-          />
-        )
+        const handlers = cellHandlers(col, day, view.status)
+        return <ScheduleCell status={view.status} note={view.note} editable={col.editable} dim={view.status === "ng"} onCycle={handlers.onCycle} onNoteChange={handlers.onNoteChange} />
       },
     }))
 
@@ -109,20 +119,13 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
       cell: ({ row }) => {
         const day = row.original.date.key
         const view = col.cells.get(day) ?? { status: "none" as CellStatus, note: "" }
-        return (
-          <ScheduleCell
-            status={view.status}
-            note={view.note}
-            editable={col.editable}
-            onCycle={() => col.editTargetUserId && onCycle({ teamId: col.teamId, userId: col.editTargetUserId, day, current: view.status })}
-            onNoteChange={(value) => col.editTargetUserId && onNoteChange({ teamId: col.teamId, userId: col.editTargetUserId, day, value })}
-          />
-        )
+        const handlers = cellHandlers(col, day, view.status)
+        return <ScheduleCell status={view.status} note={view.note} editable={col.editable} onCycle={handlers.onCycle} onNoteChange={handlers.onNoteChange} />
       },
     }))
 
     return [dateCol, countCol, ...opponentCols, successCol, ...memberCols]
-  }, [opponentColumns, memberColumns, threshold, onCycle, onNoteChange])
+  }, [opponentColumns, memberColumns, threshold, onCycle, onNoteChange, onTeamCycle, onTeamNoteChange])
 
   const leftPinned = useMemo(() => ["date", "count", ...opponentColumns.map((c) => `opp:${c.teamId}`), "success"], [opponentColumns])
 
