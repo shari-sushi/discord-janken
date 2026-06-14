@@ -50,13 +50,16 @@ describe("teamSchedules validators", () => {
   })
 
   describe("isUuid", () => {
-    it("success: UUID形式を受理する", () => {
-      expect(isUuid("123e4567-e89b-12d3-a456-426614174000")).toBe(true)
+    it("success: UUID v4 形式を受理する", () => {
+      expect(isUuid("123e4567-e89b-42d3-a456-426614174000")).toBe(true)
+      expect(isUuid("123E4567-E89B-42D3-A456-426614174000")).toBe(true) // 大文字も許容
     })
 
-    it("failure: UUID以外は拒否する", () => {
+    it("failure: UUID v4 以外・形式違いは拒否する", () => {
+      expect(isUuid("123e4567-e89b-12d3-a456-426614174000")).toBe(false) // version=1
+      expect(isUuid("123e4567-e89b-42d3-c456-426614174000")).toBe(false) // variant 不正(c)
       expect(isUuid("own")).toBe(false)
-      expect(isUuid("123e4567e89b12d3a456426614174000")).toBe(false)
+      expect(isUuid("123e4567e89b42d3a456426614174000")).toBe(false)
       expect(isUuid("")).toBe(false)
       expect(isUuid(null)).toBe(false)
     })

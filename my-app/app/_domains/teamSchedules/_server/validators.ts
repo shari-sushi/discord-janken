@@ -24,8 +24,9 @@ export function isValidNote(value: unknown): value is string | null {
   return typeof value === "string" && value.length <= NOTE_MAX_LENGTH
 }
 
-/** UUID v4 形式か（teamId / userId の経路バリデーション用） */
+/** UUID v4 形式か（teamId / userId の経路バリデーション用。DBは gen_random_uuid() = v4 を発行する） */
 export function isUuid(value: unknown): value is string {
   if (typeof value !== "string") return false
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+  // version=4（3ブロック目先頭が 4）・variant=8/9/a/b（4ブロック目先頭）を厳密に見る
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 }

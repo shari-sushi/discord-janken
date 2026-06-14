@@ -23,7 +23,7 @@ vi.mock("@/app/_server/lib/db", () => ({
   },
 }))
 
-const TEAM_ID = "123e4567-e89b-12d3-a456-426614174000"
+const TEAM_ID = "123e4567-e89b-42d3-a456-426614174000"
 const URL = `http://localhost:3000/api/web/team-schedules/teams/${TEAM_ID}/schedule`
 const ctxFor = () => ({ params: Promise.resolve({ teamId: TEAM_ID }) })
 
