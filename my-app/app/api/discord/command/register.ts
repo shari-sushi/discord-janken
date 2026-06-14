@@ -51,7 +51,7 @@ const mentionByReaction: RESTPostAPIApplicationCommandsJSONBody = {
 
 const teamScheduleLogin: RESTPostAPIApplicationCommandsJSONBody = {
   name: COMMANDS.TEAM_SCHEDULE.LOGIN,
-  description: "スクリム調整ページのログイン用リンクを発行します（本人にだけ表示）",
+  description: "チーム活動 スケジュール調整ページのログイン用リンクを発行します（本人にだけ表示）",
   options: [],
 }
 

@@ -450,7 +450,7 @@ export function TeamSchedulesPage() {
       <div className="mx-auto max-w-6xl p-3 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-zinc-100">スクリム調整</h1>
+            <h1 className="text-lg font-bold tracking-tight text-zinc-100">チーム活動 スケジュール調整</h1>
             <p className="mt-0.5 text-sm text-zinc-400">必要人数そろって、相手も空いてる日を探す</p>
           </div>
           <div className="flex items-center gap-2">
