@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { teamDayStatus } from "@/app/_domains/teamSchedules/_server/schema"
-import { assertTeamAdmin, getSessionUserId } from "@/app/_domains/teamSchedules/_server/authz"
+import { getSessionUserId, getTeamRole } from "@/app/_domains/teamSchedules/_server/authz"
 import { isDayKey, isScheduleStatus, isUuid, isValidNote } from "@/app/_domains/teamSchedules/_server/validators"
 
 type RouteContext = { params: Promise<{ teamId: string }> }
@@ -30,10 +30,13 @@ export async function PUT(req: NextRequest, ctx: RouteContext): Promise<NextResp
     const { day, status } = body
     const note = body.note ?? null
 
-    // admin でなければ存在を隠して 404
-    const isAdmin = await assertTeamAdmin(teamId, userId)
-    if (!isAdmin) {
+    // 非メンバーは存在を隠して 404、メンバーだが admin でなければ権限不足で 400
+    const role = await getTeamRole(teamId, userId)
+    if (role === null) {
       return NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 })
+    }
+    if (role !== "admin") {
+      return NextResponse.json({ success: false, error: "チーム状態を編集する権限がありません" }, { status: 400 })
     }
 
     await db
@@ -73,9 +76,13 @@ export async function DELETE(req: NextRequest, ctx: RouteContext): Promise<NextR
     }
     const { day } = body
 
-    const isAdmin = await assertTeamAdmin(teamId, userId)
-    if (!isAdmin) {
+    // 非メンバーは存在を隠して 404、メンバーだが admin でなければ権限不足で 400
+    const role = await getTeamRole(teamId, userId)
+    if (role === null) {
       return NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 })
+    }
+    if (role !== "admin") {
+      return NextResponse.json({ success: false, error: "チーム状態を編集する権限がありません" }, { status: 400 })
     }
 
     await db.delete(teamDayStatus).where(and(eq(teamDayStatus.teamId, teamId), eq(teamDayStatus.day, day)))

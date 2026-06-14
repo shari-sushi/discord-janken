@@ -12,6 +12,7 @@ import { and, eq } from "drizzle-orm"
 import type { NextRequest } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { discordLinks, teamMembers } from "./schema"
+import type { TeamRole } from "@/app/_domains/teamSchedules/types"
 import { getUserIdFromSession } from "./session"
 import { TEAM_SCHEDULE_CREATOR_DISCORD_IDS } from "@/app/_server/lib/env"
 
@@ -47,12 +48,21 @@ export async function canCreateTeam(userId: string): Promise<boolean> {
   return rows.some((r) => creatorDiscordIds.has(r.discordUserId))
 }
 
-/** (teamId, userId) が admin ロールか */
-export async function assertTeamAdmin(teamId: string, userId: string): Promise<boolean> {
+/**
+ * (teamId, userId) のチーム内ロールを返す（非メンバーは null）。
+ * 「非メンバー＝404 / メンバーだが権限不足＝400」のように、メンバーシップと
+ * ロールを区別して扱いたい呼び出し側のための関数。
+ */
+export async function getTeamRole(teamId: string, userId: string): Promise<TeamRole | null> {
   const rows = await db
     .select({ teamRole: teamMembers.teamRole })
     .from(teamMembers)
     .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
     .limit(1)
-  return rows[0]?.teamRole === "admin"
+  return rows[0]?.teamRole ?? null
+}
+
+/** (teamId, userId) が admin ロールか */
+export async function assertTeamAdmin(teamId: string, userId: string): Promise<boolean> {
+  return (await getTeamRole(teamId, userId)) === "admin"
 }
