@@ -34,11 +34,17 @@ export function ScheduleCell({ status, note, editable, dim = false, onCycle, onN
         {style.symbol}
       </button>
       {editable ? (
+        // 状態が未記入のうちはメモを保存する行が無いため、入力欄を非活性にする
+        // （○/△/× を付けてから時間を書く運用。none のまま打っても破棄されるのを防ぐ）
         <input
           value={note}
           onChange={(e) => onNoteChange?.(e.target.value)}
+          disabled={status === "none"}
           placeholder="時間"
-          className="mt-1 w-14 rounded border border-slate-200 px-1 py-0.5 text-center text-[11px] text-slate-700 focus:border-indigo-400 focus:outline-none"
+          className={
+            "mt-1 w-14 rounded border border-slate-200 px-1 py-0.5 text-center text-[11px] text-slate-700 focus:border-indigo-400 focus:outline-none " +
+            (status === "none" ? "cursor-not-allowed bg-slate-50 text-slate-300 placeholder:text-slate-300" : "")
+          }
         />
       ) : (
         <div className="mt-1 h-4.5 text-[11px] leading-4.5 text-slate-500">{note || ""}</div>
