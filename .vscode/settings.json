@@ -1,4 +1,6 @@
 {
   "prettier.semi": false,
+  "cSpell.enableFiletypes": ["!markdown"],
+  "spellright.documentTypes": ["latex", "plaintext"],
   "cSpell.words": ["opgg", "opsz", "Smeb", "svgrepo", "wght", "winrate"]
 }
