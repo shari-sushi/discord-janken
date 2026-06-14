@@ -49,6 +49,12 @@ const mentionByReaction: RESTPostAPIApplicationCommandsJSONBody = {
   ],
 }
 
+const teamScheduleLogin: RESTPostAPIApplicationCommandsJSONBody = {
+  name: COMMANDS.TEAM_SCHEDULE.LOGIN,
+  description: "チーム活動 スケジュール調整ページのログイン用リンクを発行します（本人にだけ表示）",
+  options: [],
+}
+
 const echo: RESTPostAPIApplicationCommandsJSONBody = {
   name: COMMANDS.DEV.ECHO,
   description: "入力したテキストをbotがチャットに送信",
@@ -111,11 +117,18 @@ const fightingTeamOrder: RESTPostAPIApplicationCommandsJSONBody = {
   ],
 }
 
+const roleRoulette: RESTPostAPIApplicationCommandsJSONBody = {
+  name: COMMANDS.LOL.ROLE_ROULETTE,
+  description: "LoLのロール抽選を行います",
+  options: [],
+}
+
 // コマンド追加/削除時はここを変更する
 const ALL_COMMANDS = {
-  lol: { newMatch, randomSide },
+  lol: { newMatch, randomSide, roleRoulette },
   user: { feedback, timer, commonMessage, mentionByReaction },
   fighting: { fightingTeamOrder },
+  teamSchedule: { teamScheduleLogin },
   dev: { echo, test },
 }
 

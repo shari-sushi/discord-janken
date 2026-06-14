@@ -23,3 +23,4 @@
 | [web-api.md](.claude/rules-on-demand/web-api.md) | Web API・認証ルール | `app/api/web/**` 編集時 |
 | [markdown.md](.claude/rules-on-demand/markdown.md) | Markdownlintルール | `**/*.md` 編集時 |
 | [planning.md](.claude/rules-on-demand/planning.md) | 実行計画書の命名規則 | `VIBES/plan/**` 編集時 |
+| [database.md](.claude/rules-on-demand/database.md) | PostgreSQL+Drizzle・ローカル/本番DB・確認方法 | DB/スキーマ/マイグレーション作業時 |

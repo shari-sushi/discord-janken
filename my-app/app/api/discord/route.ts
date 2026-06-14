@@ -7,7 +7,9 @@ import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from 
 import { timerCommand, handleSubmitTimer, handleOpenModalTimer } from "./command/user/timer"
 import { commonMessageCommand, handleSubmitNewCommonMessage, handleOpenModalEditCommonMessage, handleSubmitCommonMessage, handleForceEndEditingCommonMessage } from "./command/user/commonMessage"
 import { mentionReactorsCommand } from "./command/user/mentionReactors"
+import { teamScheduleLoginCommand, handleReissueLoginButton } from "./command/team-schedule/login"
 import { handleFightingTeamOrderCommand, handleOpenModalFightingTeamOrder, handleFightingRegisterTeamOrder, handleFightingResetTeamOrder } from "./command/fighting-game/teamOrder"
+import { roleRouletteCommand, handleRoleRouletteStart, handleRoleRouletteReset } from "./command/lol/roleRoulette"
 import { CLIENT_ACTIONS, COMMANDS } from "@/app/_server/util/commands"
 import { developersTestCommand } from "./command/dev/developers-test"
 import { editDiscordMessage } from "@/app/_server/lib/discord/api"
@@ -77,6 +79,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return newMatchCommand()
         case COMMANDS.LOL.RANDOM_SIDE:
           return randomSideCommand()
+        case COMMANDS.LOL.ROLE_ROULETTE:
+          return roleRouletteCommand(interaction)
         case COMMANDS.USER.TIMER:
           return timerCommand()
         case COMMANDS.USER.FEEDBACK:
@@ -87,6 +91,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return mentionReactorsCommand(interaction)
         case COMMANDS.FIGHTING.TEAM_ORDER:
           return handleFightingTeamOrderCommand(options)
+        case COMMANDS.TEAM_SCHEDULE.LOGIN:
+          return teamScheduleLoginCommand(interaction)
         case COMMANDS.DEV.ECHO:
           return echoCommand(options)
         case COMMANDS.DEV.TEST: {
@@ -143,6 +149,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return handleOpenModalFightingTeamOrder(matchId, 2)
         case CLIENT_ACTIONS.FIGHTING.RESET_TEAM_ORDER:
           return handleFightingResetTeamOrder(matchId)
+        case CLIENT_ACTIONS.LOL.ROLE_ROULETTE_START:
+          return handleRoleRouletteStart(interaction)
+        case CLIENT_ACTIONS.LOL.ROLE_ROULETTE_RESET:
+          return handleRoleRouletteReset(interaction)
+        case CLIENT_ACTIONS.TEAM_SCHEDULE.REISSUE_LOGIN:
+          return handleReissueLoginButton(interaction)
 
         default:
           return NextResponse.json({

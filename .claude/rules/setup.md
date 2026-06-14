@@ -16,6 +16,10 @@
 - `ALLOWED_USERS`: Web API認証用のユーザー名とパスワード（形式: `user1:pass1,user2:pass2`）
 - `ADMIN_PASSWORD`: 管理者パスワード
 - `WEB_API_SECRET`: Web API の秘密鍵
+- `TEAM_SCHEDULE_CREATOR_DISCORD_IDS`: スクリム調整でチームを作成できる Discord ユーザーID（カンマ区切り・省略可）
+  - 例: `123456789012345678,234567890123456789`
+  - magic-link でログインしたユーザーのうち、ここに含まれる Discord ID を持つ人だけが `/team_schedules` でチームを作成できる
+  - 空（未設定）の場合は誰もチームを作成できない
 
 **Riot Games API:**
 
@@ -29,6 +33,11 @@
 **データベース:**
 
 - `REDIS_URL`: Redis接続URL
+- `DATABASE_URL`: PostgreSQL（Neon想定）の接続URL
+  - スクリム調整機能（`/team_schedules`）で使用
+  - サーバーレスでのコネクション枯渇を避けるため **pooled 接続文字列**を推奨
+  - 例: `postgresql://user:password@host/dbname?sslmode=require`
+  - Vercel の環境変数にも設定が必要
 
 **Google Sheets:**
 

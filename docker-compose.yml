@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   redis:
     image: redis:7-alpine
@@ -10,6 +8,26 @@ services:
       - redis_data:/data
     command: redis-server --appendonly yes
     restart: unless-stopped
+  # ローカル開発用 PostgreSQL（スクリム調整機能のDB）。本番は Neon。
+  # host で npm run dev する場合は localhost:5432 で接続する:
+  #   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/team_schedules
+  db:
+    image: postgres:16
+    container_name: discord-janken-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: team_schedules
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d team_schedules"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
   my-app:
     build:
       context: ./my-app
@@ -20,9 +38,11 @@ services:
       - ./my-app/.env.local
     depends_on:
       - redis
+      - db
     volumes:
       - ./my-app:/app
       - /app/node_modules
 
 volumes:
   redis_data:
+  pgdata:

@@ -10,9 +10,20 @@ const NAV_LINKS = [
   { href: "/lol/role-roulette", label: "ロールルーレット" },
   { href: "/lol/opgg-multi-link", label: "LTK向け: op.gg マルチサーチリンク生成" },
   { href: "/lol/all-ranked", label: "ランク確認" },
+  { href: "/team_schedules", label: "チーム活動 スケジュール調整" },
 ]
 
-export default function LolHeader() {
+/**
+ * ログイン中ユーザー名を右側に表示したいページから渡す。
+ * - userName があればその名前を表示
+ * - userName が無く onLogin が渡されていれば「ログイン」ボタンを表示
+ */
+type LolHeaderProps = {
+  userName?: string | null
+  onLogin?: () => void
+}
+
+export default function LolHeader({ userName, onLogin }: LolHeaderProps = {}) {
   const [isOpen, setIsOpen] = useState(false)
   const { open } = useOverlay()
 
@@ -75,6 +86,24 @@ export default function LolHeader() {
           <Link href="/lol" className="font-bold text-lg hover:text-zinc-300 hover:opacity-70">
             LoL ツール
           </Link>
+
+          {/* 右端: ログイン中はユーザー名、未ログイン時はログインボタン */}
+          {userName ? (
+            <span className="ml-auto flex items-center gap-1.5 truncate text-sm text-zinc-300" title={userName}>
+              <span aria-hidden="true">👤</span>
+              <span className="truncate">{userName}</span>
+            </span>
+          ) : (
+            onLogin && (
+              <button
+                type="button"
+                onClick={onLogin}
+                className="ml-auto rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
+              >
+                ログイン
+              </button>
+            )
+          )}
         </div>
       </header>
     </>
