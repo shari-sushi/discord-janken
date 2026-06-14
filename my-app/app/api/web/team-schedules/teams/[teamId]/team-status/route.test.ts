@@ -16,8 +16,14 @@ const insertValues = vi.fn(() => ({ onConflictDoUpdate }))
 const insert = vi.fn((..._a: unknown[]) => ({ values: insertValues }))
 const deleteWhere = vi.fn(async () => undefined)
 const del = vi.fn((..._a: unknown[]) => ({ where: deleteWhere }))
+// teams.managementMode を引く select チェーン（デフォルトは team モード）
+const selectLimit = vi.fn(async () => [{ managementMode: "team" }])
+const selectWhere = vi.fn(() => ({ limit: selectLimit }))
+const selectFrom = vi.fn(() => ({ where: selectWhere }))
+const select = vi.fn((..._a: unknown[]) => ({ from: selectFrom }))
 vi.mock("@/app/_server/lib/db", () => ({
   db: {
+    select: (...args: unknown[]) => select(...args),
     insert: (...args: unknown[]) => insert(...args),
     delete: (...args: unknown[]) => del(...args),
   },
@@ -29,6 +35,8 @@ const ctxFor = () => ({ params: Promise.resolve({ teamId: TEAM_ID }) })
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // clearAllMocks は実装を消さないが、Once 上書きの取り残しを避けるため毎回デフォルトを張り直す
+  selectLimit.mockResolvedValue([{ managementMode: "team" }])
 })
 
 describe("PUT /team-schedules/teams/[teamId]/team-status", () => {
@@ -62,6 +70,16 @@ describe("PUT /team-schedules/teams/[teamId]/team-status", () => {
     mockGetSessionUserId.mockResolvedValue("user-1")
     mockGetTeamRole.mockResolvedValue("admin")
     const req = createTestRequest(URL, { method: "PUT", body: { day: "2026-06-14", status: "perhaps", note: null } })
+    const res = await PUT(req, ctxFor())
+    expect(res.status).toBe(400)
+    expect(insert).not.toHaveBeenCalled()
+  })
+
+  it("failure: members モードのチームは400（チーム単位モード専用・書き込みもしない）", async () => {
+    mockGetSessionUserId.mockResolvedValue("user-1")
+    mockGetTeamRole.mockResolvedValue("admin")
+    selectLimit.mockResolvedValue([{ managementMode: "members" }])
+    const req = createTestRequest(URL, { method: "PUT", body: { day: "2026-06-14", status: "ok", note: null } })
     const res = await PUT(req, ctxFor())
     expect(res.status).toBe(400)
     expect(insert).not.toHaveBeenCalled()
