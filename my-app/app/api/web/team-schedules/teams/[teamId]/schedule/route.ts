@@ -90,6 +90,10 @@ export async function GET(req: NextRequest, ctx: RouteContext): Promise<NextResp
 /**
  * PUT /api/web/team-schedules/teams/[teamId]/schedule
  * 自分の予定を1日ぶん upsert（要ログイン・本人列のみ）。body: { day, status, note }
+ *
+ * 仕様: team モードのチームでもメンバーは自分の予定を書き込める（モードでガードしない）。
+ * team モードの表示には team_day_status を使うため、ここで作られた個人予定はグリッドに出ない
+ * デッドデータになるだけで、害は無い。MVP では許容（team-status 側は逆方向の孤児を 400 で防ぐ）。
  */
 export async function PUT(req: NextRequest, ctx: RouteContext): Promise<NextResponse> {
   try {
