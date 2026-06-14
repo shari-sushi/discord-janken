@@ -14,7 +14,7 @@ import type { TeamSummary } from "@/app/_domains/teamSchedules/types"
  * body: { token }
  *
  * 招待は複数人で使うため使用後も削除しない（TTLで失効）。
- * 既に所属済みなら何もしない（冪等）。individual ロールで参加する。
+ * 既に所属済みなら何もしない（冪等）。member ロールで参加する。
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -52,8 +52,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, error: "参加先のチームが見つかりません" }, { status: 404 })
     }
 
-    // 既に所属していれば何もしない（冪等）。新規なら individual で参加
-    await db.insert(teamMembers).values({ teamId, userId, teamRole: "individual" }).onConflictDoNothing({
+    // 既に所属していれば何もしない（冪等）。新規なら member で参加
+    await db.insert(teamMembers).values({ teamId, userId, teamRole: "member" }).onConflictDoNothing({
       target: [teamMembers.teamId, teamMembers.userId],
     })
 

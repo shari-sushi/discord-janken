@@ -32,7 +32,7 @@ export async function GET(): Promise<NextResponse> {
 /**
  * POST /api/web/team-schedules/teams
  * チームを新規作成する（要ログイン + 作成権限）。
- * 作成者をそのチームの admin メンバーとして登録する。
+ * 作成者をそのチームの master メンバーとして登録する（チームに必ず1人の master）。
  * body: { name, description, managementMode, requiredCount }
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -63,9 +63,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const managementMode = body.managementMode
     const requiredCount = body.requiredCount
 
-    // チーム作成 → 作成者を admin メンバーに登録。
+    // チーム作成 → 作成者を master メンバーに登録。
     // neon-http はトランザクション非対応のため逐次 INSERT（auth/verify と同じ流儀）。
-    // 既知のリスク: teams INSERT 成功後に team_members INSERT が失敗すると、admin 不在の
+    // 既知のリスク: teams INSERT 成功後に team_members INSERT が失敗すると、master 不在の
     // チームが public 一覧に残る（誰も編集・招待できない孤児）。重要度は高いがエッジ。
     // 恒久対応は別 Issue で検討（neon-serverless へ移行してトランザクション化 等）。
     const inserted = await db
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         managementMode: teams.managementMode,
       })
     const team = inserted[0]
-    await db.insert(teamMembers).values({ teamId: team.teamId, userId, teamRole: "admin" })
+    await db.insert(teamMembers).values({ teamId: team.teamId, userId, teamRole: "master" })
 
     const result: TeamSummary = team
     return NextResponse.json({ success: true, team: result })

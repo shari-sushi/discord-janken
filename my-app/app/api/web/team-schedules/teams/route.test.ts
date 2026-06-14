@@ -77,7 +77,7 @@ describe("POST /team-schedules/teams", () => {
     expect(insert).not.toHaveBeenCalled()
   })
 
-  it("success: チームを作成し、作成者を admin で登録する（teams+team_members の2回INSERT）", async () => {
+  it("success: チームを作成し、作成者を master で登録する（teams+team_members の2回INSERT）", async () => {
     mockGetSessionUserId.mockResolvedValue("user-1")
     mockCanCreateTeam.mockResolvedValue(true)
     const res = await POST(createTestRequest(URL, { method: "POST", body: validBody }))
@@ -86,7 +86,7 @@ describe("POST /team-schedules/teams", () => {
     expect(json.team).toEqual(TEAM)
     // teams INSERT → team_members INSERT の2回
     expect(insert).toHaveBeenCalledTimes(2)
-    // 作成者が admin として登録される
-    expect(insertValues).toHaveBeenCalledWith(expect.objectContaining({ teamId: TEAM.teamId, userId: "user-1", teamRole: "admin" }))
+    // 作成者が master として登録される
+    expect(insertValues).toHaveBeenCalledWith(expect.objectContaining({ teamId: TEAM.teamId, userId: "user-1", teamRole: "master" }))
   })
 })

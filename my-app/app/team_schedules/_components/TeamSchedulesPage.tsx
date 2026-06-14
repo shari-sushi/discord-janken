@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import LolHeader from "@/app/lol/_components/LolHeader"
 import { useOverlay } from "@/app/_client/lib/modal/ModalContext"
 import type { ScheduleEntry, ScheduleStatus, SessionUser, TeamSchedule, TeamSummary } from "@/app/_domains/teamSchedules/types"
+import { hasAdminAuthority } from "@/app/_domains/teamSchedules/types"
 import {
   createInvite,
   deleteSchedule,
@@ -313,11 +314,11 @@ export function TeamSchedulesPage() {
     )
   }, [open, close, reloadTeams])
 
-  // 選択中の自チームで、ログインユーザーが admin か
+  // 選択中の自チームで、ログインユーザーが admin 相当以上（master/admin）か
   const isOwnAdmin = useMemo(() => {
     if (!session || !ownTeamId) return false
     const ownTeam = schedulesByTeam[ownTeamId]
-    return !!ownTeam?.members.some((m) => m.userId === session.userId && m.teamRole === "admin")
+    return !!ownTeam?.members.some((m) => m.userId === session.userId && hasAdminAuthority(m.teamRole))
   }, [session, ownTeamId, schedulesByTeam])
 
   // 招待リンクを発行して表示する
@@ -340,8 +341,8 @@ export function TeamSchedulesPage() {
     const ownIndexed = indexSchedules(ownTeam.schedules)
     const oppIndexed = new Map(opponents.map((t) => [t.teamId, indexSchedules(t.schedules)]))
 
-    // ログインユーザーがそのチームの admin か
-    const isAdminOf = (team: TeamSchedule): boolean => !!session && team.members.some((m) => m.userId === session.userId && m.teamRole === "admin")
+    // ログインユーザーがそのチームの admin 相当以上（master/admin）か
+    const isAdminOf = (team: TeamSchedule): boolean => !!session && team.members.some((m) => m.userId === session.userId && hasAdminAuthority(m.teamRole))
 
     // チーム単位モードのチームを1列にまとめる（own/opponent 共通）
     const buildTeamColumn = (team: TeamSchedule, idPrefix: string): ScheduleColumn => {
