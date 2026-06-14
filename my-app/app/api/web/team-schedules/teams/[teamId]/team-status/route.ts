@@ -7,6 +7,36 @@ import { isDayKey, isScheduleStatus, isUuid, isValidNote } from "@/app/_domains/
 
 type RouteContext = { params: Promise<{ teamId: string }> }
 
+/** 認可に失敗したら返すべきレスポンス、成功なら ok を返す */
+type AuthzResult = { ok: true } | { ok: false; res: NextResponse }
+
+/**
+ * team-status を編集できるかを「認証 → 認可」の順に判定する。
+ * 入力検証より前に呼ぶこと（権限の無い相手の body は処理しない）。
+ * - 非UUID / 非メンバー: 存在を隠して 404
+ * - メンバーだが非admin: 権限不足で 400
+ */
+async function authorizeTeamStatusAdmin(req: NextRequest, teamId: string): Promise<AuthzResult> {
+  if (!isUuid(teamId)) {
+    return { ok: false, res: NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 }) }
+  }
+
+  const userId = await getSessionUserId(req)
+  if (!userId) {
+    return { ok: false, res: NextResponse.json({ success: false, error: "ログインが必要です" }, { status: 401 }) }
+  }
+
+  const role = await getTeamRole(teamId, userId)
+  if (role === null) {
+    return { ok: false, res: NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 }) }
+  }
+  if (role !== "admin") {
+    return { ok: false, res: NextResponse.json({ success: false, error: "チーム状態を編集する権限がありません" }, { status: 400 }) }
+  }
+
+  return { ok: true }
+}
+
 /**
  * PUT /api/web/team-schedules/teams/[teamId]/team-status
  * チーム単位モードの日別状態を1日ぶん upsert（要ログイン + admin）。body: { day, status, note }
@@ -14,14 +44,9 @@ type RouteContext = { params: Promise<{ teamId: string }> }
 export async function PUT(req: NextRequest, ctx: RouteContext): Promise<NextResponse> {
   try {
     const { teamId } = await ctx.params
-    if (!isUuid(teamId)) {
-      return NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 })
-    }
 
-    const userId = await getSessionUserId(req)
-    if (!userId) {
-      return NextResponse.json({ success: false, error: "ログインが必要です" }, { status: 401 })
-    }
+    const authz = await authorizeTeamStatusAdmin(req, teamId)
+    if (!authz.ok) return authz.res
 
     const body = (await req.json().catch(() => null)) as { day?: unknown; status?: unknown; note?: unknown } | null
     if (!body || !isDayKey(body.day) || !isScheduleStatus(body.status) || !isValidNote(body.note)) {
@@ -29,15 +54,6 @@ export async function PUT(req: NextRequest, ctx: RouteContext): Promise<NextResp
     }
     const { day, status } = body
     const note = body.note ?? null
-
-    // 非メンバーは存在を隠して 404、メンバーだが admin でなければ権限不足で 400
-    const role = await getTeamRole(teamId, userId)
-    if (role === null) {
-      return NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 })
-    }
-    if (role !== "admin") {
-      return NextResponse.json({ success: false, error: "チーム状態を編集する権限がありません" }, { status: 400 })
-    }
 
     await db
       .insert(teamDayStatus)
@@ -61,29 +77,15 @@ export async function PUT(req: NextRequest, ctx: RouteContext): Promise<NextResp
 export async function DELETE(req: NextRequest, ctx: RouteContext): Promise<NextResponse> {
   try {
     const { teamId } = await ctx.params
-    if (!isUuid(teamId)) {
-      return NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 })
-    }
 
-    const userId = await getSessionUserId(req)
-    if (!userId) {
-      return NextResponse.json({ success: false, error: "ログインが必要です" }, { status: 401 })
-    }
+    const authz = await authorizeTeamStatusAdmin(req, teamId)
+    if (!authz.ok) return authz.res
 
     const body = (await req.json().catch(() => null)) as { day?: unknown } | null
     if (!body || !isDayKey(body.day)) {
       return NextResponse.json({ success: false, error: "入力が不正です" }, { status: 400 })
     }
     const { day } = body
-
-    // 非メンバーは存在を隠して 404、メンバーだが admin でなければ権限不足で 400
-    const role = await getTeamRole(teamId, userId)
-    if (role === null) {
-      return NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 })
-    }
-    if (role !== "admin") {
-      return NextResponse.json({ success: false, error: "チーム状態を編集する権限がありません" }, { status: 400 })
-    }
 
     await db.delete(teamDayStatus).where(and(eq(teamDayStatus.teamId, teamId), eq(teamDayStatus.day, day)))
 
