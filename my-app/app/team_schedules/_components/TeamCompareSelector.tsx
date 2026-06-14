@@ -24,13 +24,13 @@ export function TeamCompareSelector({ teams, ownTeamId, opponentTeamIds, onOwnTe
   const opponentCandidates = teams.filter((t) => t.teamId !== ownTeamId)
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm">
+    <div className="flex flex-col gap-3 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm">
       <label className="flex items-center gap-2">
-        <span className="text-slate-500">自チーム</span>
+        <span className="text-zinc-400">自チーム</span>
         <select
           value={ownTeamId ?? ""}
           onChange={(e) => onOwnTeamChange(e.target.value || null)}
-          className="rounded border border-slate-300 bg-white px-2 py-1 font-medium text-slate-800 focus:border-indigo-400 focus:outline-none"
+          className="rounded border border-zinc-600 bg-zinc-800 px-2 py-1 font-medium text-zinc-100 focus:border-indigo-400 focus:outline-none"
         >
           <option value="">選択してください</option>
           {teams.map((t) => (
@@ -42,9 +42,9 @@ export function TeamCompareSelector({ teams, ownTeamId, opponentTeamIds, onOwnTe
       </label>
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-slate-500">相手チーム</span>
+        <span className="text-zinc-400">相手チーム</span>
         {opponentCandidates.length === 0 ? (
-          <span className="text-xs text-slate-400">候補がありません</span>
+          <span className="text-xs text-zinc-500">候補がありません</span>
         ) : (
           opponentCandidates.map((t) => {
             const checked = opponentTeamIds.includes(t.teamId)
@@ -55,7 +55,7 @@ export function TeamCompareSelector({ teams, ownTeamId, opponentTeamIds, onOwnTe
                 onClick={() => toggleOpponent(t.teamId)}
                 className={
                   "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors " +
-                  (checked ? "border-amber-500 bg-amber-50 text-amber-700" : "border-slate-300 bg-white text-slate-500 hover:border-slate-400")
+                  (checked ? "border-amber-500 bg-amber-500/15 text-amber-300" : "border-zinc-600 bg-zinc-800 text-zinc-400 hover:border-zinc-500")
                 }
               >
                 {checked ? "✓ " : ""}

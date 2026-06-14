@@ -40,39 +40,39 @@ export function CreateTeamModal({ onClose, onCreated }: CreateTeamModalProps) {
   }
 
   return (
-    <div className="w-[min(92vw,440px)] rounded-xl bg-white p-6 text-slate-800 shadow-xl">
-      <h2 className="text-base font-bold text-slate-900">チームを作成</h2>
+    <div className="w-[min(92vw,440px)] rounded-xl border border-zinc-700 bg-zinc-900 p-6 text-zinc-100 shadow-xl">
+      <h2 className="text-base font-bold text-zinc-100">チームを作成</h2>
 
       <div className="mt-4 flex flex-col gap-4">
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-slate-700">チーム名</span>
+          <span className="font-medium text-zinc-300">チーム名</span>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={50}
             placeholder="例: ○○サークル Aチーム"
-            className="rounded border border-slate-300 px-2.5 py-1.5 focus:border-indigo-400 focus:outline-none"
+            className="rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-400 focus:outline-none"
           />
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-slate-700">説明（任意）</span>
+          <span className="font-medium text-zinc-300">説明（任意）</span>
           <input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             maxLength={200}
-            className="rounded border border-slate-300 px-2.5 py-1.5 focus:border-indigo-400 focus:outline-none"
+            className="rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-400 focus:outline-none"
           />
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-slate-700">活動可否の管理方法</span>
+          <span className="font-medium text-zinc-300">活動可否の管理方法</span>
           <select
             value={mode}
             onChange={(e) => setMode(e.target.value as TeamManagementMode)}
-            className="rounded border border-slate-300 bg-white px-2.5 py-1.5 focus:border-indigo-400 focus:outline-none"
+            className="rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-zinc-100 focus:border-indigo-400 focus:outline-none"
           >
             <option value="members">メンバー集計（各自が予定を入力）</option>
             <option value="team">チーム単位（管理者がまとめて入力）</option>
@@ -81,22 +81,22 @@ export function CreateTeamModal({ onClose, onCreated }: CreateTeamModalProps) {
 
         {mode === "members" && (
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-slate-700">成立に必要な人数</span>
+            <span className="font-medium text-zinc-300">成立に必要な人数</span>
             <input
               type="number"
               min={1}
               value={requiredCount}
               onChange={(e) => setRequiredCount(Math.max(1, Number(e.target.value) || 1))}
-              className="w-24 rounded border border-slate-300 px-2.5 py-1.5 focus:border-indigo-400 focus:outline-none"
+              className="w-24 rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-400 focus:outline-none"
             />
           </label>
         )}
       </div>
 
-      {error && <p className="mt-3 text-xs text-rose-600">{error}</p>}
+      {error && <p className="mt-3 text-xs text-rose-400">{error}</p>}
 
       <div className="mt-5 flex justify-end gap-2">
-        <button type="button" onClick={onClose} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
+        <button type="button" onClick={onClose} className="rounded-lg border border-zinc-600 px-4 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-800">
           キャンセル
         </button>
         <button

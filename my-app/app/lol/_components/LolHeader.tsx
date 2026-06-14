@@ -13,7 +13,12 @@ const NAV_LINKS = [
   { href: "/team_schedules", label: "スクリム調整" },
 ]
 
-export default function LolHeader() {
+/** ログイン中ユーザー名を右側に表示したいページから渡す（未ログイン/未指定なら非表示） */
+type LolHeaderProps = {
+  userName?: string | null
+}
+
+export default function LolHeader({ userName }: LolHeaderProps = {}) {
   const [isOpen, setIsOpen] = useState(false)
   const { open } = useOverlay()
 
@@ -76,6 +81,14 @@ export default function LolHeader() {
           <Link href="/lol" className="font-bold text-lg hover:text-zinc-300 hover:opacity-70">
             LoL ツール
           </Link>
+
+          {/* ログイン中ユーザー名（指定があれば右端に表示） */}
+          {userName && (
+            <span className="ml-auto flex items-center gap-1.5 truncate text-sm text-zinc-300" title={userName}>
+              <span aria-hidden="true">👤</span>
+              <span className="truncate">{userName}</span>
+            </span>
+          )}
         </div>
       </header>
     </>
