@@ -1,8 +1,17 @@
 import { randomBytes } from "crypto"
 import { NextResponse } from "next/server"
-import { InteractionResponseType, MessageFlags, type APIChatInputApplicationCommandInteraction } from "discord-api-types/v10"
+import {
+  InteractionResponseType,
+  MessageFlags,
+  ComponentType,
+  ButtonStyle,
+  type APIChatInputApplicationCommandInteraction,
+  type APIMessageComponentInteraction,
+  type APIUser,
+} from "discord-api-types/v10"
 import { redisSet } from "@/app/_server/lib/redis/redis"
 import { magicLinkKey } from "@/app/_domains/teamSchedules/_server/redisKeys"
+import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { APP_URL } from "@/app/_server/lib/env"
 
 const MAGIC_LINK_TTL = 600 // 10分
@@ -13,18 +22,22 @@ export type MagicLinkPayload = {
   username: string
 }
 
+/** コマンド／ボタン共通でユーザー情報を取り出す（DM・サーバーどちらからでも呼べる） */
+function extractUser(user: APIUser | undefined): { discordUserId?: string; username: string } {
+  return {
+    discordUserId: user?.id,
+    username: user?.global_name ?? user?.username ?? "Discordユーザー",
+  }
+}
+
 /**
- * `/team-schedule-login` コマンド。
- * Discord ユーザーごとにワンタイムトークンを発行し、本人にだけ届く ephemeral 返信で
- * ログイン用URL（`${APP_URL}/team_schedules?token={token}`）を案内する。
+ * ワンタイムトークンを発行し、本人にだけ届く ephemeral 返信でログイン用URLを返す。
+ * コマンド初回・再発行ボタンの両方から呼ばれる共通処理。
  *
  * 3秒以内応答のため、トークン生成 + Redis保存 + ephemeral返信のみの軽量処理に留める。
  */
-export async function teamScheduleLoginCommand(interaction: APIChatInputApplicationCommandInteraction): Promise<NextResponse> {
-  // DM・サーバーどちらからでも呼べるよう member.user / user の両方を見る
-  const user = interaction.member?.user ?? interaction.user
-  const discordUserId = user?.id
-  const username = user?.global_name ?? user?.username ?? "Discordユーザー"
+async function buildLoginLinkResponse(user: APIUser | undefined): Promise<NextResponse> {
+  const { discordUserId, username } = extractUser(user)
 
   if (!discordUserId) {
     return NextResponse.json({
@@ -38,6 +51,7 @@ export async function teamScheduleLoginCommand(interaction: APIChatInputApplicat
   await redisSet(magicLinkKey(token), payload, MAGIC_LINK_TTL)
 
   const url = `${APP_URL}/team_schedules?token=${token}`
+  const expiryMinutes = Math.round(MAGIC_LINK_TTL / 60)
 
   return NextResponse.json({
     type: InteractionResponseType.ChannelMessageWithSource,
@@ -47,9 +61,38 @@ export async function teamScheduleLoginCommand(interaction: APIChatInputApplicat
         "",
         url,
         "",
-        "※ このリンクは10分間・1回のみ有効です。",
+        // -# はDiscordのサブテキスト（小さいグレー文字）
+        `-# 有効期限: ${expiryMinutes}分・1回のみ有効`,
       ].join("\n"),
       flags: MessageFlags.Ephemeral,
+      components: [
+        {
+          type: ComponentType.ActionRow,
+          components: [
+            {
+              type: ComponentType.Button,
+              style: ButtonStyle.Secondary,
+              label: "リンクを再発行",
+              custom_id: CLIENT_ACTIONS.TEAM_SCHEDULE.REISSUE_LOGIN,
+            },
+          ],
+        },
+      ],
     },
   })
+}
+
+/**
+ * `/team-schedule-login` コマンド。
+ * ログイン用リンクを ephemeral で発行する。
+ */
+export async function teamScheduleLoginCommand(interaction: APIChatInputApplicationCommandInteraction): Promise<NextResponse> {
+  return buildLoginLinkResponse(interaction.member?.user ?? interaction.user)
+}
+
+/**
+ * 「リンクを再発行」ボタン。コマンドを叩き直したのと同じく、新しいワンタイムリンクを発行する。
+ */
+export async function handleReissueLoginButton(interaction: APIMessageComponentInteraction): Promise<NextResponse> {
+  return buildLoginLinkResponse(interaction.member?.user ?? interaction.user)
 }

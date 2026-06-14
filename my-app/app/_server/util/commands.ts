@@ -58,4 +58,7 @@ export const CLIENT_ACTIONS = {
     REGISTER_TEAM2_ORDER: "fighting-register-team2-order",
     RESET_TEAM_ORDER: "fighting-reset-team-order",
   },
+  TEAM_SCHEDULE: {
+    REISSUE_LOGIN: TEAM_SCHEDULE_PREF + "reissue-login",
+  },
 }

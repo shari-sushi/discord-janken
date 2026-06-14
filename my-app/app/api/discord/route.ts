@@ -7,7 +7,7 @@ import { feedbackCommand, handleSelectFeedbackType, handleSubmitFeedback } from 
 import { timerCommand, handleSubmitTimer, handleOpenModalTimer } from "./command/user/timer"
 import { commonMessageCommand, handleSubmitNewCommonMessage, handleOpenModalEditCommonMessage, handleSubmitCommonMessage, handleForceEndEditingCommonMessage } from "./command/user/commonMessage"
 import { mentionReactorsCommand } from "./command/user/mentionReactors"
-import { teamScheduleLoginCommand } from "./command/team-schedule/login"
+import { teamScheduleLoginCommand, handleReissueLoginButton } from "./command/team-schedule/login"
 import { handleFightingTeamOrderCommand, handleOpenModalFightingTeamOrder, handleFightingRegisterTeamOrder, handleFightingResetTeamOrder } from "./command/fighting-game/teamOrder"
 import { roleRouletteCommand, handleRoleRouletteStart, handleRoleRouletteReset } from "./command/lol/roleRoulette"
 import { CLIENT_ACTIONS, COMMANDS } from "@/app/_server/util/commands"
@@ -153,6 +153,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return handleRoleRouletteStart(interaction)
         case CLIENT_ACTIONS.LOL.ROLE_ROULETTE_RESET:
           return handleRoleRouletteReset(interaction)
+        case CLIENT_ACTIONS.TEAM_SCHEDULE.REISSUE_LOGIN:
+          return handleReissueLoginButton(interaction)
 
         default:
           return NextResponse.json({
