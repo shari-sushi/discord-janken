@@ -21,6 +21,7 @@ import type { CellStatus, GridRow, ScheduleColumn } from "../_types"
 import { aggregateDay, buildDateRange, cycleStatus, indexSchedules, indexTeamStatus, summarizeTeamStatus, toCellStatus, toScheduleStatus } from "../_utils"
 import { ControlBar } from "./ControlBar"
 import { CreateTeamModal } from "./CreateTeamModal"
+import { DbHealthButton } from "./DbHealthButton"
 import { InviteModal } from "./InviteModal"
 import { LoginModal } from "./LoginModal"
 import { ScheduleGrid } from "./ScheduleGrid"
@@ -513,6 +514,7 @@ export function TeamSchedulesPage() {
           ※ セルをタップで 未記入→○→△→× を循環。○数が必要人数以上かつ相手が空いている日が「成立」。×が増えて必要人数に届かない確定の日は行を薄く表示。相手の不可セルは薄く表示。チーム単位モードのチームは管理者が1列でまとめて入力します。時間は自由記入のため、○数は時間の重なりまでは見ていません。
         </p>
       </div>
+      <DbHealthButton />
     </div>
   )
 }
