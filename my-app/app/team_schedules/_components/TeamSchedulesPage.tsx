@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import LolHeader from "@/app/lol/_components/LolHeader"
 import { useOverlay } from "@/app/_client/lib/modal/ModalContext"
 import type { ScheduleEntry, ScheduleStatus, SessionUser, TeamSchedule, TeamSummary } from "@/app/_domains/teamSchedules/types"
 import {
@@ -444,19 +445,20 @@ export function TeamSchedulesPage() {
   }, [ownTeamId, opponentTeamIds, schedulesByTeam, dates, dayKeys, session])
 
   return (
-    <div className="min-h-screen bg-slate-50 p-3 text-slate-800 sm:p-6">
-      <div className="mx-auto max-w-6xl">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+      <LolHeader userName={session?.displayName ?? null} onLogin={openLogin} />
+      <div className="mx-auto max-w-6xl p-3 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-slate-900">スクリム調整</h1>
-            <p className="mt-0.5 text-sm text-slate-500">必要人数そろって、相手も空いてる日を探す</p>
+            <h1 className="text-lg font-bold tracking-tight text-zinc-100">チーム活動 スケジュール調整</h1>
+            <p className="mt-0.5 text-sm text-zinc-400">必要人数そろって、相手も空いてる日を探す</p>
           </div>
           <div className="flex items-center gap-2">
             {isOwnAdmin && (
               <button
                 type="button"
                 onClick={() => void handleInvite()}
-                className="rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50"
+                className="rounded-lg border border-indigo-500 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-indigo-300 hover:bg-zinc-800"
               >
                 招待リンクを発行
               </button>
@@ -470,7 +472,7 @@ export function TeamSchedulesPage() {
         </div>
 
         {loadError && (
-          <div className="mt-3 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+          <div className="mt-3 rounded-lg border border-rose-800 bg-rose-950/50 px-3 py-2 text-xs text-rose-300">
             データの読み込みに失敗しました。時間をおいて再読み込みしてください。
           </div>
         )}
@@ -488,9 +490,9 @@ export function TeamSchedulesPage() {
 
         <div className="mt-3">
           {loading ? (
-            <p className="text-sm text-slate-400">読み込み中…</p>
+            <p className="text-sm text-zinc-400">読み込み中…</p>
           ) : !view ? (
-            <p className="rounded-lg border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-400">
+            <p className="rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-8 text-center text-sm text-zinc-400">
               自チームを選択すると日程グリッドが表示されます。
             </p>
           ) : (
@@ -507,7 +509,7 @@ export function TeamSchedulesPage() {
           )}
         </div>
 
-        <p className="mt-3 text-xs leading-relaxed text-slate-500">
+        <p className="mt-3 text-xs leading-relaxed text-zinc-400">
           ※ セルをタップで 未記入→○→△→× を循環。○数が必要人数以上かつ相手が空いている日が「成立」。×が増えて必要人数に届かない確定の日は行を薄く表示。相手の不可セルは薄く表示。チーム単位モードのチームは管理者が1列でまとめて入力します。時間は自由記入のため、○数は時間の重なりまでは見ていません。
         </p>
       </div>

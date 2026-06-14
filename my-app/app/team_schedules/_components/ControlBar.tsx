@@ -12,11 +12,11 @@ const LEGEND: CellStatus[] = ["ok", "maybe", "ng", "none"]
 /** 凡例と現在の必要人数を表示するバー（必要人数の変更はチーム設定側の責務） */
 export function ControlBar({ threshold }: ControlBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm">
-      <span className="text-slate-600">
-        成立に必要な人数：<span className="font-bold text-slate-900">{threshold}人</span>
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm">
+      <span className="text-zinc-300">
+        成立に必要な人数：<span className="font-bold text-zinc-100">{threshold}人</span>
       </span>
-      <div className="ml-auto flex flex-wrap items-center gap-2.5 text-xs text-slate-500">
+      <div className="ml-auto flex flex-wrap items-center gap-2.5 text-xs text-zinc-400">
         {LEGEND.map((s) => {
           const style = STATUS_STYLE[s]
           return (

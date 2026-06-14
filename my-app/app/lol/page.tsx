@@ -21,7 +21,7 @@ export default function LolIndexPage() {
         </li>
         <li>
           <Link href="/team_schedules" className="hover:underline hover:text-zinc-400 text-zinc-100">
-            スクリム調整
+            チーム活動 スケジュール調整
           </Link>
         </li>
       </ul>

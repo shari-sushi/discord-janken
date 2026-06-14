@@ -14,7 +14,7 @@ export function cycleStatus(current: CellStatus): CellStatus {
 
 /** 各状態の表示設定（記号・色・ラベル） */
 export const STATUS_STYLE: Record<CellStatus, { symbol: string; className: string; label: string }> = {
-  none: { symbol: "–", className: "border border-slate-300 bg-white text-slate-300", label: "未記入" },
+  none: { symbol: "–", className: "border border-zinc-600 bg-zinc-800 text-zinc-500", label: "未記入" },
   ok: { symbol: "○", className: "bg-emerald-500 text-white", label: "参加可" },
   maybe: { symbol: "△", className: "bg-amber-400 text-white", label: "検討中" },
   ng: { symbol: "×", className: "bg-rose-400 text-white", label: "不可" },

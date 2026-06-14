@@ -42,12 +42,12 @@ export function ScheduleCell({ status, note, editable, dim = false, onCycle, onN
           disabled={status === "none"}
           placeholder="時間"
           className={
-            "mt-1 w-14 rounded border border-slate-200 px-1 py-0.5 text-center text-[11px] text-slate-700 focus:border-indigo-400 focus:outline-none " +
-            (status === "none" ? "cursor-not-allowed bg-slate-50 text-slate-300 placeholder:text-slate-300" : "")
+            "mt-1 w-14 rounded border border-zinc-600 bg-zinc-800 px-1 py-0.5 text-center text-[11px] text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-400 focus:outline-none " +
+            (status === "none" ? "cursor-not-allowed bg-zinc-900 text-zinc-600 placeholder:text-zinc-600" : "")
           }
         />
       ) : (
-        <div className="mt-1 h-4.5 text-[11px] leading-4.5 text-slate-500">{note || ""}</div>
+        <div className="mt-1 h-4.5 text-[11px] leading-4.5 text-zinc-400">{note || ""}</div>
       )}
     </div>
   )
