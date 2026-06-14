@@ -19,7 +19,9 @@ export function isManagementMode(value: unknown): value is TeamManagementMode {
 /** チーム名として妥当か（1〜50文字・空白のみ不可） */
 const TEAM_NAME_MAX_LENGTH = 50
 export function isValidTeamName(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length >= 1 && value.length <= TEAM_NAME_MAX_LENGTH
+  if (typeof value !== "string") return false
+  const trimmed = value.trim()
+  return trimmed.length >= 1 && trimmed.length <= TEAM_NAME_MAX_LENGTH
 }
 
 /** チーム説明として妥当か（null or 200文字以内） */

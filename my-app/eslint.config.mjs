@@ -16,6 +16,9 @@ const eslintConfig = defineConfig([
   {
     rules: {
       semi: ["error", "never"],
+      // アンダースコア始まりの引数・変数は「意図的に未使用」とみなして許容する
+      // （モックの可変長引数 (..._a: unknown[]) など）
+      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }],
     },
   },
 ])
