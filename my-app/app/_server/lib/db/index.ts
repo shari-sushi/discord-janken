@@ -16,7 +16,18 @@ import { Pool } from "pg"
 import { DATABASE_URL } from "../env"
 import * as schema from "../../../_domains/teamSchedules/_server/schema"
 
-const isNeon = DATABASE_URL.includes("neon.tech")
+export const isNeon = DATABASE_URL.includes("neon.tech")
+
+// 接続先ホスト名（疎通チェックで「Neonに繋がっているか/localhostにフォールバックしてないか」を
+// サーバーログから確認するために使う）。レスポンスには含めない。認証情報も含めない。
+// パース不能・未設定時は空文字。
+export const dbHost: string = (() => {
+  try {
+    return new URL(DATABASE_URL).hostname
+  } catch {
+    return ""
+  }
+})()
 
 // neon-http と node-postgres でクエリAPIは共通。利用側は同じ db を使える。
 // 型は片方（NeonHttpDatabase）に寄せる。2ドライバの union のままだと
