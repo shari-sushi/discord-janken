@@ -68,14 +68,14 @@ describe("POST /team-schedules/join", () => {
     expect(insert).not.toHaveBeenCalled()
   })
 
-  it("success: 招待トークンで individual として参加する（冪等INSERT）", async () => {
+  it("success: 招待トークンで member として参加する（冪等INSERT）", async () => {
     mockGetSessionUserId.mockResolvedValue("user-1")
     await redisSet(inviteKey(TOKEN), { teamId: TEAM.teamId }, 600)
     const res = await POST(createTestRequest(URL, { method: "POST", body: { token: TOKEN } }))
     const json = await res.json()
     expect(res.status).toBe(200)
     expect(json.team).toEqual(TEAM)
-    expect(insertValues).toHaveBeenCalledWith(expect.objectContaining({ teamId: TEAM.teamId, userId: "user-1", teamRole: "individual" }))
+    expect(insertValues).toHaveBeenCalledWith(expect.objectContaining({ teamId: TEAM.teamId, userId: "user-1", teamRole: "member" }))
     expect(onConflictDoNothing).toHaveBeenCalledTimes(1)
   })
 })

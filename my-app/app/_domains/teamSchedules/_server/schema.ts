@@ -11,7 +11,7 @@
 //       passwordless（Discord magic-link）が確定したら別マイグレーションで削除する。
 
 import { sql } from "drizzle-orm"
-import { pgTable, uuid, text, integer, boolean, date, timestamp, primaryKey, foreignKey, index, check } from "drizzle-orm/pg-core"
+import { pgTable, uuid, text, integer, boolean, date, timestamp, primaryKey, foreignKey, index, uniqueIndex, check } from "drizzle-orm/pg-core"
 
 // teams: チーム（自チームも相手チームも全部ここに入れる）
 export const teams = pgTable(
@@ -54,10 +54,10 @@ export const teamMembers = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.userId, { onDelete: "cascade" }),
-    // アプリ内の権限ロール（個人 / 管理者）。{enum} で TS型も絞る
-    teamRole: text("team_role", { enum: ["individual", "admin"] })
+    // アプリ内の権限ロール（master / admin / member）。権限は master ⊇ admin ⊇ member。{enum} で TS型も絞る
+    teamRole: text("team_role", { enum: ["master", "admin", "member"] })
       .notNull()
-      .default("individual"),
+      .default("member"),
     // このチームで担当できる LoL ロール（can-play の有無）。固定5種なので bool 5列
     top: boolean("top").notNull().default(false),
     jungle: boolean("jungle").notNull().default(false),
@@ -68,7 +68,10 @@ export const teamMembers = pgTable(
   },
   (t) => [
     primaryKey({ columns: [t.teamId, t.userId] }),
-    check("team_members_team_role_chk", sql`${t.teamRole} in ('individual', 'admin')`),
+    check("team_members_team_role_chk", sql`${t.teamRole} in ('master', 'admin', 'member')`),
+    // master はチームに高々1人（部分ユニークインデックス）。「必ず1人必要」のうち上限を DB で担保し、
+    // 下限（最低1人）は作成者を master にすることで成立させる（master 不在を作る操作は別途アプリ側で防ぐ）
+    uniqueIndex("uq_team_members_one_master").on(t.teamId).where(sql`${t.teamRole} = 'master'`),
     index("idx_team_members_user").on(t.userId), // 「この人の所属チーム一覧」用
   ],
 )

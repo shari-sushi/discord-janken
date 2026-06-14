@@ -8,8 +8,16 @@
 /** 予定の状態。未記入は「行が無い」状態で表現するため、ここには含めない */
 export type ScheduleStatus = "ok" | "maybe" | "ng"
 
-/** チーム内の権限ロール */
-export type TeamRole = "individual" | "admin"
+/**
+ * チーム内の権限ロール。権限は master ⊇ admin ⊇ member の包含関係。
+ * - master: チーム・admin・member・自分を管理でき、master 権限を他人に譲渡できる（チームに必ず1人）
+ * - admin:  member・チーム・自分を編集できる（複数可）
+ * - member: 自分のことだけ編集できる（複数可）
+ */
+export type TeamRole = "master" | "admin" | "member"
+
+/** admin 相当以上（master または admin）の管理権限を持つロールか。front/server 共通の判定 */
+export const hasAdminAuthority = (role: TeamRole): boolean => role === "master" || role === "admin"
 
 /**
  * チームの活動可否の管理方法。

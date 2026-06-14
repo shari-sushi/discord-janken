@@ -57,9 +57,9 @@ describe("PUT /team-schedules/teams/[teamId]/team-status", () => {
     expect(insert).not.toHaveBeenCalled()
   })
 
-  it("failure: メンバーだが非adminは400（権限不足・書き込みもしない）", async () => {
+  it("failure: メンバーだがmember（admin相当未満）は400（権限不足・書き込みもしない）", async () => {
     mockGetSessionUserId.mockResolvedValue("user-1")
-    mockGetTeamRole.mockResolvedValue("individual")
+    mockGetTeamRole.mockResolvedValue("member")
     const req = createTestRequest(URL, { method: "PUT", body: { day: "2026-06-14", status: "ok", note: null } })
     const res = await PUT(req, ctxFor())
     expect(res.status).toBe(400)
@@ -103,6 +103,15 @@ describe("PUT /team-schedules/teams/[teamId]/team-status", () => {
     expect(insertValues).toHaveBeenCalledWith(expect.objectContaining({ teamId: TEAM_ID, day: "2026-06-14", status: "ok", note: "21:00~" }))
     expect(onConflictDoUpdate).toHaveBeenCalledTimes(1)
   })
+
+  it("success: masterならupsertされる（master ⊇ admin）", async () => {
+    mockGetSessionUserId.mockResolvedValue("user-1")
+    mockGetTeamRole.mockResolvedValue("master")
+    const req = createTestRequest(URL, { method: "PUT", body: { day: "2026-06-14", status: "ok", note: null } })
+    const res = await PUT(req, ctxFor())
+    expect(res.status).toBe(200)
+    expect(insert).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe("DELETE /team-schedules/teams/[teamId]/team-status", () => {
@@ -123,9 +132,9 @@ describe("DELETE /team-schedules/teams/[teamId]/team-status", () => {
     expect(del).not.toHaveBeenCalled()
   })
 
-  it("failure: メンバーだが非adminは400（削除しない）", async () => {
+  it("failure: メンバーだがmember（admin相当未満）は400（削除しない）", async () => {
     mockGetSessionUserId.mockResolvedValue("user-1")
-    mockGetTeamRole.mockResolvedValue("individual")
+    mockGetTeamRole.mockResolvedValue("member")
     const req = createTestRequest(URL, { method: "DELETE", body: { day: "2026-06-14" } })
     const res = await DELETE(req, ctxFor())
     expect(res.status).toBe(400)
