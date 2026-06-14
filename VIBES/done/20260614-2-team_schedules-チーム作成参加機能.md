@@ -112,5 +112,6 @@ handoff（[VIBES/plan/files/team-schedules-handoff.md](files/team-schedules-hand
 - 設計の出発点: [VIBES/plan/files/team-schedules-handoff.md](files/team-schedules-handoff.md)
 - 直前の実装計画: [VIBES/plan/20260614-1-team_schedules-API認証実装とmock解消.md](20260614-1-team_schedules-API認証実装とmock解消.md)
 - DBルール: [.claude/rules-on-demand/database.md](../../.claude/rules-on-demand/database.md)
+
 </content>
 </invoke>
