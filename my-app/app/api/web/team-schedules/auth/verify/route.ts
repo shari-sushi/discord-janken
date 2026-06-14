@@ -45,6 +45,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     } else {
       // passwordless（Discord magic-link）。password_hash は schema 上 notNull のため空文字で埋める
       // （認証方式が確定済みなので、将来別マイグレーションで列ごと削除予定）
+      // 既知のリスク: neon-http はトランザクション非対応のため users / discord_links を逐次 INSERT。
+      // users INSERT 成功後に discord_links INSERT が失敗すると、次回ログインでリンクが見つからず
+      // 別 user が再作成され重複する。重要度は高いがエッジ。恒久対応は別 Issue で検討（teams POST と同件）。
       const inserted = await db.insert(users).values({ displayName: username, passwordHash: "" }).returning({ userId: users.userId, displayName: users.displayName })
       userId = inserted[0].userId
       displayName = inserted[0].displayName

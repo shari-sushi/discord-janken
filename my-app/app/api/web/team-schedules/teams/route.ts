@@ -65,6 +65,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // チーム作成 → 作成者を admin メンバーに登録。
     // neon-http はトランザクション非対応のため逐次 INSERT（auth/verify と同じ流儀）。
+    // 既知のリスク: teams INSERT 成功後に team_members INSERT が失敗すると、admin 不在の
+    // チームが public 一覧に残る（誰も編集・招待できない孤児）。重要度は高いがエッジ。
+    // 恒久対応は別 Issue で検討（neon-serverless へ移行してトランザクション化 等）。
     const inserted = await db
       .insert(teams)
       .values({ name, description, managementMode, requiredCount })
