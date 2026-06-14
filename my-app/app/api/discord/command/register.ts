@@ -49,6 +49,12 @@ const mentionByReaction: RESTPostAPIApplicationCommandsJSONBody = {
   ],
 }
 
+const teamScheduleLogin: RESTPostAPIApplicationCommandsJSONBody = {
+  name: COMMANDS.TEAM_SCHEDULE.LOGIN,
+  description: "スクリム調整ページのログイン用リンクを発行します（本人にだけ表示）",
+  options: [],
+}
+
 const echo: RESTPostAPIApplicationCommandsJSONBody = {
   name: COMMANDS.DEV.ECHO,
   description: "入力したテキストをbotがチャットに送信",
@@ -122,6 +128,7 @@ const ALL_COMMANDS = {
   lol: { newMatch, randomSide, roleRoulette },
   user: { feedback, timer, commonMessage, mentionByReaction },
   fighting: { fightingTeamOrder },
+  teamSchedule: { teamScheduleLogin },
   dev: { echo, test },
 }
 

@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { href: "/lol/role-roulette", label: "ロールルーレット" },
   { href: "/lol/opgg-multi-link", label: "LTK向け: op.gg マルチサーチリンク生成" },
   { href: "/lol/all-ranked", label: "ランク確認" },
+  { href: "/team_schedules", label: "スクリム調整" },
 ]
 
 export default function LolHeader() {
