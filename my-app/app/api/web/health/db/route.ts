@@ -16,8 +16,9 @@ export async function GET() {
     console.log(`db health: ok driver=${driver} host=${dbHost} latency=${latencyMs}ms`)
     return NextResponse.json({ ok: true })
   } catch (error) {
+    const latencyMs = Date.now() - startedAt
     const message = error instanceof Error ? error.message : "unknown error"
-    console.error(`db health: error driver=${driver} host=${dbHost}: ${message}`)
+    console.error(`db health: error driver=${driver} host=${dbHost} latency=${latencyMs}ms: ${message}`)
     return NextResponse.json({ ok: false }, { status: 503 })
   }
 }

@@ -8,7 +8,7 @@ type Status = "idle" | "checking" | "ok" | "error"
  * DB疎通チェック用の極小ボタン。
  * 画面右下に常駐。通常はほぼ透明で、hoverで色が出る。未ログインでも使える。
  * クリックで /api/web/health/db を GET し、成否（ok）をドット色で表示するだけ。
- * driver/host などの詳細はサーバーログ側に出る。
+ * driver/host/latency などの詳細はサーバーログ側に出る。
  */
 export function DbHealthButton() {
   const [status, setStatus] = useState<Status>("idle")
