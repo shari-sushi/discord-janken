@@ -20,11 +20,20 @@ export const teams = pgTable(
     teamId: uuid("team_id").primaryKey().defaultRandom(), // gen_random_uuid() = UUIDv4
     name: text("name").notNull(),
     description: text("description"),
-    // 「活動可能」と判定するのに必要な ok の人数。自チーム=5, 相手チーム=1 を作成時に設定
+    // 「活動可能」と判定するのに必要な ok の人数。members モードで使う。team モードでは未使用
     requiredCount: integer("required_count").notNull().default(5),
+    // 活動可否の管理方法:
+    // - members: 各メンバーが schedules に入力 → ok数 >= required_count で活動可能
+    // - team:    admin がチームとして team_day_status に入力（4状態）
+    managementMode: text("management_mode", { enum: ["members", "team"] })
+      .notNull()
+      .default("members"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [check("teams_required_count_chk", sql`${t.requiredCount} >= 1`)],
+  (t) => [
+    check("teams_required_count_chk", sql`${t.requiredCount} >= 1`),
+    check("teams_management_mode_chk", sql`${t.managementMode} in ('members', 'team')`),
+  ],
 )
 
 // users: ログインする人（所属はここに持たせない＝複数チーム可）
@@ -89,6 +98,25 @@ export const schedules = pgTable(
   ],
 )
 
+// team_day_status: チーム単位モード（management_mode='team'）の日別状態。1チーム1日1行
+// 未記入 = 行が無い。状態を付けた時だけ INSERT（schedules と同じ流儀）
+export const teamDayStatus = pgTable(
+  "team_day_status",
+  {
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.teamId, { onDelete: "cascade" }),
+    day: date("day").notNull(),
+    status: text("status", { enum: ["ok", "maybe", "ng"] }).notNull(),
+    note: text("note"), // 自由記入の時間/コメント
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.teamId, t.day] }),
+    check("team_day_status_status_chk", sql`${t.status} in ('ok', 'maybe', 'ng')`),
+  ],
+)
+
 // discord_links: 1アプリアカウント : N Discordアカウント（認証の背骨）
 export const discordLinks = pgTable(
   "discord_links",
@@ -111,5 +139,7 @@ export type TeamMember = typeof teamMembers.$inferSelect
 export type NewTeamMember = typeof teamMembers.$inferInsert
 export type Schedule = typeof schedules.$inferSelect
 export type NewSchedule = typeof schedules.$inferInsert
+export type TeamDayStatus = typeof teamDayStatus.$inferSelect
+export type NewTeamDayStatus = typeof teamDayStatus.$inferInsert
 export type DiscordLink = typeof discordLinks.$inferSelect
 export type NewDiscordLink = typeof discordLinks.$inferInsert

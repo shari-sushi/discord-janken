@@ -11,6 +11,13 @@ export type ScheduleStatus = "ok" | "maybe" | "ng"
 /** チーム内の権限ロール */
 export type TeamRole = "individual" | "admin"
 
+/**
+ * チームの活動可否の管理方法。
+ * - members: 各メンバーが予定を入力し、ok数 >= requiredCount で活動可能
+ * - team:    admin がチーム単位で日別状態を入力（team_day_status）
+ */
+export type TeamManagementMode = "members" | "team"
+
 /** YYYY-MM-DD 形式の日付（時刻なし・カレンダー日付） */
 export type DayKey = string
 
@@ -28,8 +35,10 @@ export type TeamSummary = {
   teamId: string
   name: string
   description: string | null
-  /** 「活動可能」と判定するのに必要な ok の人数（自=5, 相手=1） */
+  /** 「活動可能」と判定するのに必要な ok の人数（members モードで使用） */
   requiredCount: number
+  /** 活動可否の管理方法 */
+  managementMode: TeamManagementMode
 }
 
 /** チームの所属メンバー */
@@ -48,18 +57,31 @@ export type ScheduleEntry = {
   note: string | null
 }
 
+/** チーム単位モードの1日ぶんの状態（team_day_status 1行） */
+export type TeamDayStatusEntry = {
+  day: DayKey
+  status: ScheduleStatus
+  note: string | null
+}
+
 /** グリッド描画に必要な、1チームぶんの全データ */
 export type TeamSchedule = {
   teamId: string
   name: string
   description: string | null
   requiredCount: number
+  managementMode: TeamManagementMode
   members: TeamScheduleMember[]
+  /** members モードの個人別予定 */
   schedules: ScheduleEntry[]
+  /** team モードのチーム単位日別状態（members モードでは空配列） */
+  teamStatus: TeamDayStatusEntry[]
 }
 
 /** ログイン中のユーザー（未ログインは null） */
 export type SessionUser = {
   userId: string
   displayName: string
+  /** チーム作成権限を持つか（ENV の許可 Discord ID） */
+  canCreateTeam: boolean
 }

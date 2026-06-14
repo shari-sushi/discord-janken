@@ -4,6 +4,7 @@ import { db } from "@/app/_server/lib/db"
 import { discordLinks, users } from "@/app/_domains/teamSchedules/_server/schema"
 import { magicLinkKey } from "@/app/_domains/teamSchedules/_server/redisKeys"
 import { createUserSession, sessionCookieOptions, TS_SESSION_COOKIE } from "@/app/_domains/teamSchedules/_server/session"
+import { canCreateTeam } from "@/app/_domains/teamSchedules/_server/authz"
 import { redisGet, redisDelete } from "@/app/_server/lib/redis/redis"
 import type { MagicLinkPayload } from "@/app/api/discord/command/team-schedule/login"
 
@@ -52,7 +53,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const sessionToken = await createUserSession(userId)
 
-    const res = NextResponse.json({ success: true, user: { userId, displayName } })
+    const allowed = await canCreateTeam(userId)
+    const res = NextResponse.json({ success: true, user: { userId, displayName, canCreateTeam: allowed } })
     res.cookies.set(TS_SESSION_COOKIE, sessionToken, sessionCookieOptions())
     return res
   } catch (error) {

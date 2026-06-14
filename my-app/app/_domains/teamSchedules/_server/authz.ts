@@ -11,8 +11,16 @@
 import { and, eq } from "drizzle-orm"
 import type { NextRequest } from "next/server"
 import { db } from "@/app/_server/lib/db"
-import { teamMembers } from "./schema"
+import { discordLinks, teamMembers } from "./schema"
 import { getUserIdFromSession } from "./session"
+import { TEAM_SCHEDULE_CREATOR_DISCORD_IDS } from "@/app/_server/lib/env"
+
+/** ENV の許可 Discord ID（カンマ区切り）を Set 化（空要素は除外） */
+const creatorDiscordIds = new Set(
+  TEAM_SCHEDULE_CREATOR_DISCORD_IDS.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
+)
 
 /** ログイン中ユーザーID（未認証は null） */
 export async function getSessionUserId(request: NextRequest): Promise<string | null> {
@@ -27,6 +35,16 @@ export async function assertTeamMember(teamId: string, userId: string): Promise<
     .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
     .limit(1)
   return rows.length > 0
+}
+
+/**
+ * このユーザーがチームを作成できるか。
+ * 紐づく Discord ID のいずれかが ENV の許可リストに含まれていれば true。
+ */
+export async function canCreateTeam(userId: string): Promise<boolean> {
+  if (creatorDiscordIds.size === 0) return false
+  const rows = await db.select({ discordUserId: discordLinks.discordUserId }).from(discordLinks).where(eq(discordLinks.userId, userId))
+  return rows.some((r) => creatorDiscordIds.has(r.discordUserId))
 }
 
 /** (teamId, userId) が admin ロールか */

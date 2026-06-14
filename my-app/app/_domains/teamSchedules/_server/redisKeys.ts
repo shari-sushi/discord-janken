@@ -14,3 +14,8 @@ export function magicLinkKey(token: string): string {
 export function userSessionKey(token: string): string {
   return `ts-session:${token}`
 }
+
+/** チーム招待トークン（TTL付き・複数人利用可）。値は { teamId } */
+export function inviteKey(token: string): string {
+  return `ts:invite:${token}`
+}

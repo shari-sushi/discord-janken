@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { users } from "@/app/_domains/teamSchedules/_server/schema"
-import { getSessionUserId } from "@/app/_domains/teamSchedules/_server/authz"
+import { canCreateTeam, getSessionUserId } from "@/app/_domains/teamSchedules/_server/authz"
 
 /**
  * GET /api/web/team-schedules/session
@@ -21,7 +21,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, error: "未ログイン" }, { status: 401 })
     }
 
-    return NextResponse.json({ success: true, user: { userId, displayName: rows[0].displayName } })
+    const allowed = await canCreateTeam(userId)
+    return NextResponse.json({ success: true, user: { userId, displayName: rows[0].displayName, canCreateTeam: allowed } })
   } catch (error) {
     console.error("team-schedules session error:", error)
     return NextResponse.json({ success: false, error: "セッション取得に失敗しました" }, { status: 500 })

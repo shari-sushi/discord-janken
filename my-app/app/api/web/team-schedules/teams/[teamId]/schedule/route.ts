@@ -1,10 +1,10 @@
 import { and, between, eq } from "drizzle-orm"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/app/_server/lib/db"
-import { schedules, teamMembers, teams, users } from "@/app/_domains/teamSchedules/_server/schema"
+import { schedules, teamDayStatus, teamMembers, teams, users } from "@/app/_domains/teamSchedules/_server/schema"
 import { getSessionUserId, assertTeamMember } from "@/app/_domains/teamSchedules/_server/authz"
 import { isDayKey, isScheduleStatus, isUuid, isValidNote } from "@/app/_domains/teamSchedules/_server/validators"
-import type { LolRoleFlags, ScheduleEntry, TeamSchedule, TeamScheduleMember } from "@/app/_domains/teamSchedules/types"
+import type { LolRoleFlags, ScheduleEntry, TeamDayStatusEntry, TeamSchedule, TeamScheduleMember } from "@/app/_domains/teamSchedules/types"
 
 type RouteContext = { params: Promise<{ teamId: string }> }
 
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest, ctx: RouteContext): Promise<NextResp
     }
 
     const teamRows = await db
-      .select({ teamId: teams.teamId, name: teams.name, description: teams.description, requiredCount: teams.requiredCount })
+      .select({ teamId: teams.teamId, name: teams.name, description: teams.description, requiredCount: teams.requiredCount, managementMode: teams.managementMode })
       .from(teams)
       .where(eq(teams.teamId, teamId))
       .limit(1)
@@ -63,13 +63,22 @@ export async function GET(req: NextRequest, ctx: RouteContext): Promise<NextResp
 
     const scheduleEntries: ScheduleEntry[] = scheduleRows.map((s) => ({ userId: s.userId, day: s.day, status: s.status, note: s.note }))
 
+    // チーム単位モードの日別状態（members モードでは行が無いので空になる）
+    const teamStatusRows = await db
+      .select({ day: teamDayStatus.day, status: teamDayStatus.status, note: teamDayStatus.note })
+      .from(teamDayStatus)
+      .where(and(eq(teamDayStatus.teamId, teamId), between(teamDayStatus.day, from, to)))
+    const teamStatusEntries: TeamDayStatusEntry[] = teamStatusRows.map((s) => ({ day: s.day, status: s.status, note: s.note }))
+
     const result: TeamSchedule = {
       teamId: team.teamId,
       name: team.name,
       description: team.description,
       requiredCount: team.requiredCount,
+      managementMode: team.managementMode,
       members,
       schedules: scheduleEntries,
+      teamStatus: teamStatusEntries,
     }
     return NextResponse.json({ success: true, team: result })
   } catch (error) {

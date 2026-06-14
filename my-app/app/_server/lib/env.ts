@@ -56,6 +56,8 @@ export const APP_URL = normalizeAppUrl(getRequiredEnv("APP_URL"))
 export const ALLOWED_USERS = getRequiredEnv("ALLOWED_USERS")
 export const ADMIN_PASSWORD = getRequiredEnv("ADMIN_PASSWORD")
 export const WEB_API_SECRET = getRequiredEnv("WEB_API_SECRET")
+// スクリム調整: チームを作成できる Discord ユーザーID（カンマ区切り。空なら誰も作成不可）
+export const TEAM_SCHEDULE_CREATOR_DISCORD_IDS = getOptionalEnv("TEAM_SCHEDULE_CREATOR_DISCORD_IDS", "")
 
 // データベース
 export const REDIS_URL = getOptionalEnv("REDIS_URL", "redis://localhost:6379")
