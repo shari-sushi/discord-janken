@@ -51,6 +51,8 @@ export const WEB_API_SECRET = getRequiredEnv("WEB_API_SECRET")
 
 // データベース
 export const REDIS_URL = getOptionalEnv("REDIS_URL", "redis://localhost:6379")
+// PostgreSQL（Neon 想定）。スクリム調整機能で使用。接続文字列（pooled 推奨）
+export const DATABASE_URL = getRequiredEnv("DATABASE_URL")
 
 // Google Sheets
 export const GOOGLE_SERVICE_ACCOUNT_JSON = getRequiredEnv("GOOGLE_SERVICE_ACCOUNT_JSON")

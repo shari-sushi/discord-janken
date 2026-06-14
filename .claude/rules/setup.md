@@ -29,6 +29,11 @@
 **データベース:**
 
 - `REDIS_URL`: Redis接続URL
+- `DATABASE_URL`: PostgreSQL（Neon想定）の接続URL
+  - スクリム調整機能（`/team_schedules`）で使用
+  - サーバーレスでのコネクション枯渇を避けるため **pooled 接続文字列**を推奨
+  - 例: `postgresql://user:password@host/dbname?sslmode=require`
+  - Vercel の環境変数にも設定が必要
 
 **Google Sheets:**
 
