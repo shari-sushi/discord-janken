@@ -13,12 +13,17 @@ const NAV_LINKS = [
   { href: "/team_schedules", label: "スクリム調整" },
 ]
 
-/** ログイン中ユーザー名を右側に表示したいページから渡す（未ログイン/未指定なら非表示） */
+/**
+ * ログイン中ユーザー名を右側に表示したいページから渡す。
+ * - userName があればその名前を表示
+ * - userName が無く onLogin が渡されていれば「ログイン」ボタンを表示
+ */
 type LolHeaderProps = {
   userName?: string | null
+  onLogin?: () => void
 }
 
-export default function LolHeader({ userName }: LolHeaderProps = {}) {
+export default function LolHeader({ userName, onLogin }: LolHeaderProps = {}) {
   const [isOpen, setIsOpen] = useState(false)
   const { open } = useOverlay()
 
@@ -82,12 +87,22 @@ export default function LolHeader({ userName }: LolHeaderProps = {}) {
             LoL ツール
           </Link>
 
-          {/* ログイン中ユーザー名（指定があれば右端に表示） */}
-          {userName && (
+          {/* 右端: ログイン中はユーザー名、未ログイン時はログインボタン */}
+          {userName ? (
             <span className="ml-auto flex items-center gap-1.5 truncate text-sm text-zinc-300" title={userName}>
               <span aria-hidden="true">👤</span>
               <span className="truncate">{userName}</span>
             </span>
+          ) : (
+            onLogin && (
+              <button
+                type="button"
+                onClick={onLogin}
+                className="ml-auto rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
+              >
+                ログイン
+              </button>
+            )
           )}
         </div>
       </header>

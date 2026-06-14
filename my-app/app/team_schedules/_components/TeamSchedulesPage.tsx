@@ -446,7 +446,7 @@ export function TeamSchedulesPage() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <LolHeader userName={session?.displayName ?? null} />
+      <LolHeader userName={session?.displayName ?? null} onLogin={openLogin} />
       <div className="mx-auto max-w-6xl p-3 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
