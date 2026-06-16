@@ -31,7 +31,10 @@ export async function GET(): Promise<NextResponse> {
     return res
   } catch (error) {
     console.error("team-schedules teams GET error:", error)
-    return NextResponse.json({ success: false, error: "チーム一覧の取得に失敗しました" }, { status: 500 })
+    // どのクエリで・何ms後に落ちたかを計測するため 500 経路にもヘッダーを付ける
+    const res = NextResponse.json({ success: false, error: "チーム一覧の取得に失敗しました" }, { status: 500 })
+    t.applyTo(res)
+    return res
   }
 }
 

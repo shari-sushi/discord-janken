@@ -33,6 +33,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return res
   } catch (error) {
     console.error("team-schedules session error:", error)
-    return NextResponse.json({ success: false, error: "セッション取得に失敗しました" }, { status: 500 })
+    // どのクエリで・何ms後に落ちたかを計測するため 500 経路にもヘッダーを付ける
+    const res = NextResponse.json({ success: false, error: "セッション取得に失敗しました" }, { status: 500 })
+    t.applyTo(res)
+    return res
   }
 }
