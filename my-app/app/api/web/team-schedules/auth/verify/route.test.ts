@@ -7,7 +7,9 @@ import { magicLinkKey } from "@/app/_domains/teamSchedules/_server/redisKeys"
 // DB: 既存リンク無し → users + discord_links を作成するパスを再現
 const selectLimit = vi.fn()
 const selectWhere = vi.fn(() => ({ limit: selectLimit }))
-const selectFrom = vi.fn(() => ({ where: selectWhere }))
+// userResolver は discord_links と users を innerJoin して1クエリで解決する
+const selectInnerJoin = vi.fn(() => ({ where: selectWhere }))
+const selectFrom = vi.fn(() => ({ innerJoin: selectInnerJoin }))
 const select = vi.fn((..._a: unknown[]) => ({ from: selectFrom }))
 const insertReturning = vi.fn(async () => [{ userId: "new-user-id", displayName: "テスト太郎" }])
 const insertValues = vi.fn(() => ({ returning: insertReturning, then: (r: (v: undefined) => void) => r(undefined) }))
