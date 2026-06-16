@@ -7,7 +7,11 @@
       "Bash(npx tsc --noEmit 2>&1)",
       "Bash(npm run lint)",
       "Bash(npm run lint 2>&1)",
-      "Bash(head -*)"
+      "Bash(head -*)",
+      "Bash(gh pr diff *)",
+      "Bash(gh pr diff:*)",
+      "Bash(npx vitest *)",
+      "Bash(npx vitest:*)"
     ]
   }
 }
