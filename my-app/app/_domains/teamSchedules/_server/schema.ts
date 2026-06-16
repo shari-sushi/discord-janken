@@ -64,6 +64,9 @@ export const teamMembers = pgTable(
     mid: boolean("mid").notNull().default(false),
     adc: boolean("adc").notNull().default(false),
     support: boolean("support").notNull().default(false),
+    // 招待リンク経由で参加した場合の発行者（#108: 誰のリンクで入ったかの記録）。
+    // master 直接作成・手動追加・発行者不明では null。発行者アカウント削除時は記録を残して null 化。
+    invitedBy: uuid("invited_by").references(() => users.userId, { onDelete: "set null" }),
     joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

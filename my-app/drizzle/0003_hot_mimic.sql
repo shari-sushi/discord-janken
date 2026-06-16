@@ -1,0 +1,2 @@
+ALTER TABLE "team_members" ADD COLUMN "invited_by" uuid;--> statement-breakpoint
+ALTER TABLE "team_members" ADD CONSTRAINT "team_members_invited_by_users_user_id_fk" FOREIGN KEY ("invited_by") REFERENCES "public"."users"("user_id") ON DELETE set null ON UPDATE no action;
