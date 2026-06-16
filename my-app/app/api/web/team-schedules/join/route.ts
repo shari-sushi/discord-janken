@@ -4,8 +4,8 @@ import { db } from "@/app/_server/lib/db"
 import { teamMembers, teams } from "@/app/_domains/teamSchedules/_server/schema"
 import { getSessionUserId } from "@/app/_domains/teamSchedules/_server/authz"
 import { inviteKey } from "@/app/_domains/teamSchedules/_server/redisKeys"
+import type { InvitePayload } from "@/app/_domains/teamSchedules/_server/invites"
 import { redisGet } from "@/app/_server/lib/redis/redis"
-import type { InvitePayload } from "@/app/api/web/team-schedules/teams/[teamId]/invite/route"
 import type { TeamSummary } from "@/app/_domains/teamSchedules/types"
 
 /**
