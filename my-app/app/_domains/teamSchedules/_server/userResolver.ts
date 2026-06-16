@@ -18,12 +18,18 @@ import { discordLinks, users } from "./schema"
  * 別 user が再作成され重複する。重要度は高いがエッジ。恒久対応は別 Issue で検討（teams POST と同件）。
  */
 export async function resolveOrCreateUserByDiscordId(discordUserId: string, username: string): Promise<{ userId: string; displayName: string }> {
-  const existing = await db.select({ userId: discordLinks.userId }).from(discordLinks).where(eq(discordLinks.discordUserId, discordUserId)).limit(1)
+  // discord_links と users を join して1クエリで解決（cold start 時の往復削減）。
+  // discord_links.userId は users への FK（onDelete: cascade）なので orphan link は発生せず、
+  // ヒットすれば必ず users 行も存在する。
+  const existing = await db
+    .select({ userId: discordLinks.userId, displayName: users.displayName })
+    .from(discordLinks)
+    .innerJoin(users, eq(users.userId, discordLinks.userId))
+    .where(eq(discordLinks.discordUserId, discordUserId))
+    .limit(1)
 
   if (existing[0]) {
-    const userId = existing[0].userId
-    const userRow = await db.select({ displayName: users.displayName }).from(users).where(eq(users.userId, userId)).limit(1)
-    return { userId, displayName: userRow[0]?.displayName ?? username }
+    return { userId: existing[0].userId, displayName: existing[0].displayName }
   }
 
   // passwordless（Discord magic-link）。password_hash は schema 上 notNull のため空文字で埋める

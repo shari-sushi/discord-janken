@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { resolveOrCreateUserByDiscordId } from "./userResolver"
 
-// db を最小モック（select→where→limit / insert→values→returning のチェーン）
+// db を最小モック（select→from→innerJoin→where→limit / insert→values→returning のチェーン）
 const selectLimit = vi.fn()
 const selectWhere = vi.fn(() => ({ limit: selectLimit }))
-const selectFrom = vi.fn(() => ({ where: selectWhere }))
+const selectInnerJoin = vi.fn(() => ({ where: selectWhere }))
+const selectFrom = vi.fn(() => ({ innerJoin: selectInnerJoin, where: selectWhere }))
 const select = vi.fn((..._a: unknown[]) => ({ from: selectFrom }))
 const insertReturning = vi.fn(async () => [{ userId: "new-user-id", displayName: "新規太郎" }])
 const insertValues = vi.fn(() => ({ returning: insertReturning, then: (r: (v: undefined) => void) => r(undefined) }))
@@ -22,8 +23,8 @@ beforeEach(() => {
 
 describe("resolveOrCreateUserByDiscordId", () => {
   it("success: 既存リンクがあれば作成せず既存ユーザーを返す", async () => {
-    // 1回目: discord_links 検索ヒット / 2回目: users の displayName 取得
-    selectLimit.mockResolvedValueOnce([{ userId: "existing-id" }]).mockResolvedValueOnce([{ displayName: "既存花子" }])
+    // discord_links ⋈ users の join 1クエリで userId + displayName を取得
+    selectLimit.mockResolvedValueOnce([{ userId: "existing-id", displayName: "既存花子" }])
 
     const result = await resolveOrCreateUserByDiscordId("discord-1", "fallback名")
 
