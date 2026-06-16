@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "WebFetch(https://discord.com/developers/docs*)",
-      "WebFetch(https://docs.discord.com/developers/*)"
+      "WebFetch(https://docs.discord.com/developers/*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx tsc --noEmit 2>&1)",
+      "Bash(npm run lint)",
+      "Bash(npm run lint 2>&1)",
+      "Bash(head -*)"
     ]
   }
 }
