@@ -33,7 +33,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (!payload) {
       return NextResponse.json({ success: false, error: "招待リンクの有効期限が切れているか、無効です" }, { status: 401 })
     }
-    const { teamId } = payload
+    const { teamId, invitedBy } = payload
 
     const teamRows = await db
       .select({
@@ -52,8 +52,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, error: "参加先のチームが見つかりません" }, { status: 404 })
     }
 
-    // 既に所属していれば何もしない（冪等）。新規なら member で参加
-    await db.insert(teamMembers).values({ teamId, userId, teamRole: "member" }).onConflictDoNothing({
+    // 既に所属していれば何もしない（冪等）。新規なら member で参加。
+    // invitedBy =「誰のリンクで入ったか」の記録（#108）。再参加時は既存行を維持し上書きしない。
+    await db.insert(teamMembers).values({ teamId, userId, teamRole: "member", invitedBy }).onConflictDoNothing({
       target: [teamMembers.teamId, teamMembers.userId],
     })
 

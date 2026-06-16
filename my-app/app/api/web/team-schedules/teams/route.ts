@@ -4,28 +4,37 @@ import { teamMembers, teams } from "@/app/_domains/teamSchedules/_server/schema"
 import { canCreateTeam, getSessionUserId } from "@/app/_domains/teamSchedules/_server/authz"
 import { isManagementMode, isValidRequiredCount, isValidTeamDescription, isValidTeamName } from "@/app/_domains/teamSchedules/_server/validators"
 import type { TeamSummary } from "@/app/_domains/teamSchedules/types"
+import { ServerTiming } from "@/app/_server/lib/serverTiming"
 
 /**
  * GET /api/web/team-schedules/teams
  * チーム一覧（比較セレクタ用・public read）。
  */
 export async function GET(): Promise<NextResponse> {
+  const t = new ServerTiming()
   try {
-    const rows = await db
-      .select({
-        teamId: teams.teamId,
-        name: teams.name,
-        description: teams.description,
-        requiredCount: teams.requiredCount,
-        managementMode: teams.managementMode,
-      })
-      .from(teams)
+    const rows = await t.measure("db_teams", () =>
+      db
+        .select({
+          teamId: teams.teamId,
+          name: teams.name,
+          description: teams.description,
+          requiredCount: teams.requiredCount,
+          managementMode: teams.managementMode,
+        })
+        .from(teams),
+    )
 
     const list: TeamSummary[] = rows
-    return NextResponse.json({ success: true, teams: list })
+    const res = NextResponse.json({ success: true, teams: list })
+    t.applyTo(res)
+    return res
   } catch (error) {
     console.error("team-schedules teams GET error:", error)
-    return NextResponse.json({ success: false, error: "チーム一覧の取得に失敗しました" }, { status: 500 })
+    // どのクエリで・何ms後に落ちたかを計測するため 500 経路にもヘッダーを付ける
+    const res = NextResponse.json({ success: false, error: "チーム一覧の取得に失敗しました" }, { status: 500 })
+    t.applyTo(res)
+    return res
   }
 }
 
