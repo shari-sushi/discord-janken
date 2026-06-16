@@ -5,6 +5,7 @@ import { schedules, teamDayStatus, teamMembers, teams, users } from "@/app/_doma
 import { getSessionUserId, assertTeamMember } from "@/app/_domains/teamSchedules/_server/authz"
 import { isDayKey, isScheduleStatus, isUuid, isValidNote } from "@/app/_domains/teamSchedules/_server/validators"
 import type { LolRoleFlags, ScheduleEntry, TeamDayStatusEntry, TeamSchedule, TeamScheduleMember } from "@/app/_domains/teamSchedules/types"
+import { ServerTiming } from "@/app/_server/lib/serverTiming"
 
 type RouteContext = { params: Promise<{ teamId: string }> }
 
@@ -13,6 +14,7 @@ type RouteContext = { params: Promise<{ teamId: string }> }
  * 期間内の schedules + members（グリッド描画用・public read）。
  */
 export async function GET(req: NextRequest, ctx: RouteContext): Promise<NextResponse> {
+  const t = new ServerTiming()
   try {
     const { teamId } = await ctx.params
     if (!isUuid(teamId)) {
@@ -26,48 +28,58 @@ export async function GET(req: NextRequest, ctx: RouteContext): Promise<NextResp
       return NextResponse.json({ success: false, error: "期間の指定が不正です" }, { status: 400 })
     }
 
-    const teamRows = await db
-      .select({ teamId: teams.teamId, name: teams.name, description: teams.description, requiredCount: teams.requiredCount, managementMode: teams.managementMode })
-      .from(teams)
-      .where(eq(teams.teamId, teamId))
-      .limit(1)
+    const teamRows = await t.measure("db_team", () =>
+      db
+        .select({ teamId: teams.teamId, name: teams.name, description: teams.description, requiredCount: teams.requiredCount, managementMode: teams.managementMode })
+        .from(teams)
+        .where(eq(teams.teamId, teamId))
+        .limit(1),
+    )
     const team = teamRows[0]
     if (!team) {
-      return NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 })
+      const res = NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 })
+      t.applyTo(res)
+      return res
     }
 
-    const memberRows = await db
-      .select({
-        userId: teamMembers.userId,
-        displayName: users.displayName,
-        teamRole: teamMembers.teamRole,
-        top: teamMembers.top,
-        jungle: teamMembers.jungle,
-        mid: teamMembers.mid,
-        adc: teamMembers.adc,
-        support: teamMembers.support,
-      })
-      .from(teamMembers)
-      .innerJoin(users, eq(users.userId, teamMembers.userId))
-      .where(eq(teamMembers.teamId, teamId))
+    const memberRows = await t.measure("db_members", () =>
+      db
+        .select({
+          userId: teamMembers.userId,
+          displayName: users.displayName,
+          teamRole: teamMembers.teamRole,
+          top: teamMembers.top,
+          jungle: teamMembers.jungle,
+          mid: teamMembers.mid,
+          adc: teamMembers.adc,
+          support: teamMembers.support,
+        })
+        .from(teamMembers)
+        .innerJoin(users, eq(users.userId, teamMembers.userId))
+        .where(eq(teamMembers.teamId, teamId)),
+    )
 
     const members: TeamScheduleMember[] = memberRows.map((m) => {
       const roles: LolRoleFlags = { top: m.top, jungle: m.jungle, mid: m.mid, adc: m.adc, support: m.support }
       return { userId: m.userId, displayName: m.displayName, teamRole: m.teamRole, roles }
     })
 
-    const scheduleRows = await db
-      .select({ userId: schedules.userId, day: schedules.day, status: schedules.status, note: schedules.note })
-      .from(schedules)
-      .where(and(eq(schedules.teamId, teamId), between(schedules.day, from, to)))
+    const scheduleRows = await t.measure("db_schedules", () =>
+      db
+        .select({ userId: schedules.userId, day: schedules.day, status: schedules.status, note: schedules.note })
+        .from(schedules)
+        .where(and(eq(schedules.teamId, teamId), between(schedules.day, from, to))),
+    )
 
     const scheduleEntries: ScheduleEntry[] = scheduleRows.map((s) => ({ userId: s.userId, day: s.day, status: s.status, note: s.note }))
 
     // チーム単位モードの日別状態（members モードでは行が無いので空になる）
-    const teamStatusRows = await db
-      .select({ day: teamDayStatus.day, status: teamDayStatus.status, note: teamDayStatus.note })
-      .from(teamDayStatus)
-      .where(and(eq(teamDayStatus.teamId, teamId), between(teamDayStatus.day, from, to)))
+    const teamStatusRows = await t.measure("db_team_status", () =>
+      db
+        .select({ day: teamDayStatus.day, status: teamDayStatus.status, note: teamDayStatus.note })
+        .from(teamDayStatus)
+        .where(and(eq(teamDayStatus.teamId, teamId), between(teamDayStatus.day, from, to))),
+    )
     const teamStatusEntries: TeamDayStatusEntry[] = teamStatusRows.map((s) => ({ day: s.day, status: s.status, note: s.note }))
 
     const result: TeamSchedule = {
@@ -80,7 +92,9 @@ export async function GET(req: NextRequest, ctx: RouteContext): Promise<NextResp
       schedules: scheduleEntries,
       teamStatus: teamStatusEntries,
     }
-    return NextResponse.json({ success: true, team: result })
+    const res = NextResponse.json({ success: true, team: result })
+    t.applyTo(res)
+    return res
   } catch (error) {
     console.error("team-schedules schedule GET error:", error)
     return NextResponse.json({ success: false, error: "予定の取得に失敗しました" }, { status: 500 })
