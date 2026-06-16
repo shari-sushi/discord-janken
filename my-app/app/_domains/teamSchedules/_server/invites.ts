@@ -24,7 +24,9 @@ export type InvitePayload = {
  * @param invitedBy 発行者の userId（省略可）
  */
 export async function createInviteToken(teamId: string, invitedBy?: string): Promise<string> {
-  const token = randomBytes(32).toString("hex")
+  // 16バイト=128bit=32文字。7日TTLの招待には十分な強度。
+  // Discord custom_id（100文字上限）に ?invite={token} で埋めるため短さも重要。
+  const token = randomBytes(16).toString("hex")
   const payload: InvitePayload = invitedBy ? { teamId, invitedBy } : { teamId }
   await redisSet(inviteKey(token), payload, INVITE_TTL)
   return token

@@ -30,7 +30,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       console.warn(`team-schedules auth/verify: token not found (expired/used) token=${tokenPrefix}…`)
       return NextResponse.json({ success: false, error: "リンクの有効期限が切れているか、既に使用済みです" }, { status: 401 })
     }
-    console.log(`team-schedules auth/verify: token ok token=${tokenPrefix}… discordUserId=${payload.discordUserId}`)
+    // 相関はトークン先頭プレフィックスのみで行う（discordUserId/userId はログに残さない）
+    console.log(`team-schedules auth/verify: token ok token=${tokenPrefix}…`)
     // 単回使用: 検証できた時点で即削除
     await redisDelete(magicLinkKey(token))
 
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const sessionToken = await createUserSession(userId)
 
     const allowed = await canCreateTeam(userId)
-    console.log(`team-schedules auth/verify: session created token=${tokenPrefix}… userId=${userId} canCreateTeam=${allowed}`)
+    console.log(`team-schedules auth/verify: session created token=${tokenPrefix}… canCreateTeam=${allowed}`)
     const res = NextResponse.json({ success: true, user: { userId, displayName, canCreateTeam: allowed } })
     res.cookies.set(TS_SESSION_COOKIE, sessionToken, sessionCookieOptions())
     return res
