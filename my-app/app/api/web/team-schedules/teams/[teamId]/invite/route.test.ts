@@ -55,6 +55,7 @@ describe("POST /team-schedules/teams/[teamId]/invite", () => {
     expect(redisSet).toHaveBeenCalledTimes(1)
     const [key, payload] = (redisSet as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]
     expect(key).toMatch(/^ts:invite:/)
-    expect(payload).toEqual({ teamId: TEAM_ID })
+    // 発行者（userId）も invitedBy として記録される（#108）
+    expect(payload).toEqual({ teamId: TEAM_ID, invitedBy: "user-1" })
   })
 })
