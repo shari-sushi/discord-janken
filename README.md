@@ -28,6 +28,8 @@ Bot をサーバーに追加する際は、使用するコマンドに対応し�
 | `/lol-random-side` | ✅ | | | |
 | `/lol-role-roulette` | ✅ | ✅ | ✅ | ✅ |
 | `/fighting-team-order` | ✅ | | | |
+| `/team-schedule-login` | ✅ | | | |
+| `/team-schedule-invite` | ✅ | | | |
 | `/user-timer` | ✅ | | | |
 | `/user-feedback` | ✅ | | | |
 | `/user-common-message` | ✅ | | | |
