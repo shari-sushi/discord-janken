@@ -8,6 +8,7 @@ import { timerCommand, handleSubmitTimer, handleOpenModalTimer } from "./command
 import { commonMessageCommand, handleSubmitNewCommonMessage, handleOpenModalEditCommonMessage, handleSubmitCommonMessage, handleForceEndEditingCommonMessage } from "./command/user/commonMessage"
 import { mentionReactorsCommand } from "./command/user/mentionReactors"
 import { teamScheduleLoginCommand, handleReissueLoginButton } from "./command/team-schedule/login"
+import { teamScheduleInviteCommand, handleSelectInviteTeam, handleJoinButton, handleConfirmJoinButton } from "./command/team-schedule/invite"
 import { handleFightingTeamOrderCommand, handleOpenModalFightingTeamOrder, handleFightingRegisterTeamOrder, handleFightingResetTeamOrder } from "./command/fighting-game/teamOrder"
 import { roleRouletteCommand, handleRoleRouletteStart, handleRoleRouletteReset } from "./command/lol/roleRoulette"
 import { CLIENT_ACTIONS, COMMANDS } from "@/app/_server/util/commands"
@@ -93,6 +94,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return handleFightingTeamOrderCommand(options)
         case COMMANDS.TEAM_SCHEDULE.LOGIN:
           return teamScheduleLoginCommand(interaction)
+        case COMMANDS.TEAM_SCHEDULE.INVITE:
+          return teamScheduleInviteCommand(interaction)
         case COMMANDS.DEV.ECHO:
           return echoCommand(options)
         case COMMANDS.DEV.TEST: {
@@ -155,6 +158,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           return handleRoleRouletteReset(interaction)
         case CLIENT_ACTIONS.TEAM_SCHEDULE.REISSUE_LOGIN:
           return handleReissueLoginButton(interaction)
+        case CLIENT_ACTIONS.TEAM_SCHEDULE.SELECT_INVITE_TEAM:
+          return handleSelectInviteTeam(interaction)
+        case CLIENT_ACTIONS.TEAM_SCHEDULE.JOIN:
+          return handleJoinButton(interaction)
+        case CLIENT_ACTIONS.TEAM_SCHEDULE.CONFIRM_JOIN:
+          return handleConfirmJoinButton(interaction)
 
         default:
           return NextResponse.json({

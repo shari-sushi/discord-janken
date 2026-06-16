@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { teamDayStatus, teams } from "@/app/_domains/teamSchedules/_server/schema"
 import { getSessionUserId, getTeamRole } from "@/app/_domains/teamSchedules/_server/authz"
+import { hasAdminAuthority } from "@/app/_domains/teamSchedules/types"
 import { isDayKey, isScheduleStatus, isUuid, isValidNote } from "@/app/_domains/teamSchedules/_server/validators"
 
 type RouteContext = { params: Promise<{ teamId: string }> }
@@ -14,7 +15,7 @@ type AuthzResult = { ok: true } | { ok: false; res: NextResponse }
  * team-status を編集できるかを「認証 → 認可 → モード確認」の順に判定する。
  * 入力検証より前に呼ぶこと（権限の無い相手の body は処理しない）。
  * - 非UUID / 非メンバー: 存在を隠して 404
- * - メンバーだが非admin: 権限不足で 400
+ * - メンバーだが admin 相当未満（member）: 権限不足で 400
  * - team モード以外のチーム: この機能の対象外で 400（members モードに孤児行を作らせない）
  */
 async function authorizeTeamStatusAdmin(req: NextRequest, teamId: string): Promise<AuthzResult> {
@@ -31,7 +32,7 @@ async function authorizeTeamStatusAdmin(req: NextRequest, teamId: string): Promi
   if (role === null) {
     return { ok: false, res: NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 }) }
   }
-  if (role !== "admin") {
+  if (!hasAdminAuthority(role)) {
     return { ok: false, res: NextResponse.json({ success: false, error: "チーム状態を編集する権限がありません" }, { status: 400 }) }
   }
 

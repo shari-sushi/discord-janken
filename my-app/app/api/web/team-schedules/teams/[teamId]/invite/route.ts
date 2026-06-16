@@ -1,19 +1,10 @@
-import { randomBytes } from "crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { assertTeamAdmin, getSessionUserId } from "@/app/_domains/teamSchedules/_server/authz"
-import { inviteKey } from "@/app/_domains/teamSchedules/_server/redisKeys"
+import { createInviteToken, INVITE_TTL } from "@/app/_domains/teamSchedules/_server/invites"
 import { isUuid } from "@/app/_domains/teamSchedules/_server/validators"
-import { redisSet } from "@/app/_server/lib/redis/redis"
 import { APP_URL } from "@/app/_server/lib/env"
 
 type RouteContext = { params: Promise<{ teamId: string }> }
-
-const INVITE_TTL = 60 * 60 * 24 * 7 // 7日
-
-/** Redis に保存する招待の中身（join で利用） */
-export type InvitePayload = {
-  teamId: string
-}
 
 /**
  * POST /api/web/team-schedules/teams/[teamId]/invite
@@ -38,9 +29,7 @@ export async function POST(req: NextRequest, ctx: RouteContext): Promise<NextRes
       return NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 })
     }
 
-    const token = randomBytes(32).toString("hex")
-    const payload: InvitePayload = { teamId }
-    await redisSet(inviteKey(token), payload, INVITE_TTL)
+    const token = await createInviteToken(teamId, userId)
 
     const url = `${APP_URL}/team_schedules?join=${token}`
     const expiryDays = Math.round(INVITE_TTL / (60 * 60 * 24))

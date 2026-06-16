@@ -12,7 +12,7 @@ import { and, eq } from "drizzle-orm"
 import type { NextRequest } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { discordLinks, teamMembers } from "./schema"
-import type { TeamRole } from "@/app/_domains/teamSchedules/types"
+import { hasAdminAuthority, type TeamRole } from "@/app/_domains/teamSchedules/types"
 import { getUserIdFromSession } from "./session"
 import { TEAM_SCHEDULE_CREATOR_DISCORD_IDS } from "@/app/_server/lib/env"
 
@@ -62,7 +62,13 @@ export async function getTeamRole(teamId: string, userId: string): Promise<TeamR
   return rows[0]?.teamRole ?? null
 }
 
-/** (teamId, userId) が admin ロールか */
+/** (teamId, userId) が admin 相当以上（master または admin）の管理権限を持つか */
 export async function assertTeamAdmin(teamId: string, userId: string): Promise<boolean> {
-  return (await getTeamRole(teamId, userId)) === "admin"
+  const role = await getTeamRole(teamId, userId)
+  return role !== null && hasAdminAuthority(role)
+}
+
+/** (teamId, userId) が master ロールか（master 専用操作の判定用） */
+export async function assertTeamMaster(teamId: string, userId: string): Promise<boolean> {
+  return (await getTeamRole(teamId, userId)) === "master"
 }
