@@ -28,3 +28,7 @@ export const extractMessageId = (customId: string): string | undefined => {
 export const extractType = (customId: string): string | undefined => {
   return extractParam(customId, "type")
 }
+
+export const extractInviteToken = (customId: string): string | undefined => {
+  return extractParam(customId, "invite")
+}

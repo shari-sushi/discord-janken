@@ -21,6 +21,7 @@ export const COMMANDS = {
   },
   TEAM_SCHEDULE: {
     LOGIN: TEAM_SCHEDULE_PREF + "login",
+    INVITE: TEAM_SCHEDULE_PREF + "invite",
   },
   // 開発者用
   DEV: {
@@ -60,5 +61,11 @@ export const CLIENT_ACTIONS = {
   },
   TEAM_SCHEDULE: {
     REISSUE_LOGIN: TEAM_SCHEDULE_PREF + "reissue-login",
+    // 複数チーム管理者向け: 招待対象チームのセレクトメニュー
+    SELECT_INVITE_TEAM: TEAM_SCHEDULE_PREF + "select-invite-team",
+    // 公開メッセージの参加ボタン（custom_id に ?invite={token}）
+    JOIN: TEAM_SCHEDULE_PREF + "join",
+    // 別チーム所属者向けの追加加入 確認ボタン（custom_id に ?invite={token}）
+    CONFIRM_JOIN: TEAM_SCHEDULE_PREF + "confirm-join",
   },
 }
