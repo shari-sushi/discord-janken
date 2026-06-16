@@ -25,6 +25,9 @@ import { extractInviteToken } from "@/app/api/discord/util/extractCustomIdParam"
 /** チーム情報（名前表示用の最小限） */
 type TeamRef = { teamId: string; name: string }
 
+/** 招待トークンから解決した参加先（チーム + 発行者）。invitedBy は記録用（#108） */
+type ResolvedInvite = TeamRef & { invitedBy?: string }
+
 /** Discord に返す（または webhook で差し替える）メッセージ本体 */
 type MessageContent = { content: string; components?: APIActionRowComponent<APIComponentInMessageActionRow>[] }
 
@@ -121,17 +124,21 @@ async function buildRecruitContent(team: TeamRef, invitedBy: string): Promise<Me
   }
 }
 
-/** 招待トークンから参加先チームを解決する（期限切れ・チーム削除済みは null） */
-async function resolveInviteTeam(token: string): Promise<TeamRef | null> {
+/** 招待トークンから参加先チームを解決する（期限切れ・チーム削除済みは null）。発行者 invitedBy も返す */
+async function resolveInviteTeam(token: string): Promise<ResolvedInvite | null> {
   const payload = await redisGet<InvitePayload>(inviteKey(token))
   if (!payload) return null
   const rows = await db.select({ teamId: teams.teamId, name: teams.name }).from(teams).where(eq(teams.teamId, payload.teamId)).limit(1)
-  return rows[0] ?? null
+  if (!rows[0]) return null
+  return { ...rows[0], invitedBy: payload.invitedBy }
 }
 
-/** member ロールでチームに参加させる（既に所属していれば冪等に無視） */
-async function joinAsMember(teamId: string, userId: string): Promise<void> {
-  await db.insert(teamMembers).values({ teamId, userId, teamRole: "member" }).onConflictDoNothing({
+/**
+ * member ロールでチームに参加させる（既に所属していれば冪等に無視）。
+ * invitedBy は「誰のリンクで入ったか」の記録（#108）。再参加時は初回の発行者を上書きしない。
+ */
+async function joinAsMember(teamId: string, userId: string, invitedBy?: string): Promise<void> {
+  await db.insert(teamMembers).values({ teamId, userId, teamRole: "member", invitedBy }).onConflictDoNothing({
     target: [teamMembers.teamId, teamMembers.userId],
   })
 }
@@ -284,7 +291,7 @@ export function handleJoinButton(interaction: APIMessageComponentInteraction): N
       }
 
       // どこにも所属していない: そのまま参加
-      await joinAsMember(team.teamId, userId)
+      await joinAsMember(team.teamId, userId, team.invitedBy)
       return safeEdit(application_id, interactionToken, `「${team.name}」に参加しました！`)
     } catch (e) {
       console.error("handleJoinButton after error:", e)
@@ -320,7 +327,7 @@ export function handleConfirmJoinButton(interaction: APIMessageComponentInteract
       }
 
       const { userId } = await resolveOrCreateUserByDiscordId(discordUserId, username)
-      await joinAsMember(team.teamId, userId)
+      await joinAsMember(team.teamId, userId, team.invitedBy)
       return safeEdit(application_id, interactionToken, `「${team.name}」に参加しました！`)
     } catch (e) {
       console.error("handleConfirmJoinButton after error:", e)
