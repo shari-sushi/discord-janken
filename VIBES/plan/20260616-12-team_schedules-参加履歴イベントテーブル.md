@@ -64,8 +64,12 @@ team_membership_events           -- 特定チームへの参加/脱退履歴
 
 - `resolveOrCreateUserByDiscordId` が **新規作成した場合のみ** `app_membership_events`(joined) を記録。inviter は呼び出し元から渡す（招待経由なら発行者、それ以外は null）。
   - 既存ユーザー判定が必要なので、戻り値に「新規作成したか」を含める。
-- Discord 招待 join / confirmJoin・Web join → `team_membership_events`(joined, source=invite, inviter=payload.invitedBy)。冪等性は状態テーブル（team_members）側の `onConflictDoNothing` で担保し、**イベントは実際に新規 INSERT できたときだけ**記録する（再参加の二重記録を避ける）。
+- Discord 招待 join / confirmJoin・Web join → `team_membership_events`(joined, source=invite, inviter=payload.invitedBy)。冪等性は状態テーブル（team_members）側の `onConflictDoNothing` で担保し、**イベントは実際に新規 INSERT できたときだけ**記録する（再参加の二重記録を避ける）。INSERT 成否は `.returning()` の戻り行数で判定する（conflict 時は 0 行）。
 - チーム作成（master） → `team_membership_events`(joined, source=master)。
+
+### 3.5 原子性（重要）
+
+状態テーブル（users / team_members）への INSERT と、対応する履歴イベントの INSERT は**同一トランザクションで実行**する。片方だけ成功すると「状態はあるのに履歴がない / 履歴はあるのに状態がない」ずれが生じるため。`db.transaction(...)` で包み、状態 INSERT の `.returning()` が新規行を返した場合のみ同じトランザクション内でイベントを INSERT する。
 
 ### 4. #117 の扱い
 
@@ -96,4 +100,5 @@ team_membership_events           -- 特定チームへの参加/脱退履歴
 - [ ] `source` の取りうる値の最終確定（特にアプリ側に将来 `invite` 以外の入口があるか）
 - [ ] `app_membership_events` を今回まとめて作るか、`team_membership_events` だけ先行するか（「後のデータ移行が面倒」方針なら同時作成）
 - [ ] イベントテーブルの主キー設計（連番 id / `gen_random_uuid()` / 複合）
-- [ ] 既存 #117 ブランチをクローズして本計画で新規ブランチにするか、同ブランチで作り直すか
+- [ ] 既存ユーザー/メンバーのバックフィル: テーブル新設前から存在する users / team_members に過去分の joined イベントを遡って作るか、履歴なし（イベントは新設以降のみ）で割り切るか
+- [ ] #117 は本ブランチ（feat/team-schedule-invite）の上で作り直す方針で確定（#117 を正すための設計のため、同一ブランチ継続が必然）
