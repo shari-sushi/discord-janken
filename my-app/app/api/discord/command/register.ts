@@ -55,6 +55,12 @@ const teamScheduleLogin: RESTPostAPIApplicationCommandsJSONBody = {
   options: [],
 }
 
+const teamScheduleInvite: RESTPostAPIApplicationCommandsJSONBody = {
+  name: COMMANDS.TEAM_SCHEDULE.INVITE,
+  description: "自分が管理するチームへの参加募集ボタンを投稿します",
+  options: [],
+}
+
 const echo: RESTPostAPIApplicationCommandsJSONBody = {
   name: COMMANDS.DEV.ECHO,
   description: "入力したテキストをbotがチャットに送信",
@@ -128,7 +134,7 @@ const ALL_COMMANDS = {
   lol: { newMatch, randomSide, roleRoulette },
   user: { feedback, timer, commonMessage, mentionByReaction },
   fighting: { fightingTeamOrder },
-  teamSchedule: { teamScheduleLogin },
+  teamSchedule: { teamScheduleLogin, teamScheduleInvite },
   dev: { echo, test },
 }
 
