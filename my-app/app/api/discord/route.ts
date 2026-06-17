@@ -261,6 +261,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       // feedback / common-message / timer 系は上の if/startsWith で return 済みのため、欠落は異常としてログする。
       const matchId = extractMatchId(firstCustomId, { warnIfMissing: true }) || ""
       console.log("Extracted match_id:", matchId)
+      // この行は LoL register（message_id を持つ）と 格ゲー order（match_id のみで message_id を持たない）で共用される。
+      // 後者では欠落が正常なため warnIfMissing は付けない（付けると格ゲー出場順送信のたびに誤検知ログが出る）。
       const messageId = extractMessageId(customId) || ""
 
       const channelId = interaction.channel_id || ""

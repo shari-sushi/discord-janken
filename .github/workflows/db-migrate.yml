@@ -6,6 +6,14 @@ name: DB Migrate (Neon)
 # 適用先は environment ごとの同名 secret(DATABASE_URL) で切り替わる。
 # 手動実行(workflow_dispatch)も可能（実行したブランチに応じて適用先が決まる）。
 # 注: 列追加など加算的なマイグレーション前提。破壊的変更は手動運用で慎重に。
+#
+# 【再発防止の前提】マイグレーションは必ず後方互換（加算的）に保つこと。
+# この workflow と Vercel deploy は main マージで並走するため、
+# 「deploy 完了 → migrate 未完」の一瞬に新カラム参照コードが動くと、
+# カラム不整合（42703 等）が一時的に再発し得る。加算的マイグレーションであれば
+# migrate 完了後に自己回復するが、列リネーム/削除などの破壊的変更では復旧しない。
+# 破壊的変更を伴う場合は、merge 前に workflow_dispatch で migrate を先行させてから
+# コードをデプロイする運用とする。
 on:
   push:
     branches: [main, develop]
