@@ -31,7 +31,9 @@ export async function POST(req: NextRequest, ctx: RouteContext): Promise<NextRes
 
     const token = await createInviteToken(teamId, userId)
 
-    const url = `${APP_URL}/team_schedules?join=${token}`
+    // join= で参加させつつ、team= で着地後に対象チームを自チーム選択させる。
+    // （未参加→参加でも、既に参加済みでも、同じリンクから対象チームが選択される導線になる）
+    const url = `${APP_URL}/team_schedules?join=${token}&team=${encodeURIComponent(teamId)}`
     const expiryDays = Math.round(INVITE_TTL / (60 * 60 * 24))
     return NextResponse.json({ success: true, url, expiryDays })
   } catch (error) {
