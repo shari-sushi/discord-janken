@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import LolHeader from "@/app/lol/_components/LolHeader"
 import { useOverlay } from "@/app/_client/lib/modal/ModalContext"
@@ -20,6 +20,7 @@ import {
 } from "@/app/_domains/teamSchedules/_client/teamSchedulesApiClient"
 import type { CellStatus, GridRow, ScheduleColumn } from "../_types"
 import { aggregateDay, buildDateRange, cycleStatus, indexSchedules, indexTeamStatus, summarizeTeamStatus, toCellStatus, toScheduleStatus } from "../_utils"
+import { setStoredSelection, useStoredSelection } from "../_selectionStore"
 import { ControlBar } from "./ControlBar"
 import { CreateTeamModal } from "./CreateTeamModal"
 import { DbHealthButton } from "./DbHealthButton"
@@ -49,8 +50,10 @@ export function TeamSchedulesPage() {
   const [session, setSession] = useState<SessionUser | null>(null)
   const [teams, setTeams] = useState<TeamSummary[]>([])
   const [schedulesByTeam, setSchedulesByTeam] = useState<Record<string, TeamSchedule>>({})
-  const [ownTeamId, setOwnTeamId] = useState<string | null>(null)
-  const [opponentTeamIds, setOpponentTeamIds] = useState<string[]>([])
+  // 比較チーム選択は localStorage に永続化する（リロードしても直前の選択を復元）
+  const { ownTeamId, opponentTeamIds } = useStoredSelection()
+  const setOwnTeamId = useCallback((id: string | null) => setStoredSelection((prev) => ({ ...prev, ownTeamId: id })), [])
+  const setOpponentTeamIds = useCallback((ids: string[]) => setStoredSelection((prev) => ({ ...prev, opponentTeamIds: ids })), [])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
 
@@ -109,6 +112,22 @@ export function TeamSchedulesPage() {
       cancelled = true
     }
   }, [])
+
+  // 初期ロード直後に1回だけ、復元した選択のうちチーム一覧に存在しないチームを取り除く。
+  // チーム一覧は public read で全チームを返すため、ここで消えるのは DB から削除されたチームのみ
+  // （非メンバーでも閲覧できるので「権限喪失」では消えない）。
+  // 以降の参加・作成では意図的に有効なチームを選択するため、再実行しない（選択が消されるのを防ぐ）。
+  const reconciledRef = useRef(false)
+  useEffect(() => {
+    if (loading || reconciledRef.current) return
+    reconciledRef.current = true
+    const valid = new Set(teams.map((t) => t.teamId))
+    const nextOwn = ownTeamId && !valid.has(ownTeamId) ? null : ownTeamId
+    const nextOpponents = opponentTeamIds.filter((id) => valid.has(id))
+    // 変化が無ければ書き戻さない（再実行は reconciledRef で止まるのでループ防止ではなく、無駄なストア書き込み＝余計な再レンダリングの抑制）
+    if (nextOwn === ownTeamId && nextOpponents.length === opponentTeamIds.length) return
+    setStoredSelection({ ownTeamId: nextOwn, opponentTeamIds: nextOpponents })
+  }, [loading, teams, ownTeamId, opponentTeamIds])
 
   // 選択中チームの予定を取得
   useEffect(() => {
@@ -205,7 +224,7 @@ export function TeamSchedulesPage() {
     return () => {
       cancelled = true
     }
-  }, [loading, session, openLogin, reloadTeams])
+  }, [loading, session, openLogin, reloadTeams, setOwnTeamId])
 
   // セルの状態トグル
   const handleCycle = useCallback(
@@ -312,7 +331,7 @@ export function TeamSchedulesPage() {
         }}
       />,
     )
-  }, [open, close, reloadTeams])
+  }, [open, close, reloadTeams, setOwnTeamId])
 
   // 選択中の自チームで、ログインユーザーが admin 相当以上（master/admin）か
   const isOwnAdmin = useMemo(() => {

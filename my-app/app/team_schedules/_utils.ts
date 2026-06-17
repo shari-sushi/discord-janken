@@ -1,7 +1,41 @@
 import type { ScheduleEntry, ScheduleStatus, TeamDayStatusEntry, TeamSchedule } from "@/app/_domains/teamSchedules/types"
-import type { CellStatus, DateCell } from "./_types"
+import type { CellStatus, ComparisonSelection, DateCell } from "./_types"
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"]
+
+/** 比較チーム選択を保存する localStorage キー（タブ間同期の storage イベント判定にも使う） */
+export const SELECTION_STORAGE_KEY = "ts_comparison_selection"
+
+/**
+ * localStorage から比較チーム選択を読み込む。
+ * SSR・localStorage不可・壊れたデータでは null を返す（呼び出し側は既定値で続行）。
+ */
+export function loadSelection(): ComparisonSelection | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = window.localStorage.getItem(SELECTION_STORAGE_KEY)
+    if (!raw) return null
+    const parsed: unknown = JSON.parse(raw)
+    if (typeof parsed !== "object" || parsed === null) return null
+    const { ownTeamId, opponentTeamIds } = parsed as Record<string, unknown>
+    return {
+      ownTeamId: typeof ownTeamId === "string" ? ownTeamId : null,
+      opponentTeamIds: Array.isArray(opponentTeamIds) ? opponentTeamIds.filter((id): id is string => typeof id === "string") : [],
+    }
+  } catch {
+    return null
+  }
+}
+
+/** 比較チーム選択を localStorage に保存する（localStorage不可の環境では黙って諦める） */
+export function saveSelection(selection: ComparisonSelection): void {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.setItem(SELECTION_STORAGE_KEY, JSON.stringify(selection))
+  } catch {
+    // プライベートモードや容量超過では永続化を諦める（機能自体は動作する）
+  }
+}
 
 /** セルのタップ循環順: 未記入 → ○ → △ → × → 未記入 */
 const CYCLE: CellStatus[] = ["none", "ok", "maybe", "ng"]
