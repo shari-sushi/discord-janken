@@ -144,7 +144,8 @@ export function TeamSchedulesPage() {
   // 「参加済み」案内リンク・招待リンクからの着地: ?team=<teamId> があれば、そのチームを自チームに選択する。
   // （Discord の招待ボタンで既に参加済みだったユーザーをスケジュール画面に誘導する導線）
   // チーム一覧（public read で全チーム返す）の取得後に存在チェックし、setOwnTeamId 経由で
-  // localStorage にも永続化する。最後に URL から team= を消すため teamParam が null になり、
+  // localStorage にも永続化する。既に別チームが own 選択済みでも team= で上書きする（招待/誘導が優先）。
+  // 最後に URL から team= を消すため teamParam が null になり、
   // 再実行時は冒頭で早期 return する＝自然に一度きりの処理になる（専用のガードフラグは不要）。
   const teamParam = searchParams.get("team")
   useEffect(() => {
