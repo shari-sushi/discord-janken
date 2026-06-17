@@ -34,7 +34,7 @@ function ComingSoonSection({ title }: { title: string }) {
 /**
  * チーム管理画面（#126 / #96 / #142）。
  * メンバーなら開けるが、編集できるのは admin 相当以上。
- * 機能があるのは「チーム名変更」「管理モード変更」「成立人数変更（members モード）」で、メンバー管理・招待リンク管理は準備中プレースホルダ。
+ * 機能があるのは「チーム名変更」「管理モード変更」「成立人数変更」で、メンバー管理・招待リンク管理は準備中プレースホルダ。
  * md 以下は body 全体を覆う実質ページ、lg 以上は中央カード。
  */
 export function TeamManageModal({ team, isAdmin, onClose, onUpdated }: TeamManageModalProps) {
@@ -49,8 +49,9 @@ export function TeamManageModal({ team, isAdmin, onClose, onUpdated }: TeamManag
   const trimmedName = name.trim()
   const nameDirty = trimmedName.length >= 1 && trimmedName !== team.name
   const modeDirty = mode !== team.managementMode
-  // 成立人数は members モードでのみ意味を持つ。team モード時は編集対象にしない（送らない）
-  const requiredCountDirty = mode === "members" && requiredCount !== team.requiredCount
+  // 成立人数は members モードでのみ意味を持つが、team モードでも保存は許可する（サーバーは常に >= 1 を検証、
+  // team モードの成立判定は別途 1 固定。値を保持しておけば members に戻したときそのまま使える）
+  const requiredCountDirty = requiredCount !== team.requiredCount
   const dirty = nameDirty || modeDirty || requiredCountDirty
   const canSubmit = isAdmin && dirty && !submitting
 
@@ -121,7 +122,7 @@ export function TeamManageModal({ team, isAdmin, onClose, onUpdated }: TeamManag
               </select>
               {/* 切替の副作用を事前に伝える（孤児化への不安・誤操作を減らす）。データ自体は消えない */}
               <p className="mt-1.5 text-xs text-zinc-500">※ 管理方法を変えると、もう一方のモードで入力済みの予定は画面に表示されなくなります（データは保持され、戻せば再表示されます）。</p>
-              {/* 成立に必要な人数は常に表示する。members モードでのみ使うため team モード時は disabled */}
+              {/* 成立に必要な人数。members モードでのみ実際に使うが、team モードでも編集・保存は許可する */}
               <label className="mt-3 flex flex-col gap-1 text-sm">
                 <span className="font-medium text-zinc-300">成立に必要な人数</span>
                 <input
@@ -129,7 +130,7 @@ export function TeamManageModal({ team, isAdmin, onClose, onUpdated }: TeamManag
                   min={1}
                   value={requiredCount}
                   onChange={(e) => setRequiredCount(Math.max(1, Number(e.target.value) || 1))}
-                  disabled={submitting || mode !== "members"}
+                  disabled={submitting}
                   className="w-24 rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-zinc-100 focus:border-indigo-400 focus:outline-none disabled:opacity-50"
                 />
               </label>
