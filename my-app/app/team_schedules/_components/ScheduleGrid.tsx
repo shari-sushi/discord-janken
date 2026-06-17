@@ -204,13 +204,13 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
                   // ピン留め列（日付・○数・相手・成立）は行背景を敷く。自メンバー列は編集中のみハイライト。
                   // team 列は bg を状態強調に使うため indigo bg は敷かない（編集可は下の ring で表現）
                   let cellBg = pinned ? bg : editableMember && !isTeamCol ? "bg-indigo-950/40" : ""
-                  // チーム単位モード列は、その日のセル状態に応じてセル全体を強調する（○=明るく / ×=薄く）。
-                  // ピン留めされた相手team列でも、視認性を優先して行背景（成立/詰み）より強調色を優先する。
+                  // チーム単位モード列は、その日のセル状態に応じてセル全体を強調する（○=bg を上書き / ×=中身を薄く）。
+                  // ○の強調 bg は半透明（成立/詰みの行背景と同種）。ピン留め相手team列でも視認性優先で行背景より優先する。
                   const emphasis = isTeamCol ? teamCellEmphasis(schedCol!.cells.get(r.date.key)?.status ?? "none") : null
                   if (emphasis?.bg) cellBg = emphasis.bg
                   // 編集可能な team 列は bg を状態強調に使うため、編集可インジケータは ring（枠線）で表現する（bg と両立）
                   const teamEditRing = isTeamCol && schedCol!.editable ? " ring-1 ring-inset ring-indigo-500/50" : ""
-                  // × セルは中身だけ薄くする。td 自体の bg は不透明のまま（sticky セルの背後透け防止）
+                  // × セルは td の bg は変えず（行背景のまま）、中身だけ opacity-30 で薄くする
                   const content = flexRender(col.columnDef.cell, cell.getContext())
                   return (
                     <td
