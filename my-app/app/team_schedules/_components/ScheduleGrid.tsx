@@ -205,7 +205,7 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
                   // team 列は bg を状態強調に使うため indigo bg は敷かない（編集可は下の ring で表現）
                   let cellBg = pinned ? bg : editableMember && !isTeamCol ? "bg-indigo-950/40" : ""
                   // チーム単位モード列は、その日のセル状態に応じてセル全体を強調する（○=bg を上書き / ×=中身を薄く）。
-                  // ○の強調 bg は半透明（成立/詰みの行背景と同種）。ピン留め相手team列でも視認性優先で行背景より優先する。
+                  // ○の強調 bg は半透明（成立行の背景 emerald/30 と同種）。ピン留め相手team列でも視認性優先で行背景より優先する。
                   const emphasis = isTeamCol ? teamCellEmphasis(schedCol!.cells.get(r.date.key)?.status ?? "none") : null
                   if (emphasis?.bg) cellBg = emphasis.bg
                   // 編集可能な team 列は bg を状態強調に使うため、編集可インジケータは ring（枠線）で表現する（bg と両立）
