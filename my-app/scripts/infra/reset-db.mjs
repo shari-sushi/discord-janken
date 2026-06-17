@@ -7,7 +7,7 @@
 // 使い方（対象を間違えないこと！ dev と prod で DATABASE_URL を必ず切り替える）:
 //   cd my-app
 //   # 接続先は my-app/.env の DATABASE_URL か、コマンド先頭の DATABASE_URL=... で指定（後者が優先）
-//   CONFIRM_RESET=yes DATABASE_URL="<対象のdirect接続文字列>" node scripts/reset-db.mjs
+//   CONFIRM_RESET=yes DATABASE_URL="<対象のdirect接続文字列>" node scripts/infra/reset-db.mjs
 //   DATABASE_URL="<同上>" npm run db:migrate   # ← 初期化後にこれで 0000〜0003 を再適用
 //   ※ .env の値を使う場合でも、誤爆防止のため対象ホストが表示されるので必ず確認すること
 //

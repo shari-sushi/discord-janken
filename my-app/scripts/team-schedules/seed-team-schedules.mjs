@@ -7,8 +7,8 @@
 //
 // 使い方（必ず my-app ディレクトリで実行・接続先を間違えないこと）:
 //   cd my-app
-//   node scripts/seed-team-schedules.mjs                 # シード + 全ユーザーのログインURL発行
-//   node scripts/seed-team-schedules.mjs --login-only    # シードせず、ログインURLだけ再発行（トークン失効時）
+//   node scripts/team-schedules/seed-team-schedules.mjs                 # シード + 全ユーザーのログインURL発行
+//   node scripts/team-schedules/seed-team-schedules.mjs --login-only    # シードせず、ログインURLだけ再発行（トークン失効時）
 //
 // 接続先は my-app/.env の DATABASE_URL / REDIS_URL / APP_URL を使う
 // （コマンド先頭で `APP_URL=http://localhost:3000 node ...` のように上書きも可能）。
@@ -149,7 +149,7 @@ async function issueLoginLinks(redis) {
   console.log(`\nログインURL（有効期限 ${expiryMinutes}分・各1回のみ・REDIS host: ${new URL(redisUrl).hostname}）:`)
   console.log(lines.join("\n"))
   console.log("\n※ URLは next dev と同じ REDIS_URL / APP_URL に対して発行されている必要があります。")
-  console.log("※ トークンが切れたら `node scripts/seed-team-schedules.mjs --login-only` で再発行できます。")
+  console.log("※ トークンが切れたら `node scripts/team-schedules/seed-team-schedules.mjs --login-only` で再発行できます。")
 }
 
 // --- main --------------------------------------------------------------------

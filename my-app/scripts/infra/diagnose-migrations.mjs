@@ -2,9 +2,9 @@
 // 使い方（どちらでもOK）:
 //   cd my-app
 //   # 1) my-app/.env の DATABASE_URL を使う
-//   node scripts/diagnose-migrations.mjs
+//   node scripts/infra/diagnose-migrations.mjs
 //   # 2) 接続先を明示する（.env より優先される）
-//   DATABASE_URL="<dev もしくは prod の direct 接続文字列>" node scripts/diagnose-migrations.mjs
+//   DATABASE_URL="<dev もしくは prod の direct 接続文字列>" node scripts/infra/diagnose-migrations.mjs
 //
 // drizzle-kit migrate がエラーを握り潰すため、ここでは __drizzle_migrations の
 // 適用記録と、実際に存在するテーブル/カラム/制約を SELECT で読み出して突き合わせる。
