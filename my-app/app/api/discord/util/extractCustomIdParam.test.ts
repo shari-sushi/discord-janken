@@ -49,7 +49,7 @@ describe("warnIfMissing オプション", () => {
     expect(spy).not.toHaveBeenCalled()
   })
 
-  it("failure: 値が無く warnIfMissing 未指定なら（デフォルト）ログを出さない", () => {
+  it("success: 値が無く warnIfMissing 未指定なら（デフォルト）ログを出さない", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {})
     const result = extractMatchId("action?other_param=123")
     expect(result).toBeUndefined()
