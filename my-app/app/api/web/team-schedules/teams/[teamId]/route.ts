@@ -65,6 +65,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
       if (!isManagementMode(body.managementMode)) {
         return NextResponse.json({ success: false, error: "入力が不正です" }, { status: 400 })
       }
+      // モードを切り替えても schedules / team_day_status は触らない。反対モードの行は孤児として
+      // 残るが、グリッドは現モードのデータしか描画せず、team-status の書き込みもモードで弾かれるため
+      // 実害は無い（第1弾の割り切り）。クリーンアップが必要になったら別 Issue で対応する。
       await db.update(teams).set({ managementMode: body.managementMode }).where(eq(teams.teamId, teamId))
     }
     // managementMode が無ければ DB 更新せず、現在値をそのまま返す（冪等な no-op）
