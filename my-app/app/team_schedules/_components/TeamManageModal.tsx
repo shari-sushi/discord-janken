@@ -41,7 +41,8 @@ export function TeamManageModal({ team, isAdmin, onClose, onUpdated }: TeamManag
   // 編集項目はモーダル末尾の「保存する」1つでまとめて保存する（変更のあった項目だけ1回の PATCH で送る）
   const [name, setName] = useState(team.name)
   const [mode, setMode] = useState<TeamManagementMode>(team.managementMode)
-  const [requiredCount, setRequiredCount] = useState(team.requiredCount)
+  // 成立人数は入力中は生の文字列で保持し（全消し・途中編集を許容）、blur 時に整数・1以上へ正規化する（ScheduleCell と同じ流儀）
+  const [requiredCountText, setRequiredCountText] = useState(String(team.requiredCount))
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -51,6 +52,8 @@ export function TeamManageModal({ team, isAdmin, onClose, onUpdated }: TeamManag
   const modeDirty = mode !== team.managementMode
   // 成立人数は members モードでのみ意味を持つが、team モードでも保存は許可する（サーバーは常に >= 1 を検証、
   // team モードの成立判定は別途 1 固定。値を保持しておけば members に戻したときそのまま使える）
+  // 入力文字列から整数・1以上へ正規化した値。dirty 判定・送信はこの正規化済みの値を使う
+  const requiredCount = Math.max(1, Math.floor(Number(requiredCountText) || 1))
   const requiredCountDirty = requiredCount !== team.requiredCount
   const dirty = nameDirty || modeDirty || requiredCountDirty
   const canSubmit = isAdmin && dirty && !submitting
@@ -128,8 +131,11 @@ export function TeamManageModal({ team, isAdmin, onClose, onUpdated }: TeamManag
                 <input
                   type="number"
                   min={1}
-                  value={requiredCount}
-                  onChange={(e) => setRequiredCount(Math.max(1, Number(e.target.value) || 1))}
+                  step={1}
+                  value={requiredCountText}
+                  onChange={(e) => setRequiredCountText(e.target.value)}
+                  // 確定時に整数・1以上へ正規化（小数の排除・保存時の 400 予防はここで担保）
+                  onBlur={() => setRequiredCountText(String(requiredCount))}
                   disabled={submitting}
                   className="w-24 rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-zinc-100 focus:border-indigo-400 focus:outline-none disabled:opacity-50"
                 />
