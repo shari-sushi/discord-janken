@@ -57,6 +57,17 @@ export function TeamSchedulesPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
 
+  // token / join を URL から消す際、対象チーム選択用の team= だけは残して掃除する。
+  // 招待リンク（?join=...&team=...）は join を消費しても team を後段の効果で読み取る必要があるため、
+  // 一括で全クエリを消す router.replace は使わない。team が無ければ素のパスに戻す。
+  // 呼び出し時点の最新クエリを window.location から読む（searchParams を deps に入れると
+  // この関数の同一性が毎レンダリングで変わり、token/join 効果が再実行され verifyMagicLink が
+  // 二重呼び出しされ得るため）。router は安定参照。
+  const cleanUrlKeepingTeam = useCallback(() => {
+    const t = new URLSearchParams(window.location.search).get("team")
+    router.replace(t ? `/team_schedules?team=${encodeURIComponent(t)}` : "/team_schedules")
+  }, [router])
+
   // ログイン着地: URLに ?token= があれば magic-link を検証してセッションを確立し、URLを掃除する
   const token = searchParams.get("token")
   useEffect(() => {
@@ -72,13 +83,13 @@ export function TeamSchedulesPage() {
       })
       .finally(() => {
         if (cancelled) return
-        // トークンをURLから除去（再読込・共有時の誤用を防ぐ）
-        router.replace("/team_schedules")
+        // トークンをURLから除去（再読込・共有時の誤用を防ぐ）。team= は残す。
+        cleanUrlKeepingTeam()
       })
     return () => {
       cancelled = true
     }
-  }, [token, router])
+  }, [token, cleanUrlKeepingTeam])
 
   // 招待リンク着地: ?join= があれば参加トークンを sessionStorage に退避し、URLを掃除する。
   // （未ログインならログイン往復をまたぐため、ログイン後に実行する）
@@ -90,8 +101,9 @@ export function TeamSchedulesPage() {
     } catch {
       // sessionStorage が使えない環境ではこの後の参加処理が走らないだけ
     }
-    router.replace("/team_schedules")
-  }, [joinToken, router])
+    // join は消すが team= は残し、後段の ?team= 効果で対象チームを自チーム選択させる
+    cleanUrlKeepingTeam()
+  }, [joinToken, cleanUrlKeepingTeam])
 
   // 初期ロード: セッション + チーム一覧
   useEffect(() => {
@@ -128,6 +140,21 @@ export function TeamSchedulesPage() {
     if (nextOwn === ownTeamId && nextOpponents.length === opponentTeamIds.length) return
     setStoredSelection({ ownTeamId: nextOwn, opponentTeamIds: nextOpponents })
   }, [loading, teams, ownTeamId, opponentTeamIds])
+
+  // 「参加済み」案内リンク・招待リンクからの着地: ?team=<teamId> があれば、そのチームを自チームに選択する。
+  // （Discord の招待ボタンで既に参加済みだったユーザーをスケジュール画面に誘導する導線）
+  // チーム一覧（public read で全チーム返す）の取得後に存在チェックし、setOwnTeamId 経由で
+  // localStorage にも永続化する。最後に URL から team= を消すため teamParam が null になり、
+  // 再実行時は冒頭で早期 return する＝自然に一度きりの処理になる（専用のガードフラグは不要）。
+  const teamParam = searchParams.get("team")
+  useEffect(() => {
+    if (!teamParam || loading) return
+    // 存在しない（削除済み等）チームIDは無視し、URLだけ掃除する
+    if (teams.some((t) => t.teamId === teamParam)) {
+      setOwnTeamId(teamParam)
+    }
+    router.replace("/team_schedules")
+  }, [teamParam, loading, teams, setOwnTeamId, router])
 
   // 選択中チームの予定を取得
   useEffect(() => {
