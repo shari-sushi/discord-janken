@@ -107,7 +107,16 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
         const view = col.cells.get(day) ?? { status: "none" as CellStatus, note: "" }
         const handlers = cellHandlers(col, day, view.status)
         // team モードはセル全体を opacity-30 で薄くするため（td側）、ボタン単体の dim は二重適用を避けて付けない
-        return <ScheduleCell status={view.status} note={view.note} editable={col.editable} dim={col.kind !== "team" && view.status === "ng"} onCycle={handlers.onCycle} onNoteChange={handlers.onNoteChange} />
+        return (
+          <ScheduleCell
+            status={view.status}
+            note={view.note}
+            editable={col.editable}
+            dim={col.kind !== "team" && view.status === "ng"}
+            onCycle={handlers.onCycle}
+            onNoteChange={handlers.onNoteChange}
+          />
+        )
       },
     }))
 
@@ -116,11 +125,7 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
       header: "成立",
       size: SIZE.success,
       cell: ({ row }) =>
-        row.original.success ? (
-          <span className="inline-block rounded bg-emerald-600 px-1.5 py-0.5 text-[11px] font-bold text-white">成立</span>
-        ) : (
-          <span className="text-xs text-zinc-600">—</span>
-        ),
+        row.original.success ? <span className="inline-block rounded bg-emerald-600 px-1.5 py-0.5 text-[11px] font-bold text-white">成立</span> : <span className="text-xs text-zinc-600">—</span>,
     }
 
     const memberCols: ColumnDef<GridRow>[] = memberColumns.map((col) => ({
@@ -193,22 +198,27 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
                 {row.getVisibleCells().map((cell) => {
                   const col = cell.column
                   const pinned = col.getIsPinned() === "left"
+                  const schedCol = columnById.get(col.id)
+                  const isTeamCol = schedCol?.kind === "team"
                   const editableMember = memberColumns.find((c) => c.id === col.id)?.editable
-                  // ピン留め列（日付・○数・相手・成立）は行背景を敷く。自メンバー列は編集中のみハイライト
-                  let cellBg = pinned ? bg : editableMember ? "bg-indigo-950/40" : ""
+                  // ピン留め列（日付・○数・相手・成立）は行背景を敷く。自メンバー列は編集中のみハイライト。
+                  // team 列は bg を状態強調に使うため indigo bg は敷かない（編集可は下の ring で表現）
+                  let cellBg = pinned ? bg : editableMember && !isTeamCol ? "bg-indigo-950/40" : ""
                   // チーム単位モード列は、その日のセル状態に応じてセル全体を強調する（○=明るく / ×=薄く）。
                   // ピン留めされた相手team列でも、視認性を優先して行背景（成立/詰み）より強調色を優先する。
-                  const schedCol = columnById.get(col.id)
-                  const emphasis = schedCol?.kind === "team" ? teamCellEmphasis(schedCol.cells.get(r.date.key)?.status ?? "none") : null
+                  const emphasis = isTeamCol ? teamCellEmphasis(schedCol!.cells.get(r.date.key)?.status ?? "none") : null
                   if (emphasis?.bg) cellBg = emphasis.bg
-                  const faded = emphasis?.faded ? " opacity-30" : ""
+                  // 編集可能な team 列は bg を状態強調に使うため、編集可インジケータは ring（枠線）で表現する（bg と両立）
+                  const teamEditRing = isTeamCol && schedCol!.editable ? " ring-1 ring-inset ring-indigo-500/50" : ""
+                  // × セルは中身だけ薄くする。td 自体の bg は不透明のまま（sticky セルの背後透け防止）
+                  const content = flexRender(col.columnDef.cell, cell.getContext())
                   return (
                     <td
                       key={cell.id}
-                      className={"border-b border-r border-zinc-700 px-1.5 py-1.5 align-top text-center " + cellBg + faded}
+                      className={"border-b border-r border-zinc-700 px-1.5 py-1.5 align-top text-center " + cellBg + teamEditRing}
                       style={{ ...pinnedStyle(col, false), minWidth: col.getSize(), width: pinned ? col.getSize() : undefined }}
                     >
-                      {flexRender(col.columnDef.cell, cell.getContext())}
+                      {emphasis?.faded ? <div className="opacity-30">{content}</div> : content}
                     </td>
                   )
                 })}
