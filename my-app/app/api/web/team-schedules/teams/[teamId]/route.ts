@@ -72,6 +72,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
     }
     // managementMode が無ければ DB 更新せず、現在値をそのまま返す（冪等な no-op）
 
+    // 更新有無に関わらず最後に1回 select してチームを返す。更新パスは .returning() で1往復に
+    // 畳めるが、no-op パスでも同じ TeamSummary を返す必要があり、返却の組み立てを1箇所に
+    // 揃えるためあえて別 select にしている（保存は低頻度なので往復増の影響は無視できる）。
     const rows = await db
       .select({
         teamId: teams.teamId,
@@ -90,6 +93,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
       return NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 })
     }
 
+    // select の列が TeamSummary と一致することのコンパイル時アサーション（POST /teams と同じ流儀）
     const result: TeamSummary = team
     return NextResponse.json({ success: true, team: result })
   } catch (error) {

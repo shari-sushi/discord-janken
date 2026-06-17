@@ -89,6 +89,8 @@ export function TeamManageModal({ team, isAdmin, onClose, onUpdated }: TeamManag
                 <option value="members">{MODE_LABEL.members}</option>
                 <option value="team">{MODE_LABEL.team}</option>
               </select>
+              {/* 切替の副作用を事前に伝える（孤児化への不安・誤操作を減らす）。データ自体は消えない */}
+              <p className="mt-1.5 text-xs text-zinc-500">※ 管理方法を変えると、もう一方のモードで入力済みの予定は画面に表示されなくなります（データは保持され、戻せば再表示されます）。</p>
               {error && <p className="mt-2 text-xs text-rose-400">{error}</p>}
               <div className="mt-3 flex justify-end">
                 <button
