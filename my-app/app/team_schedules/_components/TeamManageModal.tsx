@@ -32,15 +32,16 @@ function ComingSoonSection({ title }: { title: string }) {
 }
 
 /**
- * チーム管理画面（#126 / #96）。
+ * チーム管理画面（#126 / #96 / #142）。
  * メンバーなら開けるが、編集できるのは admin 相当以上。
- * 機能があるのは「チーム名変更」「管理モード変更」で、メンバー管理・招待リンク管理は準備中プレースホルダ。
+ * 機能があるのは「チーム名変更」「管理モード変更」「成立人数変更（members モード）」で、メンバー管理・招待リンク管理は準備中プレースホルダ。
  * md 以下は body 全体を覆う実質ページ、lg 以上は中央カード。
  */
 export function TeamManageModal({ team, isAdmin, onClose, onUpdated }: TeamManageModalProps) {
   // 編集項目はモーダル末尾の「保存する」1つでまとめて保存する（変更のあった項目だけ1回の PATCH で送る）
   const [name, setName] = useState(team.name)
   const [mode, setMode] = useState<TeamManagementMode>(team.managementMode)
+  const [requiredCount, setRequiredCount] = useState(team.requiredCount)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -48,7 +49,9 @@ export function TeamManageModal({ team, isAdmin, onClose, onUpdated }: TeamManag
   const trimmedName = name.trim()
   const nameDirty = trimmedName.length >= 1 && trimmedName !== team.name
   const modeDirty = mode !== team.managementMode
-  const dirty = nameDirty || modeDirty
+  // 成立人数は members モードでのみ意味を持つ。team モード時は編集対象にしない（送らない）
+  const requiredCountDirty = mode === "members" && requiredCount !== team.requiredCount
+  const dirty = nameDirty || modeDirty || requiredCountDirty
   const canSubmit = isAdmin && dirty && !submitting
 
   const handleSubmit = async () => {
@@ -60,6 +63,7 @@ export function TeamManageModal({ team, isAdmin, onClose, onUpdated }: TeamManag
       await updateTeam(team.teamId, {
         ...(nameDirty ? { name: trimmedName } : {}),
         ...(modeDirty ? { managementMode: mode } : {}),
+        ...(requiredCountDirty ? { requiredCount } : {}),
       })
       onUpdated()
       onClose()
@@ -70,7 +74,7 @@ export function TeamManageModal({ team, isAdmin, onClose, onUpdated }: TeamManag
   }
 
   return (
-    <div className="flex h-dvh w-screen flex-col overflow-y-auto rounded-none border-0 bg-zinc-900 p-6 text-zinc-100 shadow-xl md:h-auto md:max-h-[85vh] md:w-[min(92vw,480px)] md:rounded-xl md:border md:border-zinc-700">
+    <div className="flex h-full w-full flex-col overflow-y-auto rounded-none border-0 bg-zinc-900 p-6 text-zinc-100 shadow-xl md:h-auto md:max-h-[90vh] md:w-[min(80vw,720px)] md:rounded-xl md:border md:border-zinc-700">
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-base font-bold text-zinc-100">チーム管理</h2>
@@ -117,10 +121,25 @@ export function TeamManageModal({ team, isAdmin, onClose, onUpdated }: TeamManag
               </select>
               {/* 切替の副作用を事前に伝える（孤児化への不安・誤操作を減らす）。データ自体は消えない */}
               <p className="mt-1.5 text-xs text-zinc-500">※ 管理方法を変えると、もう一方のモードで入力済みの予定は画面に表示されなくなります（データは保持され、戻せば再表示されます）。</p>
+              {/* 成立に必要な人数は常に表示する。members モードでのみ使うため team モード時は disabled */}
+              <label className="mt-3 flex flex-col gap-1 text-sm">
+                <span className="font-medium text-zinc-300">成立に必要な人数</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={requiredCount}
+                  onChange={(e) => setRequiredCount(Math.max(1, Number(e.target.value) || 1))}
+                  disabled={submitting || mode !== "members"}
+                  className="w-24 rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-zinc-100 focus:border-indigo-400 focus:outline-none disabled:opacity-50"
+                />
+              </label>
             </>
           ) : (
             // メンバー（非 admin）は読み取り専用
-            <p className="mt-2 text-sm text-zinc-200">{MODE_LABEL[team.managementMode]}</p>
+            <>
+              <p className="mt-2 text-sm text-zinc-200">{MODE_LABEL[team.managementMode]}</p>
+              <p className="mt-1 text-sm text-zinc-400">成立に必要な人数: {team.requiredCount}人</p>
+            </>
           )}
         </section>
 

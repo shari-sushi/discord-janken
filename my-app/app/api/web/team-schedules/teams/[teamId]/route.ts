@@ -4,7 +4,7 @@ import { db } from "@/app/_server/lib/db"
 import { teams } from "@/app/_domains/teamSchedules/_server/schema"
 import { getSessionUserId, getTeamRole } from "@/app/_domains/teamSchedules/_server/authz"
 import { hasAdminAuthority } from "@/app/_domains/teamSchedules/types"
-import { isManagementMode, isUuid, isValidTeamName } from "@/app/_domains/teamSchedules/_server/validators"
+import { isManagementMode, isUuid, isValidRequiredCount, isValidTeamName } from "@/app/_domains/teamSchedules/_server/validators"
 import type { TeamManagementMode, TeamSummary } from "@/app/_domains/teamSchedules/types"
 
 type RouteContext = { params: Promise<{ teamId: string }> }
@@ -45,12 +45,12 @@ async function authorizeTeamAdmin(req: NextRequest, teamId: string): Promise<Aut
  * チーム情報を部分更新する（要ログイン + admin相当）。各フィールドはオプショナルで冪等:
  * undefined は編集しない / 値があれば上書きする。body: { name?, description?, requiredCount?, managementMode? }
  *
- * 反映するのは name（#96）と managementMode（#126）。description / requiredCount は
+ * 反映するのは name（#96）/ managementMode（#126）/ requiredCount（#142）。description は
  * Issue の指示「それ以外は受け取った後無視」に従い、受け取っても DB へは適用しない（バリデーションもしない）。
  *
  * 冪等性の都合上、空ボディ・不正JSON（req.json() が null）・無視されるフィールドのみのボディは
  * いずれも「適用対象なしの no-op」として現在のチーム情報を 200 で返す（team-status と違い 400 にはしない）。
- * name / managementMode に不正値が入っている場合だけ 400 で弾く。
+ * name / managementMode / requiredCount に不正値が入っている場合だけ 400 で弾く。
  */
 export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextResponse> {
   try {
@@ -59,17 +59,24 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
     const authz = await authorizeTeamAdmin(req, teamId)
     if (!authz.ok) return authz.res
 
-    const body = (await req.json().catch(() => null)) as { name?: unknown; managementMode?: unknown } | null
+    const body = (await req.json().catch(() => null)) as { name?: unknown; managementMode?: unknown; requiredCount?: unknown } | null
 
     // 反映対象を1つの set オブジェクトに組み立てる。フィールドが来ている場合のみ検証して積む（不正値は弾く）。
-    // description / requiredCount は body で受け取っても無視する（反映しない）。
-    const patch: { name?: string; managementMode?: TeamManagementMode } = {}
+    // description は body で受け取っても無視する（反映しない）。
+    const patch: { name?: string; managementMode?: TeamManagementMode; requiredCount?: number } = {}
     if (body && body.name !== undefined) {
       if (!isValidTeamName(body.name)) {
         return NextResponse.json({ success: false, error: "入力が不正です" }, { status: 400 })
       }
       // 保存は trim 後（POST /teams と同じ流儀）
       patch.name = body.name.trim()
+    }
+    if (body && body.requiredCount !== undefined) {
+      // 成立に必要な人数（1以上の整数）。members モードでのみ意味を持つが、ここではモードに依らず値だけ検証して反映する
+      if (!isValidRequiredCount(body.requiredCount)) {
+        return NextResponse.json({ success: false, error: "入力が不正です" }, { status: 400 })
+      }
+      patch.requiredCount = body.requiredCount
     }
     if (body && body.managementMode !== undefined) {
       if (!isManagementMode(body.managementMode)) {
