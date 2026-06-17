@@ -345,7 +345,7 @@ export async function createFollowupMessage(
 ): Promise<void> {
   const url = `${DISCORD_API_BASE_URL}/webhooks/${applicationId}/${token}`
 
-  const body: DiscordMessageBody & { flags?: number } = { content }
+  const body: DiscordMessageBody & { flags?: MessageFlags } = { content }
   if (components && components.length > 0) {
     body.components = components
   }
