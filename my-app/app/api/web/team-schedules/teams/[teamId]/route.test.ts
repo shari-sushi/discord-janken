@@ -180,4 +180,53 @@ describe("PATCH /team-schedules/teams/[teamId]", () => {
     expect(res.status).toBe(400)
     expect(update).not.toHaveBeenCalled()
   })
+
+  it("success: adminが requiredCount を変更すると update され、更新後のチームを返す", async () => {
+    mockGetSessionUserId.mockResolvedValue("user-1")
+    mockGetTeamRole.mockResolvedValue("admin")
+    const req = createTestRequest(URL, { method: "PATCH", body: { requiredCount: 4 } })
+    const res = await PATCH(req, ctxFor())
+    expect(res.status).toBe(200)
+    expect(update).toHaveBeenCalledTimes(1)
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ requiredCount: 4 }))
+    const json = await res.json()
+    expect(json).toMatchObject({ success: true, team: { teamId: TEAM_ID } })
+  })
+
+  it("success: requiredCount と name を同時指定すると両方が1回の set に入る", async () => {
+    mockGetSessionUserId.mockResolvedValue("user-1")
+    mockGetTeamRole.mockResolvedValue("admin")
+    const req = createTestRequest(URL, { method: "PATCH", body: { name: "両方", requiredCount: 2 } })
+    const res = await PATCH(req, ctxFor())
+    expect(res.status).toBe(200)
+    expect(update).toHaveBeenCalledTimes(1)
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ name: "両方", requiredCount: 2 }))
+  })
+
+  it("failure: 0以下の requiredCount は400（更新もしない）", async () => {
+    mockGetSessionUserId.mockResolvedValue("user-1")
+    mockGetTeamRole.mockResolvedValue("admin")
+    const req = createTestRequest(URL, { method: "PATCH", body: { requiredCount: 0 } })
+    const res = await PATCH(req, ctxFor())
+    expect(res.status).toBe(400)
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it("failure: 整数でない requiredCount は400（更新もしない）", async () => {
+    mockGetSessionUserId.mockResolvedValue("user-1")
+    mockGetTeamRole.mockResolvedValue("admin")
+    const req = createTestRequest(URL, { method: "PATCH", body: { requiredCount: 2.5 } })
+    const res = await PATCH(req, ctxFor())
+    expect(res.status).toBe(400)
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it("failure: 数値でない requiredCount は400（更新もしない）", async () => {
+    mockGetSessionUserId.mockResolvedValue("user-1")
+    mockGetTeamRole.mockResolvedValue("admin")
+    const req = createTestRequest(URL, { method: "PATCH", body: { requiredCount: "3" } })
+    const res = await PATCH(req, ctxFor())
+    expect(res.status).toBe(400)
+    expect(update).not.toHaveBeenCalled()
+  })
 })

@@ -672,11 +672,24 @@ export function TeamSchedulesPage() {
       {/* チーム管理モーダル（?manage=1 で表示）。useOverlay とは別に、URL 由来で直接描画する */}
       {showManage && ownTeamForManage && (
         <>
-          {/* 全画面の半透明背景（クリックで閉じる）。md 以下は全画面モーダルが覆うため実質ページ */}
-          <div className="fixed inset-0 z-40 h-full w-full bg-zinc-500/70" onClick={closeManage} />
-          {/* lg では中央カード外クリックを背景に通すため pointer-events-none、コンテンツのみ有効化（OverlayProvider と同じ流儀） */}
-          <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
-            <div className="pointer-events-auto">
+          {/*
+            z-30 に揃える（ヘッダー z-50 / ハンバーガーのドロワーパネル z-40 より必ず後ろ）。
+            これでモーダルを開いてもヘッダー・メニューは前面に残る（LolHeader 参照）。
+            なおドロワーの backdrop も同じ z-30（LolHeader）。両者の同時表示は想定しないため
+            同値で許容している（重なり順は DOM 順依存になるが実害なし）。
+          */}
+          {/* 半透明背景（クリックで閉じる） */}
+          <div className="fixed inset-0 z-30 h-full w-full bg-zinc-500/70" onClick={closeManage} />
+          {/*
+            md 以下はヘッダーを隠さないよう top-14 から開始する全画面モーダル。
+            top-14(56px) は LolHeader の実高さ（py-3=24px + ボタン h-8=32px）に合わせた値。
+            ヘッダーは fixed ではなく in-flow（relative z-50）なので、ヘッダーの padding/高さを
+            変えたらこの top-14 も追従させること（ズレてもモーダルは z-30 でヘッダー背後に回るだけ）。
+            md 以上は inset-0 で中央カード。カード外クリックを背景に通すため pointer-events-none、
+            コンテンツのみ有効化（OverlayProvider と同じ流儀）。
+          */}
+          <div className="pointer-events-none fixed inset-x-0 bottom-0 top-14 z-30 flex items-center justify-center md:inset-0">
+            <div className="pointer-events-auto h-full w-full md:h-auto md:w-auto">
               <TeamManageModal team={ownTeamForManage} isAdmin={isOwnAdmin} onClose={closeManage} onUpdated={handleManageUpdated} />
             </div>
           </div>
