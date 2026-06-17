@@ -21,6 +21,12 @@ import { redisGet } from "@/app/_server/lib/redis/redis"
 import { editWebhookOriginalMessage, createFollowupMessage } from "@/app/_server/lib/discord/api"
 import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { extractInviteToken } from "@/app/api/discord/util/extractCustomIdParam"
+import { APP_URL } from "@/app/_server/lib/env"
+
+/** 対象チームを自チーム選択した状態でチームスケジュール画面を開くURL（クエリは画面側で読み取る） */
+function teamSchedulesUrl(teamId: string): string {
+  return `${APP_URL}/team_schedules?team=${encodeURIComponent(teamId)}`
+}
 
 /** チーム情報（名前表示用の最小限） */
 type TeamRef = { teamId: string; name: string }
@@ -279,7 +285,11 @@ export function handleJoinButton(interaction: APIMessageComponentInteraction): N
         .where(eq(teamMembers.userId, userId))
 
       if (myTeams.some((t) => t.teamId === team.teamId)) {
-        return safeEdit(application_id, interactionToken, `すでに「${team.name}」に参加済みです。`)
+        return safeEdit(
+          application_id,
+          interactionToken,
+          `すでに「${team.name}」に参加済みです。\nスケジュールはこちら → ${teamSchedulesUrl(team.teamId)}`,
+        )
       }
 
       // 別チームに所属している場合は追加加入の確認を出す（抜けずに追加）

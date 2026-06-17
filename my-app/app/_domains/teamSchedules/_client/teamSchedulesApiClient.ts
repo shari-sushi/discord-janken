@@ -63,6 +63,23 @@ export async function createTeam(input: { name: string; description: string | nu
   return json.team
 }
 
+/**
+ * チーム情報を部分更新する（要ログイン + admin相当）。各フィールドはオプショナルで冪等
+ * （undefined は編集しない / 値があれば上書き）。エンドポイントは部分更新の team オブジェクトを受け取るが、
+ * サーバーが反映するのは name（#96）/ managementMode（#126）/ requiredCount（#142）（description 等は受け取って無視）。
+ * そのため client の型も反映されるフィールドのみに絞る（無視されるフィールドを型で許可しない）。
+ */
+export async function updateTeam(teamId: string, patch: { name?: string; managementMode?: TeamManagementMode; requiredCount?: number }): Promise<TeamSummary> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  })
+  const json = await parse<{ team?: TeamSummary }>(res, "チームの更新に失敗しました")
+  if (!json.team) throw new Error("チームの更新に失敗しました")
+  return json.team
+}
+
 /** チームの招待リンクを発行する（要ログイン + admin）。参加用URLを返す */
 export async function createInvite(teamId: string): Promise<{ url: string; expiryDays: number }> {
   const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}/invite`, { method: "POST" })

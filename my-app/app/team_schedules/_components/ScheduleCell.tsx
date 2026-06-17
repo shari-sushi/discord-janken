@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import type { CellStatus } from "../_types"
 import { STATUS_STYLE } from "../_utils"
 
@@ -16,6 +17,24 @@ type ScheduleCellProps = {
 /** 状態トグルボタン + 時間メモ欄のセル */
 export function ScheduleCell({ status, note, editable, dim = false, onCycle, onNoteChange }: ScheduleCellProps) {
   const style = STATUS_STYLE[status]
+
+  // 入力中に親 state（schedulesByTeam）を更新するとグリッド全体が再計算・再マウントされ、
+  // input のフォーカスが外れてしまう（#127）。そのため入力中はローカル state で文字を保持し、
+  // blur 時にまとめて親へ反映する。これで毎キーの再描画と upsert API 呼び出しも防げる。
+  const [draft, setDraft] = useState(note)
+  // 親側 note の変化（状態トグル・チーム切替・外部更新等）にローカル値を同期する。
+  // effect ではなく render 中に前回値と比較する React 公式推奨パターン。
+  // 入力中は note prop が変わらない（コミットは blur 時のみ）ため、打鍵を上書きすることはない。
+  const [prevNote, setPrevNote] = useState(note)
+  if (note !== prevNote) {
+    setPrevNote(note)
+    setDraft(note)
+  }
+
+  const commitNote = () => {
+    // 未編集なら余計な POST・再描画を避ける
+    if (draft !== note) onNoteChange?.(draft)
+  }
 
   return (
     <div className="text-center">
@@ -37,8 +56,15 @@ export function ScheduleCell({ status, note, editable, dim = false, onCycle, onN
         // 状態が未記入のうちはメモを保存する行が無いため、入力欄を非活性にする
         // （○/△/× を付けてから時間を書く運用。none のまま打っても破棄されるのを防ぐ）
         <input
-          value={note}
-          onChange={(e) => onNoteChange?.(e.target.value)}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          // ボタン押下時はクリックより先に blur が発火するため、状態トグル前に必ずコミットされる
+          onBlur={commitNote}
+          // Enter で確定（blur を促してコミットする）。
+          // IME 変換確定の Enter（isComposing 中）は対象外にする（日本語入力を中断しないため）
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) e.currentTarget.blur()
+          }}
           disabled={status === "none"}
           placeholder="時間"
           className={

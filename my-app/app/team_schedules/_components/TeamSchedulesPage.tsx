@@ -21,13 +21,17 @@ import {
 import type { CellStatus, GridRow, ScheduleColumn } from "../_types"
 import { aggregateDay, buildDateRange, cycleStatus, indexSchedules, indexTeamStatus, summarizeTeamStatus, toCellStatus, toScheduleStatus } from "../_utils"
 import { setStoredSelection, useStoredSelection } from "../_selectionStore"
+import { setStoredViewMode, useStoredViewMode } from "../_viewModeStore"
+import { useIsSmartphone } from "../_useIsSmartphone"
 import { ControlBar } from "./ControlBar"
 import { CreateTeamModal } from "./CreateTeamModal"
 import { DbHealthButton } from "./DbHealthButton"
 import { InviteModal } from "./InviteModal"
 import { LoginModal } from "./LoginModal"
+import { ScheduleDayCards } from "./ScheduleDayCards"
 import { ScheduleGrid } from "./ScheduleGrid"
 import { TeamCompareSelector } from "./TeamCompareSelector"
+import { TeamManageModal } from "./TeamManageModal"
 
 const NUM_DAYS = 14
 
@@ -54,8 +58,24 @@ export function TeamSchedulesPage() {
   const { ownTeamId, opponentTeamIds } = useStoredSelection()
   const setOwnTeamId = useCallback((id: string | null) => setStoredSelection((prev) => ({ ...prev, ownTeamId: id })), [])
   const setOpponentTeamIds = useCallback((ids: string[]) => setStoredSelection((prev) => ({ ...prev, opponentTeamIds: ids })), [])
+  // 表示モード切替（スマホ時のみ表↔カード。デスクトップは常に表）
+  const isPhone = useIsSmartphone()
+  const storedViewMode = useStoredViewMode()
+  // スマホ初回（未選択）はカード。デスクトップは保存値に関わらず常に表。
+  const viewMode = isPhone ? (storedViewMode ?? "card") : "table"
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
+
+  // token / join を URL から消す際、対象チーム選択用の team= だけは残して掃除する。
+  // 招待リンク（?join=...&team=...）は join を消費しても team を後段の効果で読み取る必要があるため、
+  // 一括で全クエリを消す router.replace は使わない。team が無ければ素のパスに戻す。
+  // 呼び出し時点の最新クエリを window.location から読む（searchParams を deps に入れると
+  // この関数の同一性が毎レンダリングで変わり、token/join 効果が再実行され verifyMagicLink が
+  // 二重呼び出しされ得るため）。router は安定参照。
+  const cleanUrlKeepingTeam = useCallback(() => {
+    const t = new URLSearchParams(window.location.search).get("team")
+    router.replace(t ? `/team_schedules?team=${encodeURIComponent(t)}` : "/team_schedules")
+  }, [router])
 
   // ログイン着地: URLに ?token= があれば magic-link を検証してセッションを確立し、URLを掃除する
   const token = searchParams.get("token")
@@ -72,13 +92,13 @@ export function TeamSchedulesPage() {
       })
       .finally(() => {
         if (cancelled) return
-        // トークンをURLから除去（再読込・共有時の誤用を防ぐ）
-        router.replace("/team_schedules")
+        // トークンをURLから除去（再読込・共有時の誤用を防ぐ）。team= は残す。
+        cleanUrlKeepingTeam()
       })
     return () => {
       cancelled = true
     }
-  }, [token, router])
+  }, [token, cleanUrlKeepingTeam])
 
   // 招待リンク着地: ?join= があれば参加トークンを sessionStorage に退避し、URLを掃除する。
   // （未ログインならログイン往復をまたぐため、ログイン後に実行する）
@@ -90,8 +110,9 @@ export function TeamSchedulesPage() {
     } catch {
       // sessionStorage が使えない環境ではこの後の参加処理が走らないだけ
     }
-    router.replace("/team_schedules")
-  }, [joinToken, router])
+    // join は消すが team= は残し、後段の ?team= 効果で対象チームを自チーム選択させる
+    cleanUrlKeepingTeam()
+  }, [joinToken, cleanUrlKeepingTeam])
 
   // 初期ロード: セッション + チーム一覧
   useEffect(() => {
@@ -128,6 +149,26 @@ export function TeamSchedulesPage() {
     if (nextOwn === ownTeamId && nextOpponents.length === opponentTeamIds.length) return
     setStoredSelection({ ownTeamId: nextOwn, opponentTeamIds: nextOpponents })
   }, [loading, teams, ownTeamId, opponentTeamIds])
+
+  // 「参加済み」案内リンク・招待リンクからの着地: ?team=<teamId> があれば、そのチームを自チームに選択する。
+  // （Discord の招待ボタンで既に参加済みだったユーザーをスケジュール画面に誘導する導線）
+  // チーム一覧（public read で全チーム返す）の取得後に存在チェックし、setOwnTeamId 経由で
+  // localStorage にも永続化する。既に別チームが own 選択済みでも team= で上書きする（招待/誘導が優先）。
+  // 最後に URL から team= を消すため teamParam が null になり、
+  // 再実行時は冒頭で早期 return する＝自然に一度きりの処理になる（専用のガードフラグは不要）。
+  const teamParam = searchParams.get("team")
+  useEffect(() => {
+    if (!teamParam || loading) return
+    // 存在しない（削除済み等）チームIDは無視し、URLだけ掃除する
+    if (teams.some((t) => t.teamId === teamParam)) {
+      setOwnTeamId(teamParam)
+    }
+    // team= だけを除去し、他のクエリ（?manage=1 等）は残す。全消ししないこと。
+    const params = new URLSearchParams(window.location.search)
+    params.delete("team")
+    const qs = params.toString()
+    router.replace(qs ? `/team_schedules?${qs}` : "/team_schedules")
+  }, [teamParam, loading, teams, setOwnTeamId, router])
 
   // 選択中チームの予定を取得
   useEffect(() => {
@@ -351,6 +392,55 @@ export function TeamSchedulesPage() {
     }
   }, [ownTeamId, open, close])
 
+  // 選択中の自チームのメンバーか（チーム管理画面はメンバーなら開ける）
+  const isOwnMember = useMemo(() => {
+    if (!session || !ownTeamId) return false
+    const ownTeam = schedulesByTeam[ownTeamId]
+    return !!ownTeam?.members.some((m) => m.userId === session.userId)
+  }, [session, ownTeamId, schedulesByTeam])
+
+  // チーム管理モーダルの開閉は URL クエリ（?manage=1）で管理する。
+  // open() の命令的呼び出しではなく派生値でインライン描画することで、保存後の再取得で
+  // props（team/isAdmin）が常に最新になり、useOverlay のスナップショット陳腐化を避ける。
+  // 呼び出し時点の最新クエリを window.location から読む（searchParams を deps に入れない流儀。教訓#134）。
+  const openManage = useCallback(() => {
+    const params = new URLSearchParams(window.location.search)
+    params.set("manage", "1")
+    router.push(`/team_schedules?${params.toString()}`)
+  }, [router])
+  const closeManage = useCallback(() => {
+    const params = new URLSearchParams(window.location.search)
+    params.delete("manage")
+    const qs = params.toString()
+    router.replace(qs ? `/team_schedules?${qs}` : "/team_schedules")
+  }, [router])
+
+  // 管理画面で管理モードを変更した後、自チームを再取得してグリッドへ反映する。
+  // ローカルで managementMode だけ書き換えると、対応する schedules/teamStatus を伴わず
+  // 全セル未記入で表示されてしまうため、必ず再取得して丸ごと差し替える。
+  const handleManageUpdated = useCallback(() => {
+    if (!ownTeamId) return
+    const from = dayKeys[0]
+    const to = dayKeys[dayKeys.length - 1]
+    void fetchTeamSchedule(ownTeamId, from, to)
+      .then((team) => setSchedulesByTeam((prev) => ({ ...prev, [ownTeamId]: team })))
+      .catch(() => {})
+    void reloadTeams()
+  }, [ownTeamId, dayKeys, reloadTeams])
+
+  // ?manage=1 のとき、自チームが読み込み済み かつ メンバーであれば管理モーダルを表示する
+  const ownTeamForManage = ownTeamId ? schedulesByTeam[ownTeamId] : undefined
+  const manageParam = searchParams.get("manage")
+  const showManage = manageParam === "1" && !!ownTeamForManage && isOwnMember
+
+  // ?manage=1 が共有/ブックマーク等で来たが開けないケース（自チーム未選択 or 読込済みで非メンバー）は、
+  // 宙に浮いた param を自己修復で掃除する。取得待ち（ownTeamId はあるが ownTeamForManage 未取得）は
+  // 正当な表示待ちなので対象外（誤って閉じない）。deps には searchParams ではなく文字列 manageParam を使う（教訓#134）。
+  useEffect(() => {
+    if (manageParam !== "1" || loading) return
+    if (!ownTeamId || (ownTeamForManage && !isOwnMember)) closeManage()
+  }, [manageParam, loading, ownTeamId, ownTeamForManage, isOwnMember, closeManage])
+
   // ビューモデル構築
   const view = useMemo(() => {
     const ownTeam = ownTeamId ? schedulesByTeam[ownTeamId] : undefined
@@ -465,16 +555,49 @@ export function TeamSchedulesPage() {
     return { memberColumns, opponentColumns, rows, threshold }
   }, [ownTeamId, opponentTeamIds, schedulesByTeam, dates, dayKeys, session])
 
+  // md以下（lg未満）はヘッダー＋body を画面内に収め、カレンダー（グリッド）だけスクロールさせる。lg以上は通常のページスクロール。
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <LolHeader userName={session?.displayName ?? null} onLogin={openLogin} />
-      <div className="mx-auto max-w-6xl p-3 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-2">
+    <div className="flex h-dvh flex-col overflow-hidden bg-zinc-950 text-zinc-100 lg:block lg:h-auto lg:min-h-screen lg:overflow-visible">
+      <div className="shrink-0">
+        <LolHeader userName={session?.displayName ?? null} onLogin={openLogin} />
+      </div>
+      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col p-3 sm:p-6 lg:block">
+        <div className="flex shrink-0 flex-wrap items-start justify-between gap-2">
           <div>
             <h1 className="text-lg font-bold tracking-tight text-zinc-100">チーム活動 スケジュール調整</h1>
             <p className="mt-0.5 text-sm text-zinc-400">必要人数そろって、相手も空いてる日を探す</p>
           </div>
           <div className="flex items-center gap-2">
+            {/* スマホ時のみ: 表 ↔ カード切替（選択は localStorage に永続化） */}
+            {isPhone && (
+              <div className="flex overflow-hidden rounded-lg border border-zinc-600 text-sm">
+                <button
+                  type="button"
+                  onClick={() => setStoredViewMode("table")}
+                  aria-pressed={viewMode === "table"}
+                  className={"px-2.5 py-1.5 font-medium " + (viewMode === "table" ? "bg-indigo-600 text-white" : "bg-zinc-900 text-zinc-300 hover:bg-zinc-800")}
+                >
+                  表
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStoredViewMode("card")}
+                  aria-pressed={viewMode === "card"}
+                  className={"border-l border-zinc-600 px-2.5 py-1.5 font-medium " + (viewMode === "card" ? "bg-indigo-600 text-white" : "bg-zinc-900 text-zinc-300 hover:bg-zinc-800")}
+                >
+                  カード
+                </button>
+              </div>
+            )}
+            {isOwnMember && (
+              <button
+                type="button"
+                onClick={openManage}
+                className="rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-zinc-200 hover:bg-zinc-800"
+              >
+                チーム管理
+              </button>
+            )}
             {isOwnAdmin && (
               <button
                 type="button"
@@ -493,12 +616,12 @@ export function TeamSchedulesPage() {
         </div>
 
         {loadError && (
-          <div className="mt-3 rounded-lg border border-rose-800 bg-rose-950/50 px-3 py-2 text-xs text-rose-300">
+          <div className="mt-3 shrink-0 rounded-lg border border-rose-800 bg-rose-950/50 px-3 py-2 text-xs text-rose-300">
             データの読み込みに失敗しました。時間をおいて再読み込みしてください。
           </div>
         )}
 
-        <div className="mt-3 flex flex-col gap-3">
+        <div className="mt-3 flex shrink-0 flex-col gap-3">
           <TeamCompareSelector
             teams={teams}
             ownTeamId={ownTeamId}
@@ -509,13 +632,24 @@ export function TeamSchedulesPage() {
           {view && <ControlBar threshold={view.threshold} />}
         </div>
 
-        <div className="mt-3">
+        <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden lg:block lg:flex-none lg:overflow-visible">
           {loading ? (
             <p className="text-sm text-zinc-400">読み込み中…</p>
           ) : !view ? (
             <p className="rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-8 text-center text-sm text-zinc-400">
               自チームを選択すると日程グリッドが表示されます。
             </p>
+          ) : viewMode === "card" ? (
+            <ScheduleDayCards
+              rows={view.rows}
+              threshold={view.threshold}
+              opponentColumns={view.opponentColumns}
+              memberColumns={view.memberColumns}
+              onCycle={handleCycle}
+              onNoteChange={handleNoteChange}
+              onTeamCycle={handleTeamCycle}
+              onTeamNoteChange={handleTeamNoteChange}
+            />
           ) : (
             <ScheduleGrid
               rows={view.rows}
@@ -530,10 +664,38 @@ export function TeamSchedulesPage() {
           )}
         </div>
 
-        <p className="mt-3 text-xs leading-relaxed text-zinc-400">
+        <p className="mt-3 max-h-24 shrink-0 overflow-y-auto text-xs leading-relaxed text-zinc-400 lg:max-h-none lg:overflow-visible">
           ※ セルをタップで 未記入→○→△→× を循環。○数が必要人数以上かつ相手が空いている日が「成立」。×が増えて必要人数に届かない確定の日は行を薄く表示。相手の不可セルは薄く表示。チーム単位モードのチームは管理者が1列でまとめて入力します。時間は自由記入のため、○数は時間の重なりまでは見ていません。
         </p>
       </div>
+
+      {/* チーム管理モーダル（?manage=1 で表示）。useOverlay とは別に、URL 由来で直接描画する */}
+      {showManage && ownTeamForManage && (
+        <>
+          {/*
+            z-30 に揃える（ヘッダー z-50 / ハンバーガーのドロワーパネル z-40 より必ず後ろ）。
+            これでモーダルを開いてもヘッダー・メニューは前面に残る（LolHeader 参照）。
+            なおドロワーの backdrop も同じ z-30（LolHeader）。両者の同時表示は想定しないため
+            同値で許容している（重なり順は DOM 順依存になるが実害なし）。
+          */}
+          {/* 半透明背景（クリックで閉じる） */}
+          <div className="fixed inset-0 z-30 h-full w-full bg-zinc-500/70" onClick={closeManage} />
+          {/*
+            md 以下はヘッダーを隠さないよう top-14 から開始する全画面モーダル。
+            top-14(56px) は LolHeader の実高さ（py-3=24px + ボタン h-8=32px）に合わせた値。
+            ヘッダーは fixed ではなく in-flow（relative z-50）なので、ヘッダーの padding/高さを
+            変えたらこの top-14 も追従させること（ズレてもモーダルは z-30 でヘッダー背後に回るだけ）。
+            md 以上は inset-0 で中央カード。カード外クリックを背景に通すため pointer-events-none、
+            コンテンツのみ有効化（OverlayProvider と同じ流儀）。
+          */}
+          <div className="pointer-events-none fixed inset-x-0 bottom-0 top-14 z-30 flex items-center justify-center md:inset-0">
+            <div className="pointer-events-auto h-full w-full md:h-auto md:w-auto">
+              <TeamManageModal team={ownTeamForManage} isAdmin={isOwnAdmin} onClose={closeManage} onUpdated={handleManageUpdated} />
+            </div>
+          </div>
+        </>
+      )}
+
       <DbHealthButton />
     </div>
   )

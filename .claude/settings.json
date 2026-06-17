@@ -1,6 +1,10 @@
 {
   "permissions": {
+    "deny": [
+      "Read(./my-app/.env)"
+    ],
     "allow": [
+      "Read(./my-app/.env.sample)",
       "WebFetch(https://discord.com/developers/docs*)",
       "WebFetch(https://docs.discord.com/developers/*)",
       "Bash(npx tsc --noEmit)",
