@@ -28,6 +28,7 @@ import { InviteModal } from "./InviteModal"
 import { LoginModal } from "./LoginModal"
 import { ScheduleGrid } from "./ScheduleGrid"
 import { TeamCompareSelector } from "./TeamCompareSelector"
+import { TeamManageModal } from "./TeamManageModal"
 
 const NUM_DAYS = 14
 
@@ -154,7 +155,11 @@ export function TeamSchedulesPage() {
     if (teams.some((t) => t.teamId === teamParam)) {
       setOwnTeamId(teamParam)
     }
-    router.replace("/team_schedules")
+    // team= だけを除去し、他のクエリ（?manage=1 等）は残す。全消ししないこと。
+    const params = new URLSearchParams(window.location.search)
+    params.delete("team")
+    const qs = params.toString()
+    router.replace(qs ? `/team_schedules?${qs}` : "/team_schedules")
   }, [teamParam, loading, teams, setOwnTeamId, router])
 
   // 選択中チームの予定を取得
@@ -379,6 +384,55 @@ export function TeamSchedulesPage() {
     }
   }, [ownTeamId, open, close])
 
+  // 選択中の自チームのメンバーか（チーム管理画面はメンバーなら開ける）
+  const isOwnMember = useMemo(() => {
+    if (!session || !ownTeamId) return false
+    const ownTeam = schedulesByTeam[ownTeamId]
+    return !!ownTeam?.members.some((m) => m.userId === session.userId)
+  }, [session, ownTeamId, schedulesByTeam])
+
+  // チーム管理モーダルの開閉は URL クエリ（?manage=1）で管理する。
+  // open() の命令的呼び出しではなく派生値でインライン描画することで、保存後の再取得で
+  // props（team/isAdmin）が常に最新になり、useOverlay のスナップショット陳腐化を避ける。
+  // 呼び出し時点の最新クエリを window.location から読む（searchParams を deps に入れない流儀。教訓#134）。
+  const openManage = useCallback(() => {
+    const params = new URLSearchParams(window.location.search)
+    params.set("manage", "1")
+    router.push(`/team_schedules?${params.toString()}`)
+  }, [router])
+  const closeManage = useCallback(() => {
+    const params = new URLSearchParams(window.location.search)
+    params.delete("manage")
+    const qs = params.toString()
+    router.replace(qs ? `/team_schedules?${qs}` : "/team_schedules")
+  }, [router])
+
+  // 管理画面で管理モードを変更した後、自チームを再取得してグリッドへ反映する。
+  // ローカルで managementMode だけ書き換えると、対応する schedules/teamStatus を伴わず
+  // 全セル未記入で表示されてしまうため、必ず再取得して丸ごと差し替える。
+  const handleManageUpdated = useCallback(() => {
+    if (!ownTeamId) return
+    const from = dayKeys[0]
+    const to = dayKeys[dayKeys.length - 1]
+    void fetchTeamSchedule(ownTeamId, from, to)
+      .then((team) => setSchedulesByTeam((prev) => ({ ...prev, [ownTeamId]: team })))
+      .catch(() => {})
+    void reloadTeams()
+  }, [ownTeamId, dayKeys, reloadTeams])
+
+  // ?manage=1 のとき、自チームが読み込み済み かつ メンバーであれば管理モーダルを表示する
+  const ownTeamForManage = ownTeamId ? schedulesByTeam[ownTeamId] : undefined
+  const manageParam = searchParams.get("manage")
+  const showManage = manageParam === "1" && !!ownTeamForManage && isOwnMember
+
+  // ?manage=1 が共有/ブックマーク等で来たが開けないケース（自チーム未選択 or 読込済みで非メンバー）は、
+  // 宙に浮いた param を自己修復で掃除する。取得待ち（ownTeamId はあるが ownTeamForManage 未取得）は
+  // 正当な表示待ちなので対象外（誤って閉じない）。deps には searchParams ではなく文字列 manageParam を使う（教訓#134）。
+  useEffect(() => {
+    if (manageParam !== "1" || loading) return
+    if (!ownTeamId || (ownTeamForManage && !isOwnMember)) closeManage()
+  }, [manageParam, loading, ownTeamId, ownTeamForManage, isOwnMember, closeManage])
+
   // ビューモデル構築
   const view = useMemo(() => {
     const ownTeam = ownTeamId ? schedulesByTeam[ownTeamId] : undefined
@@ -503,6 +557,15 @@ export function TeamSchedulesPage() {
             <p className="mt-0.5 text-sm text-zinc-400">必要人数そろって、相手も空いてる日を探す</p>
           </div>
           <div className="flex items-center gap-2">
+            {isOwnMember && (
+              <button
+                type="button"
+                onClick={openManage}
+                className="rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-zinc-200 hover:bg-zinc-800"
+              >
+                チーム管理
+              </button>
+            )}
             {isOwnAdmin && (
               <button
                 type="button"
@@ -562,6 +625,21 @@ export function TeamSchedulesPage() {
           ※ セルをタップで 未記入→○→△→× を循環。○数が必要人数以上かつ相手が空いている日が「成立」。×が増えて必要人数に届かない確定の日は行を薄く表示。相手の不可セルは薄く表示。チーム単位モードのチームは管理者が1列でまとめて入力します。時間は自由記入のため、○数は時間の重なりまでは見ていません。
         </p>
       </div>
+
+      {/* チーム管理モーダル（?manage=1 で表示）。useOverlay とは別に、URL 由来で直接描画する */}
+      {showManage && ownTeamForManage && (
+        <>
+          {/* 全画面の半透明背景（クリックで閉じる）。md 以下は全画面モーダルが覆うため実質ページ */}
+          <div className="fixed inset-0 z-40 h-full w-full bg-zinc-500/70" onClick={closeManage} />
+          {/* lg では中央カード外クリックを背景に通すため pointer-events-none、コンテンツのみ有効化（OverlayProvider と同じ流儀） */}
+          <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
+            <div className="pointer-events-auto">
+              <TeamManageModal team={ownTeamForManage} isAdmin={isOwnAdmin} onClose={closeManage} onUpdated={handleManageUpdated} />
+            </div>
+          </div>
+        </>
+      )}
+
       <DbHealthButton />
     </div>
   )
