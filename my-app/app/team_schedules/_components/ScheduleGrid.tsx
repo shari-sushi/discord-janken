@@ -62,13 +62,18 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
       header: "日付",
       size: SIZE.date,
       cell: ({ row }) => {
-        const d = row.original.date
+        const r = row.original
+        const d = r.date
         const wkColor = d.isSunday ? "text-rose-400" : d.isSaturday ? "text-sky-400" : "text-zinc-200"
         return (
-          <span className={"text-xs font-medium " + wkColor}>
-            {d.label}
-            <span className="ml-0.5 text-[11px]">（{d.weekday}）</span>
-          </span>
+          <div className="flex flex-col items-start gap-0.5">
+            <span className={"text-xs font-medium " + wkColor}>
+              {d.label}
+              <span className="ml-0.5 text-[11px]">（{d.weekday}）</span>
+            </span>
+            {/* 自チームが活動可能な日は「活動可」を明示（成立=相手も一致 とは別軸。塗りの成立バッジと区別してアウトライン表示） */}
+            {r.ownActive && <span className="rounded border border-emerald-600 px-1 py-px text-[10px] font-bold text-emerald-400">活動可</span>}
+          </div>
         )
       },
     }
