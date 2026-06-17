@@ -1,16 +1,25 @@
 // マイグレーション追跡テーブルと実DBスキーマのズレを診断する（読み取り専用）。
-// 使い方:
+// 使い方（どちらでもOK）:
 //   cd my-app
+//   # 1) my-app/.env の DATABASE_URL を使う
+//   node scripts/diagnose-migrations.mjs
+//   # 2) 接続先を明示する（.env より優先される）
 //   DATABASE_URL="<dev もしくは prod の direct 接続文字列>" node scripts/diagnose-migrations.mjs
 //
 // drizzle-kit migrate がエラーを握り潰すため、ここでは __drizzle_migrations の
 // 適用記録と、実際に存在するテーブル/カラム/制約を SELECT で読み出して突き合わせる。
 
+// my-app/.env を読み込む（drizzle.config.ts と同じ挙動）。
+// 既に環境変数で DATABASE_URL が渡っていればそちらが優先される（dotenv は上書きしない）。
+import "dotenv/config"
 import { Pool } from "pg"
 
 const url = process.env.DATABASE_URL
 if (!url) {
-  console.error("ERROR: DATABASE_URL が未設定です")
+  console.error(
+    "ERROR: DATABASE_URL を取得できませんでした。\n" +
+      "  my-app/.env に DATABASE_URL を設定するか、コマンド先頭で DATABASE_URL=... を指定してください。",
+  )
   process.exit(1)
 }
 

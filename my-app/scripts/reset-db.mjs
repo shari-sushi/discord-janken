@@ -6,8 +6,10 @@
 //
 // 使い方（対象を間違えないこと！ dev と prod で DATABASE_URL を必ず切り替える）:
 //   cd my-app
+//   # 接続先は my-app/.env の DATABASE_URL か、コマンド先頭の DATABASE_URL=... で指定（後者が優先）
 //   CONFIRM_RESET=yes DATABASE_URL="<対象のdirect接続文字列>" node scripts/reset-db.mjs
 //   DATABASE_URL="<同上>" npm run db:migrate   # ← 初期化後にこれで 0000〜0003 を再適用
+//   ※ .env の値を使う場合でも、誤爆防止のため対象ホストが表示されるので必ず確認すること
 //
 // --- Neon コンソールだけで完結させる場合（接続文字列を手元に出したくない時）---
 // 1. 対象プロジェクトの Neon コンソール → SQL Editor で、接続先のブランチ/DBが
@@ -20,11 +22,16 @@
 //    （実行ブランチに応じた environment の DATABASE_URL secret で migrate が走る）。
 // 4. run が緑になれば __drizzle_migrations と実スキーマが一致した状態になる。
 
+// my-app/.env を読み込む。環境変数で DATABASE_URL が渡っていればそちらが優先される。
+import "dotenv/config"
 import { Pool } from "pg"
 
 const url = process.env.DATABASE_URL
 if (!url) {
-  console.error("ERROR: DATABASE_URL が未設定です")
+  console.error(
+    "ERROR: DATABASE_URL を取得できませんでした。\n" +
+      "  my-app/.env に DATABASE_URL を設定するか、コマンド先頭で DATABASE_URL=... を指定してください。",
+  )
   process.exit(1)
 }
 if (process.env.CONFIRM_RESET !== "yes") {
