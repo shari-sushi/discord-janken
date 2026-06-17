@@ -493,11 +493,14 @@ export function TeamSchedulesPage() {
     return { memberColumns, opponentColumns, rows, threshold }
   }, [ownTeamId, opponentTeamIds, schedulesByTeam, dates, dayKeys, session])
 
+  // md以下（lg未満）はヘッダー＋body を画面内に収め、カレンダー（グリッド）だけスクロールさせる。lg以上は通常のページスクロール。
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <LolHeader userName={session?.displayName ?? null} onLogin={openLogin} />
-      <div className="mx-auto max-w-6xl p-3 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-2">
+    <div className="flex h-dvh flex-col overflow-hidden bg-zinc-950 text-zinc-100 lg:block lg:h-auto lg:min-h-screen lg:overflow-visible">
+      <div className="shrink-0">
+        <LolHeader userName={session?.displayName ?? null} onLogin={openLogin} />
+      </div>
+      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col p-3 sm:p-6 lg:block">
+        <div className="flex shrink-0 flex-wrap items-start justify-between gap-2">
           <div>
             <h1 className="text-lg font-bold tracking-tight text-zinc-100">チーム活動 スケジュール調整</h1>
             <p className="mt-0.5 text-sm text-zinc-400">必要人数そろって、相手も空いてる日を探す</p>
@@ -521,12 +524,12 @@ export function TeamSchedulesPage() {
         </div>
 
         {loadError && (
-          <div className="mt-3 rounded-lg border border-rose-800 bg-rose-950/50 px-3 py-2 text-xs text-rose-300">
+          <div className="mt-3 shrink-0 rounded-lg border border-rose-800 bg-rose-950/50 px-3 py-2 text-xs text-rose-300">
             データの読み込みに失敗しました。時間をおいて再読み込みしてください。
           </div>
         )}
 
-        <div className="mt-3 flex flex-col gap-3">
+        <div className="mt-3 flex shrink-0 flex-col gap-3">
           <TeamCompareSelector
             teams={teams}
             ownTeamId={ownTeamId}
@@ -537,7 +540,7 @@ export function TeamSchedulesPage() {
           {view && <ControlBar threshold={view.threshold} />}
         </div>
 
-        <div className="mt-3">
+        <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden lg:block lg:flex-none lg:overflow-visible">
           {loading ? (
             <p className="text-sm text-zinc-400">読み込み中…</p>
           ) : !view ? (
@@ -558,7 +561,7 @@ export function TeamSchedulesPage() {
           )}
         </div>
 
-        <p className="mt-3 text-xs leading-relaxed text-zinc-400">
+        <p className="mt-3 max-h-24 shrink-0 overflow-y-auto text-xs leading-relaxed text-zinc-400 lg:max-h-none lg:overflow-visible">
           ※ セルをタップで 未記入→○→△→× を循環。○数が必要人数以上かつ相手が空いている日が「成立」。×が増えて必要人数に届かない確定の日は行を薄く表示。相手の不可セルは薄く表示。チーム単位モードのチームは管理者が1列でまとめて入力します。時間は自由記入のため、○数は時間の重なりまでは見ていません。
         </p>
       </div>
