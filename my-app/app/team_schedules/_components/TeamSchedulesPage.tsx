@@ -21,11 +21,14 @@ import {
 import type { CellStatus, GridRow, ScheduleColumn } from "../_types"
 import { aggregateDay, buildDateRange, cycleStatus, indexSchedules, indexTeamStatus, summarizeTeamStatus, toCellStatus, toScheduleStatus } from "../_utils"
 import { setStoredSelection, useStoredSelection } from "../_selectionStore"
+import { setStoredViewMode, useStoredViewMode } from "../_viewModeStore"
+import { useIsSmartphone } from "../_useIsSmartphone"
 import { ControlBar } from "./ControlBar"
 import { CreateTeamModal } from "./CreateTeamModal"
 import { DbHealthButton } from "./DbHealthButton"
 import { InviteModal } from "./InviteModal"
 import { LoginModal } from "./LoginModal"
+import { ScheduleDayCards } from "./ScheduleDayCards"
 import { ScheduleGrid } from "./ScheduleGrid"
 import { TeamCompareSelector } from "./TeamCompareSelector"
 import { TeamManageModal } from "./TeamManageModal"
@@ -55,6 +58,11 @@ export function TeamSchedulesPage() {
   const { ownTeamId, opponentTeamIds } = useStoredSelection()
   const setOwnTeamId = useCallback((id: string | null) => setStoredSelection((prev) => ({ ...prev, ownTeamId: id })), [])
   const setOpponentTeamIds = useCallback((ids: string[]) => setStoredSelection((prev) => ({ ...prev, opponentTeamIds: ids })), [])
+  // 表示モード切替（スマホ時のみ表↔カード。デスクトップは常に表）
+  const isPhone = useIsSmartphone()
+  const storedViewMode = useStoredViewMode()
+  // スマホ初回（未選択）はカード。デスクトップは保存値に関わらず常に表。
+  const viewMode = isPhone ? (storedViewMode ?? "card") : "table"
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
 
@@ -557,6 +565,27 @@ export function TeamSchedulesPage() {
             <p className="mt-0.5 text-sm text-zinc-400">必要人数そろって、相手も空いてる日を探す</p>
           </div>
           <div className="flex items-center gap-2">
+            {/* スマホ時のみ: 表 ↔ カード切替（選択は localStorage に永続化） */}
+            {isPhone && (
+              <div className="flex overflow-hidden rounded-lg border border-zinc-600 text-sm">
+                <button
+                  type="button"
+                  onClick={() => setStoredViewMode("table")}
+                  aria-pressed={viewMode === "table"}
+                  className={"px-2.5 py-1.5 font-medium " + (viewMode === "table" ? "bg-indigo-600 text-white" : "bg-zinc-900 text-zinc-300 hover:bg-zinc-800")}
+                >
+                  表
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStoredViewMode("card")}
+                  aria-pressed={viewMode === "card"}
+                  className={"border-l border-zinc-600 px-2.5 py-1.5 font-medium " + (viewMode === "card" ? "bg-indigo-600 text-white" : "bg-zinc-900 text-zinc-300 hover:bg-zinc-800")}
+                >
+                  カード
+                </button>
+              </div>
+            )}
             {isOwnMember && (
               <button
                 type="button"
@@ -607,6 +636,17 @@ export function TeamSchedulesPage() {
             <p className="rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-8 text-center text-sm text-zinc-400">
               自チームを選択すると日程グリッドが表示されます。
             </p>
+          ) : viewMode === "card" ? (
+            <ScheduleDayCards
+              rows={view.rows}
+              threshold={view.threshold}
+              opponentColumns={view.opponentColumns}
+              memberColumns={view.memberColumns}
+              onCycle={handleCycle}
+              onNoteChange={handleNoteChange}
+              onTeamCycle={handleTeamCycle}
+              onTeamNoteChange={handleTeamNoteChange}
+            />
           ) : (
             <ScheduleGrid
               rows={view.rows}

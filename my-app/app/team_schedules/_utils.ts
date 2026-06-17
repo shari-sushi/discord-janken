@@ -1,5 +1,5 @@
 import type { ScheduleEntry, ScheduleStatus, TeamDayStatusEntry, TeamSchedule } from "@/app/_domains/teamSchedules/types"
-import type { CellStatus, ComparisonSelection, DateCell } from "./_types"
+import type { CellStatus, ComparisonSelection, DateCell, ScheduleColumn } from "./_types"
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"]
 
@@ -172,4 +172,31 @@ export function toCellStatus(entry: ScheduleEntry | undefined): CellStatus {
 /** CellStatus を ScheduleStatus に変換（none は null） */
 export function toScheduleStatus(status: CellStatus): ScheduleStatus | null {
   return status === "none" ? null : status
+}
+
+/** セル編集の各コールバック（表・カードで共通） */
+export type CellCallbacks = {
+  onCycle: (payload: { teamId: string; userId: string; day: string; current: CellStatus }) => void
+  onNoteChange: (payload: { teamId: string; userId: string; day: string; value: string }) => void
+  /** チーム単位モード列の状態トグル（userId を持たない） */
+  onTeamCycle: (payload: { teamId: string; day: string; current: CellStatus }) => void
+  onTeamNoteChange: (payload: { teamId: string; day: string; value: string }) => void
+}
+
+/**
+ * 列・日付・現在状態から、その日のセル用の onCycle / onNoteChange を組み立てる。
+ * team モード列は userId を持たないため別経路（onTeamCycle / onTeamNoteChange）に振り分ける。
+ * 表(ScheduleGrid)とカード(ScheduleDayCards)の両方から使う。
+ */
+export function makeCellHandlers(col: ScheduleColumn, day: string, current: CellStatus, cb: CellCallbacks): { onCycle: () => void; onNoteChange: (value: string) => void } {
+  if (col.kind === "team") {
+    return {
+      onCycle: () => cb.onTeamCycle({ teamId: col.teamId, day, current }),
+      onNoteChange: (value: string) => cb.onTeamNoteChange({ teamId: col.teamId, day, value }),
+    }
+  }
+  return {
+    onCycle: () => col.editTargetUserId && cb.onCycle({ teamId: col.teamId, userId: col.editTargetUserId, day, current }),
+    onNoteChange: (value: string) => col.editTargetUserId && cb.onNoteChange({ teamId: col.teamId, userId: col.editTargetUserId, day, value }),
+  }
 }

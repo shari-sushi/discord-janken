@@ -3,6 +3,7 @@
 import { useMemo } from "react"
 import { type ColumnDef, type Column, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table"
 import type { CellStatus, GridRow, ScheduleColumn } from "../_types"
+import { makeCellHandlers } from "../_utils"
 import { ScheduleCell } from "./ScheduleCell"
 
 type EditPayload = { teamId: string; userId: string; day: string }
@@ -43,19 +44,8 @@ function pinnedStyle(column: Column<GridRow>, isHeader: boolean): React.CSSPrope
 
 export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, onCycle, onNoteChange, onTeamCycle, onTeamNoteChange }: ScheduleGridProps) {
   const columns = useMemo<ColumnDef<GridRow>[]>(() => {
-    // 列の種別に応じた編集ハンドラ。team モードは userId を持たないため別経路
-    const cellHandlers = (col: ScheduleColumn, day: string, current: CellStatus) => {
-      if (col.kind === "team") {
-        return {
-          onCycle: () => onTeamCycle({ teamId: col.teamId, day, current }),
-          onNoteChange: (value: string) => onTeamNoteChange({ teamId: col.teamId, day, value }),
-        }
-      }
-      return {
-        onCycle: () => col.editTargetUserId && onCycle({ teamId: col.teamId, userId: col.editTargetUserId, day, current }),
-        onNoteChange: (value: string) => col.editTargetUserId && onNoteChange({ teamId: col.teamId, userId: col.editTargetUserId, day, value }),
-      }
-    }
+    // 列の種別に応じた編集ハンドラ（表・カード共通の makeCellHandlers に委譲）
+    const cellHandlers = (col: ScheduleColumn, day: string, current: CellStatus) => makeCellHandlers(col, day, current, { onCycle, onNoteChange, onTeamCycle, onTeamNoteChange })
 
     const dateCol: ColumnDef<GridRow> = {
       id: "date",
