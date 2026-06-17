@@ -53,6 +53,8 @@ export function ScheduleDayCards({ rows, threshold, opponentColumns, memberColum
                 {d.label}
                 <span className="ml-0.5 text-xs font-medium">（{d.weekday}）</span>
               </span>
+              {/* 自チームが活動可能な日は「活動可」を明示（成立=相手も一致 とは別軸。塗りの成立バッジと区別してアウトライン表示） */}
+              {row.ownActive && <span className="rounded border border-emerald-600 px-1 py-px text-[10px] font-bold text-emerald-400">活動可</span>}
               <span className={"ml-auto text-sm font-bold " + (row.okCount >= threshold ? "text-emerald-400" : "text-zinc-500")}>
                 ○{row.okCount}
                 {row.maybeCount > 0 && <span className="ml-0.5 text-xs font-normal text-amber-500">+{row.maybeCount}△</span>}
