@@ -68,7 +68,7 @@ export function ScheduleDayCards({ rows, threshold, opponentColumns, memberColum
                 <p className="mb-1 text-[11px] font-semibold text-zinc-500">相手チーム</p>
                 <div className="flex flex-wrap gap-2">
                   {opponentColumns.map((col) => (
-                    <ColumnCell key={`opp:${col.teamId}`} col={col} day={day} dimOnNg callbacks={callbacks} />
+                    <ColumnCell key={col.id} col={col} day={day} dimOnNg callbacks={callbacks} />
                   ))}
                 </div>
               </div>
