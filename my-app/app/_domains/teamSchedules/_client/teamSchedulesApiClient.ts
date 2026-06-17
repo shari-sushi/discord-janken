@@ -66,10 +66,10 @@ export async function createTeam(input: { name: string; description: string | nu
 /**
  * チーム情報を部分更新する（要ログイン + admin相当）。各フィールドはオプショナルで冪等
  * （undefined は編集しない / 値があれば上書き）。エンドポイントは部分更新の team オブジェクトを受け取るが、
- * #126 第1弾でサーバーが反映するのは managementMode のみ（name 等は受け取って無視）。
- * そのため client の型も今は managementMode のみに絞る（無視されるフィールドを型で許可しない）。第2弾で広げる。
+ * サーバーが反映するのは name（#96）と managementMode（#126）のみ（description 等は受け取って無視）。
+ * そのため client の型も反映されるフィールドのみに絞る（無視されるフィールドを型で許可しない）。
  */
-export async function updateTeam(teamId: string, patch: { managementMode?: TeamManagementMode }): Promise<TeamSummary> {
+export async function updateTeam(teamId: string, patch: { name?: string; managementMode?: TeamManagementMode }): Promise<TeamSummary> {
   const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },

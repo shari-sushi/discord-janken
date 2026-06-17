@@ -114,12 +114,70 @@ describe("PATCH /team-schedules/teams/[teamId]", () => {
     expect(json.success).toBe(true)
   })
 
-  it("success: 無視するフィールド（name 等）のみのボディも no-op で200（第1弾は managementMode 以外無視）", async () => {
+  it("success: 無視するフィールド（description 等）のみのボディは no-op で200（name / managementMode 以外は無視）", async () => {
     mockGetSessionUserId.mockResolvedValue("user-1")
     mockGetTeamRole.mockResolvedValue("admin")
-    const req = createTestRequest(URL, { method: "PATCH", body: { name: "新しい名前" } })
+    const req = createTestRequest(URL, { method: "PATCH", body: { description: "説明だけ更新したい" } })
     const res = await PATCH(req, ctxFor())
     expect(res.status).toBe(200)
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it("success: adminが name を変更すると update され、更新後のチームを返す", async () => {
+    mockGetSessionUserId.mockResolvedValue("user-1")
+    mockGetTeamRole.mockResolvedValue("admin")
+    const req = createTestRequest(URL, { method: "PATCH", body: { name: "新しいチーム名" } })
+    const res = await PATCH(req, ctxFor())
+    expect(res.status).toBe(200)
+    expect(update).toHaveBeenCalledTimes(1)
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ name: "新しいチーム名" }))
+    const json = await res.json()
+    expect(json).toMatchObject({ success: true, team: { teamId: TEAM_ID } })
+  })
+
+  it("success: 前後に空白のある name は trim して保存される", async () => {
+    mockGetSessionUserId.mockResolvedValue("user-1")
+    mockGetTeamRole.mockResolvedValue("admin")
+    const req = createTestRequest(URL, { method: "PATCH", body: { name: "  チーム名  " } })
+    const res = await PATCH(req, ctxFor())
+    expect(res.status).toBe(200)
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ name: "チーム名" }))
+  })
+
+  it("success: name と managementMode を同時指定すると両方が1回の set に入る", async () => {
+    mockGetSessionUserId.mockResolvedValue("user-1")
+    mockGetTeamRole.mockResolvedValue("admin")
+    const req = createTestRequest(URL, { method: "PATCH", body: { name: "両方更新", managementMode: "team" } })
+    const res = await PATCH(req, ctxFor())
+    expect(res.status).toBe(200)
+    expect(update).toHaveBeenCalledTimes(1)
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ name: "両方更新", managementMode: "team" }))
+  })
+
+  it("failure: 空文字の name は400（更新もしない）", async () => {
+    mockGetSessionUserId.mockResolvedValue("user-1")
+    mockGetTeamRole.mockResolvedValue("admin")
+    const req = createTestRequest(URL, { method: "PATCH", body: { name: "" } })
+    const res = await PATCH(req, ctxFor())
+    expect(res.status).toBe(400)
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it("failure: 空白のみの name は400（更新もしない）", async () => {
+    mockGetSessionUserId.mockResolvedValue("user-1")
+    mockGetTeamRole.mockResolvedValue("admin")
+    const req = createTestRequest(URL, { method: "PATCH", body: { name: "   " } })
+    const res = await PATCH(req, ctxFor())
+    expect(res.status).toBe(400)
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it("failure: 51文字以上の name は400（更新もしない）", async () => {
+    mockGetSessionUserId.mockResolvedValue("user-1")
+    mockGetTeamRole.mockResolvedValue("admin")
+    const req = createTestRequest(URL, { method: "PATCH", body: { name: "あ".repeat(51) } })
+    const res = await PATCH(req, ctxFor())
+    expect(res.status).toBe(400)
     expect(update).not.toHaveBeenCalled()
   })
 })
