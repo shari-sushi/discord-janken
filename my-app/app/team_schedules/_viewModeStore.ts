@@ -37,7 +37,8 @@ export function saveViewMode(mode: ViewMode): void {
   }
 }
 
-// 同一参照で安定させるため、解決済みの値をキャッシュする（undefined = 未読込）
+// getSnapshot のたびに localStorage を読み直さないよう、解決済みの値をキャッシュする（undefined = 未読込）。
+// ViewMode は primitive なので _selectionStore（object 返却で参照安定が必須）と違い参照安定は不要だが、I/O 回避のため同じ形を採る。
 let cache: ViewMode | null | undefined
 const listeners = new Set<() => void>()
 
