@@ -1,0 +1,68 @@
+name: DB Migrate (Neon)
+
+# drizzle/ 配下が変わった状態で main / develop にマージされたら、対応する Neon に migrate を自動適用する。
+#   - main    → Production 環境の DATABASE_URL（本番DB）
+#   - develop → Preview 環境の DATABASE_URL（dev DB）
+# 適用先は environment ごとの同名 secret(DATABASE_URL) で切り替わる。
+# 手動実行(workflow_dispatch)も可能（実行したブランチに応じて適用先が決まる）。
+# 注: 列追加など加算的なマイグレーション前提。破壊的変更は手動運用で慎重に。
+#
+# 【再発防止の前提】マイグレーションは必ず後方互換（加算的）に保つこと。
+# この workflow と Vercel deploy は main マージで並走するため、
+# 「deploy 完了 → migrate 未完」の一瞬に新カラム参照コードが動くと、
+# カラム不整合（42703 等）が一時的に再発し得る。加算的マイグレーションであれば
+# migrate 完了後に自己回復するが、列リネーム/削除などの破壊的変更では復旧しない。
+# 破壊的変更を伴う場合は、merge 前に workflow_dispatch で migrate を先行させてから
+# コードをデプロイする運用とする。
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "my-app/drizzle/**"
+      - ".github/workflows/db-migrate.yml"
+  workflow_dispatch:
+
+# 同時に複数のマイグレーションが走らないよう、適用先(ブランチ)ごとに直列化する
+concurrency:
+  group: db-migrate-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    # main は Production、それ以外(develop 等)は Preview 環境の secret を使う
+    environment: ${{ github.ref_name == 'main' && 'Production' || 'Preview' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "branch: ${{ github.ref_name }} / environment: ${{ github.ref_name == 'main' && 'Production' || 'Preview' }}"
+          if [ -z "$DATABASE_URL" ]; then
+            echo "Error: DATABASE_URL secret is not set in this environment"
+            exit 1
+          fi
+          echo "DATABASE_URL is configured"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: my-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./my-app
+        run: npm ci
+
+      # 注: Secret の DATABASE_URL は pooled(-pooler) ではなく direct 接続を推奨。
+      # pooler 経由は advisory lock 等でマイグレーションが詰まることがある。
+      - name: Run migrations
+        working-directory: ./my-app
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

@@ -31,6 +31,19 @@ import {
   ApplicationCommandType,
 } from "discord-api-types/v10"
 
+// custom_id に match_id を必ず含むメッセージコンポーネントのアクション一覧（LoL / 格ゲー）。
+// ここに無いアクション（team-schedule 等）は match_id を持たないのが正常なので、欠落をログしない。
+const MATCH_ID_REQUIRED_ACTIONS = new Set<string>([
+  CLIENT_ACTIONS.LOL.OPEN_MODAL_RED_TEAM_REGISTER,
+  CLIENT_ACTIONS.LOL.OPEN_MODAL_BLUE_TEAM_REGISTER,
+  CLIENT_ACTIONS.LOL.CHECK_REGISTERED,
+  CLIENT_ACTIONS.LOL.RESET_REGISTERED,
+  CLIENT_ACTIONS.LOL.OPEN_MODAL_TIMER,
+  CLIENT_ACTIONS.FIGHTING.OPEN_MODAL_TEAM1_ORDER,
+  CLIENT_ACTIONS.FIGHTING.OPEN_MODAL_TEAM2_ORDER,
+  CLIENT_ACTIONS.FIGHTING.RESET_TEAM_ORDER,
+])
+
 async function disableRegisterButtonsMessage(messageId: string, channelId: string, matchId: string) {
   try {
     await editDiscordMessage(channelId, messageId, "✅ 両チームの入力が完了し、結果が発表されました", createProtectComponents(matchId, true))
@@ -118,7 +131,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const customId = interaction.data.custom_id
       console.log("MESSAGE_COMPONENT custom_id:", customId)
       const [actionId] = customId.split("?")
-      const matchId = extractMatchId(customId) || ""
+      // match_id を custom_id に必ず含むアクション（LoL / 格ゲー）。
+      // これらで match_id が欠けていれば異常なのでログを出す。team-schedule 等は元々 match_id を持たず正常。
+      const requiresMatchId = MATCH_ID_REQUIRED_ACTIONS.has(actionId)
+      const matchId = extractMatchId(customId, { warnIfMissing: requiresMatchId }) || ""
       console.log("action:", actionId, "matchId:", matchId)
 
       // MENTION_REACTORSのセレクトメニュー処理（custom_idに":"が含まれるため特別処理）
@@ -227,7 +243,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         const channelId = interaction.channel_id || ""
         const guildId = interaction.guild_id || ""
         const userId = interaction.member?.user?.id || ""
-        const matchId = extractMatchId(customId) || ""
+        const matchId = extractMatchId(customId, { warnIfMissing: true }) || ""
 
         return handleSubmitTimer({ timeInput, message, channelId, guildId, userId, matchId })
       }
@@ -241,8 +257,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         firstCustomId = firstComponent.component.custom_id || ""
       }
       console.log("First custom_id:", firstCustomId)
-      const matchId = extractMatchId(firstCustomId) || ""
+      // ここに到達するのは match_id 必須の LoL register / 格ゲー order モーダルのみ。
+      // feedback / common-message / timer 系は上の if/startsWith で return 済みのため、欠落は異常としてログする。
+      const matchId = extractMatchId(firstCustomId, { warnIfMissing: true }) || ""
       console.log("Extracted match_id:", matchId)
+      // この行は LoL register（message_id を持つ）と 格ゲー order（match_id のみで message_id を持たない）で共用される。
+      // 後者では欠落が正常なため warnIfMissing は付けない（付けると格ゲー出場順送信のたびに誤検知ログが出る）。
       const messageId = extractMessageId(customId) || ""
 
       const channelId = interaction.channel_id || ""
