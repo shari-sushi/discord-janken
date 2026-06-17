@@ -1,0 +1,55 @@
+name: DB Migrate (Neon)
+
+# drizzle/ 配下が変わった状態で main にマージされたら、本番 Neon に migrate を自動適用する。
+# 手動実行(workflow_dispatch)も可能。
+# 注: 列追加など加算的なマイグレーション前提。破壊的変更は手動運用で慎重に。
+on:
+  push:
+    branches: [main]
+    paths:
+      - "my-app/drizzle/**"
+      - ".github/workflows/db-migrate.yml"
+  workflow_dispatch:
+
+# 同時に複数のマイグレーションが走らないよう直列化する
+concurrency:
+  group: db-migrate-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "Error: DATABASE_URL secret is not set"
+            exit 1
+          fi
+          echo "DATABASE_URL is configured"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: my-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./my-app
+        run: npm ci
+
+      # 注: Secret の DATABASE_URL は pooled(-pooler) ではなく direct 接続を推奨。
+      # pooler 経由は advisory lock 等でマイグレーションが詰まることがある。
+      - name: Run migrations
+        working-directory: ./my-app
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
