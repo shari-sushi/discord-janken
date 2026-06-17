@@ -32,17 +32,23 @@ function ComingSoonSection({ title }: { title: string }) {
 }
 
 /**
- * チーム管理画面（#126 第1弾）。
+ * チーム管理画面（#126 / #96）。
  * メンバーなら開けるが、編集できるのは admin 相当以上。
- * 今回機能があるのは「管理モード変更」のみで、他項目は準備中プレースホルダ。
+ * 機能があるのは「チーム名変更」「管理モード変更」で、メンバー管理・招待リンク管理は準備中プレースホルダ。
  * md 以下は body 全体を覆う実質ページ、lg 以上は中央カード。
  */
 export function TeamManageModal({ team, isAdmin, onClose, onUpdated }: TeamManageModalProps) {
+  // 編集項目はモーダル末尾の「保存する」1つでまとめて保存する（変更のあった項目だけ1回の PATCH で送る）
+  const [name, setName] = useState(team.name)
   const [mode, setMode] = useState<TeamManagementMode>(team.managementMode)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const dirty = mode !== team.managementMode
+  // 入力は trim 後で比較（前後空白だけの違いは変更とみなさない）。空文字は保存不可
+  const trimmedName = name.trim()
+  const nameDirty = trimmedName.length >= 1 && trimmedName !== team.name
+  const modeDirty = mode !== team.managementMode
+  const dirty = nameDirty || modeDirty
   const canSubmit = isAdmin && dirty && !submitting
 
   const handleSubmit = async () => {
@@ -50,7 +56,11 @@ export function TeamManageModal({ team, isAdmin, onClose, onUpdated }: TeamManag
     setSubmitting(true)
     setError(null)
     try {
-      await updateTeam(team.teamId, { managementMode: mode })
+      // 変更のあった項目だけ patch に積む（冪等：未変更フィールドは送らない）
+      await updateTeam(team.teamId, {
+        ...(nameDirty ? { name: trimmedName } : {}),
+        ...(modeDirty ? { managementMode: mode } : {}),
+      })
       onUpdated()
       onClose()
     } catch (e) {
@@ -72,8 +82,24 @@ export function TeamManageModal({ team, isAdmin, onClose, onUpdated }: TeamManag
       </div>
 
       <div className="mt-5 flex flex-col gap-4">
-        {/* チーム名変更（準備中） */}
-        <ComingSoonSection title="チーム名変更" />
+        {/* チーム名変更（機能あり） */}
+        <section className="border-t border-zinc-800 pt-4">
+          <h3 className="text-sm font-bold text-zinc-300">チーム名</h3>
+          {isAdmin ? (
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={submitting}
+              maxLength={50}
+              placeholder="例: ○○サークル Aチーム"
+              className="mt-2 w-full rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-400 focus:outline-none disabled:opacity-50"
+            />
+          ) : (
+            // メンバー（非 admin）は読み取り専用
+            <p className="mt-2 text-sm text-zinc-200">{team.name}</p>
+          )}
+        </section>
 
         {/* 管理モード変更（機能あり） */}
         <section className="border-t border-zinc-800 pt-4">
@@ -91,17 +117,6 @@ export function TeamManageModal({ team, isAdmin, onClose, onUpdated }: TeamManag
               </select>
               {/* 切替の副作用を事前に伝える（孤児化への不安・誤操作を減らす）。データ自体は消えない */}
               <p className="mt-1.5 text-xs text-zinc-500">※ 管理方法を変えると、もう一方のモードで入力済みの予定は画面に表示されなくなります（データは保持され、戻せば再表示されます）。</p>
-              {error && <p className="mt-2 text-xs text-rose-400">{error}</p>}
-              <div className="mt-3 flex justify-end">
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={!canSubmit}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {submitting ? "保存中…" : "保存する"}
-                </button>
-              </div>
             </>
           ) : (
             // メンバー（非 admin）は読み取り専用
@@ -114,6 +129,23 @@ export function TeamManageModal({ team, isAdmin, onClose, onUpdated }: TeamManag
 
         {/* 招待リンク管理（準備中）。メンバーは招待リンクを見られないため admin のみ表示 */}
         {isAdmin && <ComingSoonSection title="招待リンク管理" />}
+
+        {/* 編集項目をまとめて保存する単一ボタン（admin のみ）。変更が無ければ disabled */}
+        {isAdmin && (
+          <section className="border-t border-zinc-800 pt-4">
+            {error && <p className="mb-2 text-xs text-rose-400">{error}</p>}
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {submitting ? "保存中…" : "保存する"}
+              </button>
+            </div>
+          </section>
+        )}
       </div>
     </div>
   )

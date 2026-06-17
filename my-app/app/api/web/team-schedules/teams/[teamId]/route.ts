@@ -4,8 +4,8 @@ import { db } from "@/app/_server/lib/db"
 import { teams } from "@/app/_domains/teamSchedules/_server/schema"
 import { getSessionUserId, getTeamRole } from "@/app/_domains/teamSchedules/_server/authz"
 import { hasAdminAuthority } from "@/app/_domains/teamSchedules/types"
-import { isManagementMode, isUuid } from "@/app/_domains/teamSchedules/_server/validators"
-import type { TeamSummary } from "@/app/_domains/teamSchedules/types"
+import { isManagementMode, isUuid, isValidTeamName } from "@/app/_domains/teamSchedules/_server/validators"
+import type { TeamManagementMode, TeamSummary } from "@/app/_domains/teamSchedules/types"
 
 type RouteContext = { params: Promise<{ teamId: string }> }
 
@@ -45,12 +45,12 @@ async function authorizeTeamAdmin(req: NextRequest, teamId: string): Promise<Aut
  * チーム情報を部分更新する（要ログイン + admin相当）。各フィールドはオプショナルで冪等:
  * undefined は編集しない / 値があれば上書きする。body: { name?, description?, requiredCount?, managementMode? }
  *
- * #126 第1弾のスコープ: 反映するのは managementMode のみ。name / description / requiredCount は
+ * 反映するのは name（#96）と managementMode（#126）。description / requiredCount は
  * Issue の指示「それ以外は受け取った後無視」に従い、受け取っても DB へは適用しない（バリデーションもしない）。
  *
  * 冪等性の都合上、空ボディ・不正JSON（req.json() が null）・無視されるフィールドのみのボディは
  * いずれも「適用対象なしの no-op」として現在のチーム情報を 200 で返す（team-status と違い 400 にはしない）。
- * managementMode に不正値が入っている場合だけ 400 で弾く。
+ * name / managementMode に不正値が入っている場合だけ 400 で弾く。
  */
 export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextResponse> {
   try {
@@ -59,8 +59,18 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
     const authz = await authorizeTeamAdmin(req, teamId)
     if (!authz.ok) return authz.res
 
-    const body = (await req.json().catch(() => null)) as { managementMode?: unknown } | null
-    // managementMode が来ている場合のみ検証して適用する（不正値は弾く）
+    const body = (await req.json().catch(() => null)) as { name?: unknown; managementMode?: unknown } | null
+
+    // 反映対象を1つの set オブジェクトに組み立てる。フィールドが来ている場合のみ検証して積む（不正値は弾く）。
+    // description / requiredCount は body で受け取っても無視する（反映しない）。
+    const patch: { name?: string; managementMode?: TeamManagementMode } = {}
+    if (body && body.name !== undefined) {
+      if (!isValidTeamName(body.name)) {
+        return NextResponse.json({ success: false, error: "入力が不正です" }, { status: 400 })
+      }
+      // 保存は trim 後（POST /teams と同じ流儀）
+      patch.name = body.name.trim()
+    }
     if (body && body.managementMode !== undefined) {
       if (!isManagementMode(body.managementMode)) {
         return NextResponse.json({ success: false, error: "入力が不正です" }, { status: 400 })
@@ -68,9 +78,13 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
       // モードを切り替えても schedules / team_day_status は触らない。反対モードの行は孤児として
       // 残るが、グリッドは現モードのデータしか描画せず、team-status の書き込みもモードで弾かれるため
       // 実害は無い（第1弾の割り切り）。クリーンアップが必要になったら別 Issue で対応する。
-      await db.update(teams).set({ managementMode: body.managementMode }).where(eq(teams.teamId, teamId))
+      patch.managementMode = body.managementMode
     }
-    // managementMode が無ければ DB 更新せず、現在値をそのまま返す（冪等な no-op）
+
+    // 適用対象が1つ以上あるときだけ DB を更新する。無ければ更新せず現在値をそのまま返す（冪等な no-op）
+    if (Object.keys(patch).length > 0) {
+      await db.update(teams).set(patch).where(eq(teams.teamId, teamId))
+    }
 
     // 更新有無に関わらず最後に1回 select してチームを返す。更新パスは .returning() で1往復に
     // 畳めるが、no-op パスでも同じ TeamSummary を返す必要があり、返却の組み立てを1箇所に
