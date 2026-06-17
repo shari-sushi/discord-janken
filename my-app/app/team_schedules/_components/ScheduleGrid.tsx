@@ -32,6 +32,16 @@ function rowBgClass(row: GridRow): string {
   return "bg-zinc-900"
 }
 
+/**
+ * チーム単位モード列のセル全体を状態別に強調する（他チームからの視認性向上）。
+ * ○: 背景を少し明るく / ×: セル全体を薄く（opacity 30）。△・未記入は通常表示。
+ */
+function teamCellEmphasis(status: CellStatus): { bg: string | null; faded: boolean } {
+  if (status === "ok") return { bg: "bg-emerald-900/40", faded: false }
+  if (status === "ng") return { bg: null, faded: true }
+  return { bg: null, faded: false }
+}
+
 /** ピン留めされた列の sticky スタイルを返す */
 function pinnedStyle(column: Column<GridRow>, isHeader: boolean): React.CSSProperties | undefined {
   if (column.getIsPinned() !== "left") return undefined
@@ -86,7 +96,17 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
         const day = row.original.date.key
         const view = col.cells.get(day) ?? { status: "none" as CellStatus, note: "" }
         const handlers = cellHandlers(col, day, view.status)
-        return <ScheduleCell status={view.status} note={view.note} editable={col.editable} dim={view.status === "ng"} onCycle={handlers.onCycle} onNoteChange={handlers.onNoteChange} />
+        // team モードはセル全体を opacity-30 で薄くするため（td側）、ボタン単体の dim は二重適用を避けて付けない
+        return (
+          <ScheduleCell
+            status={view.status}
+            note={view.note}
+            editable={col.editable}
+            dim={col.kind !== "team" && view.status === "ng"}
+            onCycle={handlers.onCycle}
+            onNoteChange={handlers.onNoteChange}
+          />
+        )
       },
     }))
 
@@ -95,11 +115,7 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
       header: "成立",
       size: SIZE.success,
       cell: ({ row }) =>
-        row.original.success ? (
-          <span className="inline-block rounded bg-emerald-600 px-1.5 py-0.5 text-[11px] font-bold text-white">成立</span>
-        ) : (
-          <span className="text-xs text-zinc-600">—</span>
-        ),
+        row.original.success ? <span className="inline-block rounded bg-emerald-600 px-1.5 py-0.5 text-[11px] font-bold text-white">成立</span> : <span className="text-xs text-zinc-600">—</span>,
     }
 
     const memberCols: ColumnDef<GridRow>[] = memberColumns.map((col) => ({
@@ -119,6 +135,14 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
 
   const leftPinned = useMemo(() => ["date", "count", ...opponentColumns.map((c) => `opp:${c.teamId}`), "success"], [opponentColumns])
 
+  // td の className 算出でセル状態を引くための、テーブル列ID → ScheduleColumn の対応表。
+  // opponent/member いずれも ScheduleColumn.id がテーブル列IDと一致する（opp:teamId / own:userId など）。
+  const columnById = useMemo(() => {
+    const m = new Map<string, ScheduleColumn>()
+    for (const c of [...opponentColumns, ...memberColumns]) m.set(c.id, c)
+    return m
+  }, [opponentColumns, memberColumns])
+
   // TanStack Table の useReactTable は関数を返すため React Compiler でメモ化されない
   // （既知のライブラリ制約。動作には影響しないため抑制する）
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -130,7 +154,7 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
   })
 
   return (
-    <div className="overflow-auto rounded-lg border border-zinc-700 bg-zinc-900">
+    <div className="h-full min-w-0 overflow-auto rounded-lg border border-zinc-700 bg-zinc-900 lg:h-auto">
       <table className="border-collapse text-sm">
         <thead>
           {table.getHeaderGroups().map((hg) => (
@@ -164,16 +188,27 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
                 {row.getVisibleCells().map((cell) => {
                   const col = cell.column
                   const pinned = col.getIsPinned() === "left"
+                  const schedCol = columnById.get(col.id)
+                  const isTeamCol = schedCol?.kind === "team"
                   const editableMember = memberColumns.find((c) => c.id === col.id)?.editable
-                  // ピン留め列（日付・○数・相手・成立）は行背景を敷く。自メンバー列は編集中のみハイライト
-                  const cellBg = pinned ? bg : editableMember ? "bg-indigo-950/40" : ""
+                  // ピン留め列（日付・○数・相手・成立）は行背景を敷く。自メンバー列は編集中のみハイライト。
+                  // team 列は bg を状態強調に使うため indigo bg は敷かない（編集可は下の ring で表現）
+                  let cellBg = pinned ? bg : editableMember && !isTeamCol ? "bg-indigo-950/40" : ""
+                  // チーム単位モード列は、その日のセル状態に応じてセル全体を強調する（○=bg を上書き / ×=中身を薄く）。
+                  // ○の強調 bg は半透明（成立行の背景 emerald/30 と同種）。ピン留め相手team列でも視認性優先で行背景より優先する。
+                  const emphasis = isTeamCol ? teamCellEmphasis(schedCol!.cells.get(r.date.key)?.status ?? "none") : null
+                  if (emphasis?.bg) cellBg = emphasis.bg
+                  // 編集可能な team 列は bg を状態強調に使うため、編集可インジケータは ring（枠線）で表現する（bg と両立）
+                  const teamEditRing = isTeamCol && schedCol!.editable ? " ring-1 ring-inset ring-indigo-500/50" : ""
+                  // × セルは td の bg は変えず（行背景のまま）、中身だけ opacity-30 で薄くする
+                  const content = flexRender(col.columnDef.cell, cell.getContext())
                   return (
                     <td
                       key={cell.id}
-                      className={"border-b border-r border-zinc-700 px-1.5 py-1.5 align-top text-center " + cellBg}
+                      className={"border-b border-r border-zinc-700 px-1.5 py-1.5 align-top text-center " + cellBg + teamEditRing}
                       style={{ ...pinnedStyle(col, false), minWidth: col.getSize(), width: pinned ? col.getSize() : undefined }}
                     >
-                      {flexRender(col.columnDef.cell, cell.getContext())}
+                      {emphasis?.faded ? <div className="opacity-30">{content}</div> : content}
                     </td>
                   )
                 })}
