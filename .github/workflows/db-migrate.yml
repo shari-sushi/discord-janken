@@ -1,25 +1,29 @@
 name: DB Migrate (Neon)
 
-# drizzle/ 配下が変わった状態で main にマージされたら、本番 Neon に migrate を自動適用する。
-# 手動実行(workflow_dispatch)も可能。
+# drizzle/ 配下が変わった状態で main / develop にマージされたら、対応する Neon に migrate を自動適用する。
+#   - main    → Production 環境の DATABASE_URL（本番DB）
+#   - develop → Preview 環境の DATABASE_URL（dev DB）
+# 適用先は environment ごとの同名 secret(DATABASE_URL) で切り替わる。
+# 手動実行(workflow_dispatch)も可能（実行したブランチに応じて適用先が決まる）。
 # 注: 列追加など加算的なマイグレーション前提。破壊的変更は手動運用で慎重に。
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - "my-app/drizzle/**"
       - ".github/workflows/db-migrate.yml"
   workflow_dispatch:
 
-# 同時に複数のマイグレーションが走らないよう直列化する
+# 同時に複数のマイグレーションが走らないよう、適用先(ブランチ)ごとに直列化する
 concurrency:
-  group: db-migrate-production
+  group: db-migrate-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   migrate:
     runs-on: ubuntu-latest
-    environment: production
+    # main は Production、それ以外(develop 等)は Preview 環境の secret を使う
+    environment: ${{ github.ref_name == 'main' && 'Production' || 'Preview' }}
 
     steps:
       - name: Checkout repository
@@ -29,8 +33,9 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
+          echo "branch: ${{ github.ref_name }} / environment: ${{ github.ref_name == 'main' && 'Production' || 'Preview' }}"
           if [ -z "$DATABASE_URL" ]; then
-            echo "Error: DATABASE_URL secret is not set"
+            echo "Error: DATABASE_URL secret is not set in this environment"
             exit 1
           fi
           echo "DATABASE_URL is configured"
