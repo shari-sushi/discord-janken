@@ -124,7 +124,7 @@ export function TeamSchedulesPage() {
     const valid = new Set(teams.map((t) => t.teamId))
     const nextOwn = ownTeamId && !valid.has(ownTeamId) ? null : ownTeamId
     const nextOpponents = opponentTeamIds.filter((id) => valid.has(id))
-    // 変化が無ければ書き戻さない（無限ループ防止）
+    // 変化が無ければ書き戻さない（再実行は reconciledRef で止まるのでループ防止ではなく、無駄なストア書き込み＝余計な再レンダリングの抑制）
     if (nextOwn === ownTeamId && nextOpponents.length === opponentTeamIds.length) return
     setStoredSelection({ ownTeamId: nextOwn, opponentTeamIds: nextOpponents })
   }, [loading, teams, ownTeamId, opponentTeamIds])

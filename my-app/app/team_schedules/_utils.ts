@@ -3,8 +3,8 @@ import type { CellStatus, ComparisonSelection, DateCell } from "./_types"
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"]
 
-/** 比較チーム選択を保存する localStorage キー */
-const SELECTION_STORAGE_KEY = "ts_comparison_selection"
+/** 比較チーム選択を保存する localStorage キー（タブ間同期の storage イベント判定にも使う） */
+export const SELECTION_STORAGE_KEY = "ts_comparison_selection"
 
 /**
  * localStorage から比較チーム選択を読み込む。

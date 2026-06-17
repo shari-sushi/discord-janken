@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react"
 import type { ComparisonSelection } from "./_types"
-import { loadSelection, saveSelection } from "./_utils"
+import { SELECTION_STORAGE_KEY, loadSelection, saveSelection } from "./_utils"
 
 /**
  * 比較チーム選択（自チーム + 相手チーム）を localStorage に永続化する外部ストア。
@@ -12,6 +12,9 @@ import { loadSelection, saveSelection } from "./_utils"
  * React 公式が外部ストア連携に推奨する useSyncExternalStore で実装する。
  * - getSnapshot: クライアントの現在値（初回に localStorage から復元）
  * - getServerSnapshot: SSR・ハイドレーション時は空（サーバーには localStorage が無い）
+ *
+ * タブ間同期: storage イベント（他タブでの localStorage 変更時のみ発火）を購読し、
+ * 別タブで選択が変わったらこのタブにも反映する。
  */
 
 const EMPTY: ComparisonSelection = { ownTeamId: null, opponentTeamIds: [] }
@@ -29,10 +32,27 @@ function getServerSnapshot(): ComparisonSelection {
   return EMPTY
 }
 
+// 他タブでの localStorage 変更を取り込む。storage イベントは変更を起こしたタブには発火しないため、
+// このハンドラが呼ばれる＝別タブが選択を更新したとき。cache を読み直して購読者に通知する。
+function onStorage(e: StorageEvent): void {
+  // e.key === null は localStorage.clear() のケース。自分のキー or clear のときだけ反応する。
+  if (e.key !== null && e.key !== SELECTION_STORAGE_KEY) return
+  cache = loadSelection() ?? EMPTY
+  listeners.forEach((l) => l())
+}
+
+// storage リスナーは1つだけ張る（購読者数で参照カウント）。
+// addEventListener はクライアント専用なので、SSRで実行されない subscribe 内で登録する。
+let storageListenerCount = 0
+
 function subscribe(onChange: () => void): () => void {
   listeners.add(onChange)
+  if (storageListenerCount === 0) window.addEventListener("storage", onStorage)
+  storageListenerCount++
   return () => {
     listeners.delete(onChange)
+    storageListenerCount--
+    if (storageListenerCount === 0) window.removeEventListener("storage", onStorage)
   }
 }
 
