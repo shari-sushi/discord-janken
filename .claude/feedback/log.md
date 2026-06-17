@@ -41,3 +41,11 @@
 セルフレビューは「diff 内部の自己整合性」は見るが「diff 外の前提（外部API契約・認証/セッション寿命・グローバル状態の寿命）」の裏取りを飛ばしがち。
 → 仕組み化案: コミット前チェックに「①コメント/前提が外部モジュールの挙動に依存していないか。していれば該当コードを読んで裏取りしたか ②module-levelの可変状態を足したらログアウト/別ユーザー/別タブで評価したか」を追加する。
 -->
+
+## 2026-06-17: useCallback の deps に searchParams を入れ、effect 再実行リスクを作った（#134）
+
+**カテゴリ**: code-quality
+**状況**: team_schedules で token/join のURL掃除時に team= を残すヘルパー `cleanUrlKeepingTeam` を `useCallback` で作り、`searchParams` を deps に入れた。そのヘルパーを `?token=` / `?join=` の useEffect の依存配列に含めた。
+**ミス**: `useSearchParams()` の戻り値はクエリ変更時に同一性が変わるため、`cleanUrlKeepingTeam` の参照も変わり、依存する effect が再実行され得る。特に verifyMagicLink を含む token effect が pending 中に再実行されると二重呼び出しになる。既存コードは `token`/`joinToken` を**文字列に落として** deps にしており（searchParams オブジェクトを避ける流儀）、そこと不一致だった。
+**正解**: effect/コールバックの deps には searchParams オブジェクトそのものを入れない。(1) 必要な値は文字列に派生させて deps にする、(2) 掃除系コールバックは呼び出し時点で `window.location.search` を読み、deps は安定参照（router）だけにする。「ガードフラグ(ref)」も、`router.replace` でクエリが消えれば次回 early-return する設計なら不要。
+**なぜセルフレビューで見つからなかったか**: 自分の差分内（team= を残すロジック）の正しさは確認したが、**既存 effect の deps 設計の流儀（searchParams を避け文字列派生する）に揃っているか**という一貫性チェックを飛ばした。fresh-eyes エージェントが既存パターンとの差分として拾った。
