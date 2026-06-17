@@ -18,7 +18,7 @@ import { createInviteToken, type InvitePayload } from "@/app/_domains/teamSchedu
 import { resolveOrCreateUserByDiscordId } from "@/app/_domains/teamSchedules/_server/userResolver"
 import { inviteKey } from "@/app/_domains/teamSchedules/_server/redisKeys"
 import { redisGet } from "@/app/_server/lib/redis/redis"
-import { editWebhookOriginalMessage } from "@/app/_server/lib/discord/api"
+import { editWebhookOriginalMessage, createFollowupMessage } from "@/app/_server/lib/discord/api"
 import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { extractInviteToken } from "@/app/api/discord/util/extractCustomIdParam"
 
@@ -37,14 +37,6 @@ function extractUser(user: APIUser | undefined): { discordUserId?: string; usern
     discordUserId: user?.id,
     username: user?.global_name ?? user?.username ?? "Discordユーザー",
   }
-}
-
-/** ephemeral テキスト返信のショートハンド（本人にだけ表示・即時応答用） */
-function ephemeral(content: string): NextResponse {
-  return NextResponse.json({
-    type: InteractionResponseType.ChannelMessageWithSource,
-    data: { content, flags: MessageFlags.Ephemeral },
-  })
 }
 
 /** ephemeral の deferred 応答（「考え中…」）。重い処理を after に逃がす際の即時 ACK */
@@ -143,53 +135,64 @@ async function joinAsMember(teamId: string, userId: string, invitedBy?: string):
   })
 }
 
-/**
- * `/team-schedule-invite` コマンド。
- * 実行者が master/admin のチームへの参加募集ボタンを投稿する。
- * - 管理チームが1つ: 公開メッセージを即投稿
- * - 複数: ephemeral のセレクトメニューで選ばせる
- */
-export async function teamScheduleInviteCommand(interaction: APIChatInputApplicationCommandInteraction): Promise<NextResponse> {
-  const { discordUserId } = extractUser(interaction.member?.user ?? interaction.user)
-  if (!discordUserId) {
-    return ephemeral("ユーザー情報を取得できませんでした。再度お試しください。")
-  }
-
-  // 未登録（リンク無し）も管理チーム0件も、1クエリで同じ空配列として扱う
-  const { userId, teams: managed } = await findManagedTeamsByDiscordId(discordUserId)
-  if (managed.length === 0) {
-    return ephemeral("あなたが管理しているチームがありません。")
-  }
-
-  if (managed.length === 1) {
-    const recruit = await buildRecruitContent(managed[0], userId)
-    return NextResponse.json({
-      type: InteractionResponseType.ChannelMessageWithSource,
-      data: { content: recruit.content, components: recruit.components },
-    })
-  }
-
-  // 複数チームの管理者: セレクトメニューで選ばせる（StringSelect は最大25件）
-  return NextResponse.json({
-    type: InteractionResponseType.ChannelMessageWithSource,
-    data: {
-      content: "募集ボタンを出すチームを選んでください。",
-      flags: MessageFlags.Ephemeral,
+/** 複数チーム管理者向けのセレクトメニュー ActionRow（StringSelect は最大25件） */
+function selectTeamRow(managed: TeamRef[]): APIActionRowComponent<APIComponentInMessageActionRow>[] {
+  return [
+    {
+      type: ComponentType.ActionRow,
       components: [
         {
-          type: ComponentType.ActionRow,
-          components: [
-            {
-              type: ComponentType.StringSelect,
-              custom_id: CLIENT_ACTIONS.TEAM_SCHEDULE.SELECT_INVITE_TEAM,
-              placeholder: "チームを選択",
-              options: managed.slice(0, 25).map((t) => ({ label: t.name, value: t.teamId })),
-            },
-          ],
+          type: ComponentType.StringSelect,
+          custom_id: CLIENT_ACTIONS.TEAM_SCHEDULE.SELECT_INVITE_TEAM,
+          placeholder: "チームを選択",
+          options: managed.slice(0, 25).map((t) => ({ label: t.name, value: t.teamId })),
         },
       ],
     },
+  ]
+}
+
+/**
+ * `/team-schedule-invite` コマンド。
+ * 実行者が master/admin のチームへの参加募集ボタンを投稿する。
+ * - 管理チームが1つ: 公開メッセージを投稿
+ * - 複数: ephemeral のセレクトメニューで選ばせる
+ *
+ * cold start（Vercel/Neon）で DB 往復が3秒制限を超え得るため即 ephemeral deferred で ACK し、
+ * 実処理は after に逃がす。1チームの公開募集メッセージだけは public followup として投稿する。
+ */
+export function teamScheduleInviteCommand(interaction: APIChatInputApplicationCommandInteraction): NextResponse {
+  const { token: interactionToken, application_id } = interaction
+
+  after(async () => {
+    try {
+      const { discordUserId } = extractUser(interaction.member?.user ?? interaction.user)
+      if (!discordUserId) {
+        return safeEdit(application_id, interactionToken, "ユーザー情報を取得できませんでした。再度お試しください。")
+      }
+
+      // 未登録（リンク無し）も管理チーム0件も、1クエリで同じ空配列として扱う
+      const { userId, teams: managed } = await findManagedTeamsByDiscordId(discordUserId)
+      if (managed.length === 0) {
+        return safeEdit(application_id, interactionToken, "あなたが管理しているチームがありません。")
+      }
+
+      // 1チーム: ephemeral の元応答は確認文に差し替え、募集メッセージは public followup で投稿
+      if (managed.length === 1) {
+        const recruit = await buildRecruitContent(managed[0], userId)
+        await createFollowupMessage(application_id, interactionToken, recruit.content, recruit.components)
+        return safeEdit(application_id, interactionToken, `「${managed[0].name}」の募集メッセージを投稿しました。`)
+      }
+
+      // 複数チームの管理者: ephemeral のセレクトメニューで選ばせる
+      return safeEdit(application_id, interactionToken, "募集ボタンを出すチームを選んでください。", selectTeamRow(managed))
+    } catch (e) {
+      console.error("teamScheduleInviteCommand after error:", e)
+      return safeEdit(application_id, interactionToken, "募集ボタンの発行に失敗しました。しばらく待ってから再度お試しください。")
+    }
   })
+
+  return deferredEphemeral()
 }
 
 /**

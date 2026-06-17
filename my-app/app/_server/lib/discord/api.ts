@@ -2,7 +2,7 @@
  * Discord REST API 通信用のヘルパー関数
  */
 
-import { APIActionRowComponent, APIComponentInMessageActionRow } from "discord-api-types/v10"
+import { APIActionRowComponent, APIComponentInMessageActionRow, MessageFlags } from "discord-api-types/v10"
 import { DISCORD_API_BASE_URL, DISCORD_BOT_TOKEN } from "@/app/_server/lib/env"
 
 export interface DiscordMessageResponse {
@@ -314,6 +314,47 @@ export async function editWebhookOriginalMessage(applicationId: string, token: s
 
   const response = await fetch(url, {
     method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new DiscordApiError(response.status, response.statusText, errorData)
+  }
+}
+
+/**
+ * Webhookを通じてインタラクションの followup メッセージを送信する。
+ * 元の応答が ephemeral でも、ここで ephemeral=false にすれば public なメッセージを投稿できる。
+ * （初回が ephemeral deferred のスラッシュコマンドから、public な募集メッセージを出す用途）
+ * @param applicationId - アプリケーションID
+ * @param token - インタラクショントークン
+ * @param content - メッセージ本文
+ * @param components - コンポーネント配列
+ * @param ephemeral - true で本人にのみ表示（既定: false = public）
+ */
+export async function createFollowupMessage(
+  applicationId: string,
+  token: string,
+  content: string,
+  components?: APIActionRowComponent<APIComponentInMessageActionRow>[],
+  ephemeral = false,
+): Promise<void> {
+  const url = `${DISCORD_API_BASE_URL}/webhooks/${applicationId}/${token}`
+
+  const body: DiscordMessageBody & { flags?: number } = { content }
+  if (components && components.length > 0) {
+    body.components = components
+  }
+  if (ephemeral) {
+    body.flags = MessageFlags.Ephemeral
+  }
+
+  const response = await fetch(url, {
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
