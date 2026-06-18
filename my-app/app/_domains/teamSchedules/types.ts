@@ -5,7 +5,7 @@
  * camelCase で定義する。サーバー側はこの型に合わせてレスポンスを組み立てる。
  */
 
-/** 予定の状態。未記入は「行が無い」状態で表現するため、ここには含めない */
+/** 予定の状態。未回答は「行が無い」状態で表現するため、ここには含めない */
 export type ScheduleStatus = "ok" | "maybe" | "ng"
 
 /**
@@ -25,6 +25,13 @@ export const hasAdminAuthority = (role: TeamRole): boolean => role === "master" 
  * - team:    admin がチーム単位で日別状態を入力（team_day_status）
  */
 export type TeamManagementMode = "members" | "team"
+
+/** requiredCount（活動可能と判定するのに必要な ok の人数）のデフォルト値 */
+export const DEFAULT_REQUIRED_COUNT = 5
+/** requiredCount の最小値（1人未満は不可。サーバー側 check 制約と一致） */
+export const MIN_REQUIRED_COUNT = 1
+/** requiredCount をユーザーに見せるときの表示ラベル（この用語で統一する） */
+export const REQUIRED_COUNT_LABEL = "活動可能人数"
 
 /** YYYY-MM-DD 形式の日付（時刻なし・カレンダー日付） */
 export type DayKey = string
@@ -47,6 +54,16 @@ export type TeamSummary = {
   requiredCount: number
   /** 活動可否の管理方法 */
   managementMode: TeamManagementMode
+  /**
+   * ログイン中ユーザーがこのチームに所属しているか。
+   * 一覧取得（GET /teams）でのみ付与。作成/参加/更新の単体レスポンスでは未設定（undefined）。
+   */
+  isMember?: boolean
+  /**
+   * ログイン中ユーザーがこのチームの master か。
+   * 一覧取得（GET /teams）でのみ付与。master はアカウント削除・脱退の可否判定に使う。
+   */
+  isMaster?: boolean
 }
 
 /** チームの所属メンバー */

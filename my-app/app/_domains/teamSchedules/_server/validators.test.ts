@@ -9,7 +9,7 @@ describe("teamSchedules validators", () => {
       expect(isScheduleStatus("ng")).toBe(true)
     })
 
-    it("failure: 未記入を表す値や未知の文字列は拒否する", () => {
+    it("failure: 未回答を表す値や未知の文字列は拒否する", () => {
       expect(isScheduleStatus("none")).toBe(false)
       expect(isScheduleStatus("")).toBe(false)
       expect(isScheduleStatus(null)).toBe(false)

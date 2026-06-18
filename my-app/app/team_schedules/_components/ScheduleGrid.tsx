@@ -5,6 +5,7 @@ import { type ColumnDef, type Column, flexRender, getCoreRowModel, useReactTable
 import type { CellStatus, GridRow, ScheduleColumn } from "../_types"
 import { makeCellHandlers } from "../_utils"
 import { ScheduleCell } from "./ScheduleCell"
+import { CircleIcon } from "./StatusIcon"
 
 type EditPayload = { teamId: string; userId: string; day: string }
 type TeamEditPayload = { teamId: string; day: string }
@@ -21,9 +22,9 @@ type ScheduleGridProps = {
   onTeamNoteChange: (payload: TeamEditPayload & { value: string }) => void
 }
 
-const SIZE = { date: 76, count: 52, opponent: 70, success: 60, member: 78 }
+const SIZE = { date: 64, count: 64, opponent: 70, member: 78 }
 
-const HEADER_BASE = "border-b border-r border-zinc-700 px-2 py-2 text-xs font-semibold"
+const HEADER_BASE = "border-b border-r border-zinc-700 md:px-2  md:py-2 text-xs font-semibold"
 
 /** 行の背景色（成立 > 詰み > 通常） */
 function rowBgClass(row: GridRow): string {
@@ -64,15 +65,14 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
       cell: ({ row }) => {
         const r = row.original
         const d = r.date
-        const wkColor = d.isSunday ? "text-rose-400" : d.isSaturday ? "text-sky-400" : "text-zinc-200"
+        // 祝日は日曜と同じ扱い（赤系）。祝日名はツールチップで補足する
+        const wkColor = d.isSunday || d.isHoliday ? "text-rose-400" : d.isSaturday ? "text-sky-400" : "text-zinc-200"
         return (
           <div className="flex flex-col items-start gap-0.5">
-            <span className={"text-xs font-medium " + wkColor}>
+            <span className={"text-xs font-medium " + wkColor} title={d.holidayName ?? undefined}>
               {d.label}
-              <span className="ml-0.5 text-[11px]">（{d.weekday}）</span>
+              <span className="ml-0.5 text-[11px]">({d.weekday})</span>
             </span>
-            {/* 自チームが活動可能な日は「活動可」を明示（成立=相手も一致 とは別軸。塗りの成立バッジと区別してアウトライン表示） */}
-            {r.ownActive && <span className="rounded border border-emerald-600 px-1 py-px text-[10px] font-bold text-emerald-400">活動可</span>}
           </div>
         )
       },
@@ -85,10 +85,18 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
       cell: ({ row }) => {
         const r = row.original
         return (
-          <span className={"text-sm font-bold " + (r.okCount >= threshold ? "text-emerald-400" : "text-zinc-500")}>
-            {r.okCount}
-            {r.maybeCount > 0 && <span className="ml-0.5 text-[10px] font-normal text-amber-500">+{r.maybeCount}△</span>}
-          </span>
+          <div className="flex flex-col items-center gap-0.5">
+            <span className={"text-sm font-bold " + (r.okCount >= threshold ? "text-emerald-400" : "text-zinc-500")}>
+              {r.okCount}
+              {r.maybeCount > 0 && <span className="ml-0.5 text-[10px] font-normal text-amber-500">+{r.maybeCount}△</span>}
+            </span>
+            {/* 自チームが活動可能な日は check_circle アイコンで明示（成立=相手も一致 とは別軸） */}
+            {r.ownActive && (
+              <span title="活動可" className="inline-flex">
+                <CircleIcon className="h-[1.4rem] w-[1.4rem] fill-emerald-500" />
+              </span>
+            )}
+          </div>
         )
       },
     }
@@ -101,7 +109,7 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
         const day = row.original.date.key
         const view = col.cells.get(day) ?? { status: "none" as CellStatus, note: "" }
         const handlers = cellHandlers(col, day, view.status)
-        // team モードはセル全体を opacity-30 で薄くするため（td側）、ボタン単体の dim は二重適用を避けて付けない
+        // team モードはセル全体を opacity-60 で薄くするため（td側）、ボタン単体の dim は二重適用を避けて付けない
         return (
           <ScheduleCell
             status={view.status}
@@ -115,14 +123,6 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
       },
     }))
 
-    const successCol: ColumnDef<GridRow> = {
-      id: "success",
-      header: "成立",
-      size: SIZE.success,
-      cell: ({ row }) =>
-        row.original.success ? <span className="inline-block rounded bg-emerald-600 px-1.5 py-0.5 text-[11px] font-bold text-white">成立</span> : <span className="text-xs text-zinc-600">—</span>,
-    }
-
     const memberCols: ColumnDef<GridRow>[] = memberColumns.map((col) => ({
       id: col.id,
       header: col.label,
@@ -135,10 +135,16 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
       },
     }))
 
-    return [dateCol, countCol, ...opponentCols, successCol, ...memberCols]
+    // チーム単位モードの自チームは1列でその日の○△×を直接表示するため、○数（集計）列は不要
+    const ownIsTeamMode = memberColumns[0]?.kind === "team"
+    // 日付を一番左に。続けて 相手チーム → ○数（自チーム集計・members モードのみ）→ 各メンバー
+    return [dateCol, ...opponentCols, ...(ownIsTeamMode ? [] : [countCol]), ...memberCols]
   }, [opponentColumns, memberColumns, threshold, onCycle, onNoteChange, onTeamCycle, onTeamNoteChange])
 
-  const leftPinned = useMemo(() => ["date", "count", ...opponentColumns.map((c) => `opp:${c.teamId}`), "success"], [opponentColumns])
+  const leftPinned = useMemo(() => {
+    const ownIsTeamMode = memberColumns[0]?.kind === "team"
+    return ["date", ...opponentColumns.map((c) => `opp:${c.teamId}`), ...(ownIsTeamMode ? [] : ["count"])]
+  }, [opponentColumns, memberColumns])
 
   // td の className 算出でセル状態を引くための、テーブル列ID → ScheduleColumn の対応表。
   // opponent/member いずれも ScheduleColumn.id がテーブル列IDと一致する（opp:teamId / own:userId など）。
@@ -175,7 +181,9 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
                   <th
                     key={header.id}
                     className={HEADER_BASE + " text-center " + bg}
-                    style={{ ...pinnedStyle(col, true), top: 0, minWidth: col.getSize(), width: pinned ? col.getSize() : undefined, zIndex: pinned ? 30 : 20 }}
+                    // position:sticky + top:0 で縦スクロール時はヘッダーを固定。pinned 列のみ left も付くため横スクロールでも残り、
+                    // メンバー列ヘッダーは left を持たない＝縦は固定だが横スクロールでは一緒に流れる。
+                    style={{ ...pinnedStyle(col, true), position: "sticky", top: 0, minWidth: col.getSize(), width: pinned ? col.getSize() : undefined, zIndex: pinned ? 30 : 20 }}
                   >
                     {flexRender(col.columnDef.header, header.getContext())}
                   </th>
@@ -205,15 +213,17 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
                   if (emphasis?.bg) cellBg = emphasis.bg
                   // 編集可能な team 列は bg を状態強調に使うため、編集可インジケータは ring（枠線）で表現する（bg と両立）
                   const teamEditRing = isTeamCol && schedCol!.editable ? " ring-1 ring-inset ring-indigo-500/50" : ""
-                  // × セルは td の bg は変えず（行背景のまま）、中身だけ opacity-30 で薄くする
+                  // × セルは td の bg は変えず（行背景のまま）、中身だけ opacity-60 で薄くする
                   const content = flexRender(col.columnDef.cell, cell.getContext())
+                  // ○数列だけ横padを半分にして（px-1.5→px-[3px]）活動可バッジの幅を確保する
+                  const xPad = col.id === "count" ? "px-[3px]" : "px-1.5"
                   return (
                     <td
                       key={cell.id}
-                      className={"border-b border-r border-zinc-700 px-1.5 py-1.5 align-top text-center " + cellBg + teamEditRing}
+                      className={"border-b border-r border-zinc-700 py-1.5 align-top text-center " + xPad + " " + cellBg + teamEditRing}
                       style={{ ...pinnedStyle(col, false), minWidth: col.getSize(), width: pinned ? col.getSize() : undefined }}
                     >
-                      {emphasis?.faded ? <div className="opacity-30">{content}</div> : content}
+                      {emphasis?.faded ? <div className="opacity-60">{content}</div> : content}
                     </td>
                   )
                 })}

@@ -1,5 +1,6 @@
 import type { ScheduleEntry, ScheduleStatus, TeamDayStatusEntry, TeamSchedule } from "@/app/_domains/teamSchedules/types"
 import type { CellStatus, ComparisonSelection, DateCell, ScheduleColumn } from "./_types"
+import { japaneseHolidayName } from "./_holidays"
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"]
 
@@ -37,7 +38,7 @@ export function saveSelection(selection: ComparisonSelection): void {
   }
 }
 
-/** セルのタップ循環順: 未記入 → ○ → △ → × → 未記入 */
+/** セルのタップ循環順: 未回答 → ○ → △ → × → 未回答 */
 const CYCLE: CellStatus[] = ["none", "ok", "maybe", "ng"]
 
 /** 次の状態を返す（タップ循環） */
@@ -48,9 +49,9 @@ export function cycleStatus(current: CellStatus): CellStatus {
 
 /** 各状態の表示設定（記号・色・ラベル） */
 export const STATUS_STYLE: Record<CellStatus, { symbol: string; className: string; label: string }> = {
-  none: { symbol: "–", className: "border border-zinc-600 bg-zinc-800 text-zinc-500", label: "未記入" },
+  none: { symbol: "–", className: "border border-zinc-600 bg-zinc-800 text-zinc-500", label: "未回答" },
   ok: { symbol: "○", className: "bg-emerald-500 text-white", label: "参加可" },
-  maybe: { symbol: "△", className: "bg-amber-400 text-white", label: "検討中" },
+  maybe: { symbol: "△", className: "bg-amber-400 text-white", label: "後で回答" },
   ng: { symbol: "×", className: "bg-rose-400 text-white", label: "不可" },
 }
 
@@ -69,12 +70,15 @@ export function buildDateRange(start: Date, numDays: number): DateCell[] {
     const d = new Date(start)
     d.setDate(start.getDate() + i)
     const weekday = d.getDay()
+    const holidayName = japaneseHolidayName(d)
     cells.push({
       key: toDayKey(d),
       label: `${d.getMonth() + 1}/${d.getDate()}`,
       weekday: WEEKDAYS[weekday],
       isSunday: weekday === 0,
       isSaturday: weekday === 6,
+      isHoliday: holidayName !== null,
+      holidayName,
     })
   }
   return cells
@@ -102,7 +106,7 @@ export type DayAggregate = {
   okCount: number
   maybeCount: number
   ngCount: number
-  /** 所属人数（未記入は行が無いので team_members 基準で数える） */
+  /** 所属人数（未回答は行が無いので team_members 基準で数える） */
   memberCount: number
   /** 活動可能: ok数 >= requiredCount */
   active: boolean
@@ -155,7 +159,7 @@ export function aggregateDay(team: TeamSchedule, indexed: Map<string, Map<string
 /**
  * 相手チームを1列で表すための代表ステータスを導出する。
  * 相手チームは requiredCount=1・代表1人想定だが、複数人でも破綻しないように集約する。
- * 活動可能(○) > 検討中(△) > 不可(×) > 未記入(–) の優先で1記号にまとめる。
+ * 活動可能(○) > 後で回答(△) > 不可(×) > 未回答(–) の優先で1記号にまとめる。
  */
 export function summarizeTeamStatus(agg: DayAggregate): CellStatus {
   if (agg.active) return "ok"
@@ -164,7 +168,7 @@ export function summarizeTeamStatus(agg: DayAggregate): CellStatus {
   return "none"
 }
 
-/** ScheduleEntry の status を CellStatus に正規化（未記入 = entry無し = none） */
+/** ScheduleEntry の status を CellStatus に正規化（未回答 = entry無し = none） */
 export function toCellStatus(entry: ScheduleEntry | undefined): CellStatus {
   return entry?.status ?? "none"
 }

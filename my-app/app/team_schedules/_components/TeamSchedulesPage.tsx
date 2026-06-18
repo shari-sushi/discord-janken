@@ -8,30 +8,42 @@ import type { ScheduleEntry, ScheduleStatus, SessionUser, TeamSchedule, TeamSumm
 import { hasAdminAuthority } from "@/app/_domains/teamSchedules/types"
 import {
   createInvite,
+  deleteAccount,
   deleteSchedule,
   deleteTeamStatus,
   fetchSession,
   fetchTeamSchedule,
   fetchTeams,
   joinTeam,
+  leaveTeam,
+  logout,
   upsertSchedule,
   upsertTeamStatus,
   verifyMagicLink,
 } from "@/app/_domains/teamSchedules/_client/teamSchedulesApiClient"
+import { COMMANDS } from "@/app/_server/util/commands"
 import type { CellStatus, GridRow, ScheduleColumn } from "../_types"
 import { aggregateDay, buildDateRange, cycleStatus, indexSchedules, indexTeamStatus, summarizeTeamStatus, toCellStatus, toScheduleStatus } from "../_utils"
 import { setStoredSelection, useStoredSelection } from "../_selectionStore"
-import { setStoredViewMode, useStoredViewMode } from "../_viewModeStore"
-import { useIsSmartphone } from "../_useIsSmartphone"
+import type { ViewMode } from "../_viewModeStore"
+// 表↔カード切替トグルを復活させる際に使う（一旦コメントアウト中）
+// import { setStoredViewMode } from "../_viewModeStore"
+// import { useIsSmartphone } from "../_useIsSmartphone"
+import { ConfirmByTypingModal } from "./ConfirmByTypingModal"
+import { ConfirmModal } from "./ConfirmModal"
 import { ControlBar } from "./ControlBar"
 import { CreateTeamModal } from "./CreateTeamModal"
+import { CreateTeamRestrictedModal } from "./CreateTeamRestrictedModal"
 import { DbHealthButton } from "./DbHealthButton"
 import { InviteModal } from "./InviteModal"
 import { LoginModal } from "./LoginModal"
 import { ScheduleDayCards } from "./ScheduleDayCards"
 import { ScheduleGrid } from "./ScheduleGrid"
+import { ScheduleHelpModal, ScheduleHelpContent } from "./ScheduleHelpModal"
+import { ScrollFadeRow } from "./ScrollFadeRow"
 import { TeamCompareSelector } from "./TeamCompareSelector"
-import { TeamManageModal } from "./TeamManageModal"
+import { SettingModal, DEFAULT_SETTING_TAB, isSettingTab, type SettingTab } from "./SettingModal"
+import { SettingsIcon } from "./SettingsIcon"
 
 const NUM_DAYS = 14
 
@@ -58,11 +70,10 @@ export function TeamSchedulesPage() {
   const { ownTeamId, opponentTeamIds } = useStoredSelection()
   const setOwnTeamId = useCallback((id: string | null) => setStoredSelection((prev) => ({ ...prev, ownTeamId: id })), [])
   const setOpponentTeamIds = useCallback((ids: string[]) => setStoredSelection((prev) => ({ ...prev, opponentTeamIds: ids })), [])
-  // 表示モード切替（スマホ時のみ表↔カード。デスクトップは常に表）
-  const isPhone = useIsSmartphone()
-  const storedViewMode = useStoredViewMode()
-  // スマホ初回（未選択）はカード。デスクトップは保存値に関わらず常に表。
-  const viewMode = isPhone ? (storedViewMode ?? "card") : "table"
+  // 表示モードは常に「表」。スマホでもカードではなく表を表示する。
+  // 表↔カードの切替トグルは一旦コメントアウト中（下部ヘッダー参照）。カード描画分岐は復活時のため残す。
+  // as ViewMode で union 型を保ち、下の viewMode === "card" 分岐をリテラル絞り込みで型エラーにしないようにしている。
+  const viewMode = "table" as ViewMode
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
 
@@ -163,7 +174,7 @@ export function TeamSchedulesPage() {
     if (teams.some((t) => t.teamId === teamParam)) {
       setOwnTeamId(teamParam)
     }
-    // team= だけを除去し、他のクエリ（?manage=1 等）は残す。全消ししないこと。
+    // team= だけを除去し、他のクエリ（?setting=<tab> 等）は残す。全消ししないこと。
     const params = new URLSearchParams(window.location.search)
     params.delete("team")
     const qs = params.toString()
@@ -215,6 +226,11 @@ export function TeamSchedulesPage() {
 
   const openLogin = useCallback(() => {
     open(<LoginModal onClose={close} />)
+  }, [open, close])
+
+  // 使い方説明モーダル（md未満のヒントボタンから開く）
+  const openHelp = useCallback(() => {
+    open(<ScheduleHelpModal onClose={close} />)
   }, [open, close])
 
   // チーム一覧を再取得（作成・参加の直後に反映するため）
@@ -362,6 +378,11 @@ export function TeamSchedulesPage() {
 
   // チーム作成モーダルを開く（作成後は一覧を更新して自チームに選択）
   const openCreate = useCallback(() => {
+    // ログインは通っていてもチーム作成権限が無い場合は、作成フォームではなくプレリリース案内モーダルを出す
+    if (!session?.canCreateTeam) {
+      open(<CreateTeamRestrictedModal onClose={close} />)
+      return
+    }
     open(
       <CreateTeamModal
         onClose={close}
@@ -372,13 +393,20 @@ export function TeamSchedulesPage() {
         }}
       />,
     )
-  }, [open, close, reloadTeams, setOwnTeamId])
+  }, [session, open, close, reloadTeams, setOwnTeamId])
 
   // 選択中の自チームで、ログインユーザーが admin 相当以上（master/admin）か
   const isOwnAdmin = useMemo(() => {
     if (!session || !ownTeamId) return false
     const ownTeam = schedulesByTeam[ownTeamId]
     return !!ownTeam?.members.some((m) => m.userId === session.userId && hasAdminAuthority(m.teamRole))
+  }, [session, ownTeamId, schedulesByTeam])
+
+  // 選択中の自チームで master か（master は脱退不可なので脱退ボタンの出し分けに使う）
+  const isOwnMaster = useMemo(() => {
+    if (!session || !ownTeamId) return false
+    const ownTeam = schedulesByTeam[ownTeamId]
+    return !!ownTeam?.members.some((m) => m.userId === session.userId && m.teamRole === "master")
   }, [session, ownTeamId, schedulesByTeam])
 
   // 招待リンクを発行して表示する
@@ -399,21 +427,30 @@ export function TeamSchedulesPage() {
     return !!ownTeam?.members.some((m) => m.userId === session.userId)
   }, [session, ownTeamId, schedulesByTeam])
 
-  // チーム管理モーダルの開閉は URL クエリ（?manage=1）で管理する。
+  // 設定モーダルの開閉・タブ選択は URL クエリ（?setting=<tab>）で管理する。
   // open() の命令的呼び出しではなく派生値でインライン描画することで、保存後の再取得で
   // props（team/isAdmin）が常に最新になり、useOverlay のスナップショット陳腐化を避ける。
   // 呼び出し時点の最新クエリを window.location から読む（searchParams を deps に入れない流儀。教訓#134）。
   const openManage = useCallback(() => {
     const params = new URLSearchParams(window.location.search)
-    params.set("manage", "1")
+    params.set("setting", DEFAULT_SETTING_TAB)
     router.push(`/team_schedules?${params.toString()}`)
   }, [router])
   const closeManage = useCallback(() => {
     const params = new URLSearchParams(window.location.search)
-    params.delete("manage")
+    params.delete("setting")
     const qs = params.toString()
     router.replace(qs ? `/team_schedules?${qs}` : "/team_schedules")
   }, [router])
+  // タブ切替は replace で行う（開く操作=push の戻る先はモーダルを閉じる状態。タブ移動は履歴に積まない）
+  const changeSettingTab = useCallback(
+    (tab: SettingTab) => {
+      const params = new URLSearchParams(window.location.search)
+      params.set("setting", tab)
+      router.replace(`/team_schedules?${params.toString()}`)
+    },
+    [router],
+  )
 
   // 管理画面で管理モードを変更した後、自チームを再取得してグリッドへ反映する。
   // ローカルで managementMode だけ書き換えると、対応する schedules/teamStatus を伴わず
@@ -428,25 +465,101 @@ export function TeamSchedulesPage() {
     void reloadTeams()
   }, [ownTeamId, dayKeys, reloadTeams])
 
-  // ?manage=1 のとき、自チームが読み込み済み かつ メンバーであれば管理モーダルを表示する
-  const ownTeamForManage = ownTeamId ? schedulesByTeam[ownTeamId] : undefined
-  const manageParam = searchParams.get("manage")
-  const showManage = manageParam === "1" && !!ownTeamForManage && isOwnMember
+  // 管理モーダルの「新規チーム作成」タブでチームを作成したとき: 一覧再取得＆作成チームを自チーム選択＆モーダルを閉じる
+  const handleTeamCreatedInModal = useCallback(
+    (team: TeamSummary) => {
+      void reloadTeams()
+      setOwnTeamId(team.teamId)
+      closeManage()
+    },
+    [reloadTeams, setOwnTeamId, closeManage],
+  )
 
-  // ?manage=1 が共有/ブックマーク等で来たが開けないケース（自チーム未選択 or 読込済みで非メンバー）は、
-  // 宙に浮いた param を自己修復で掃除する。取得待ち（ownTeamId はあるが ownTeamForManage 未取得）は
-  // 正当な表示待ちなので対象外（誤って閉じない）。deps には searchParams ではなく文字列 manageParam を使う（教訓#134）。
+  // 脱退: 「脱退」と入力させる確認モーダルを overlay で開く。master は移譲が必要な旨を案内してブロック
+  const handleLeaveRequest = useCallback(() => {
+    if (!ownTeamId) return
+    const teamId = ownTeamId
+    const teamName = schedulesByTeam[teamId]?.name ?? "このチーム"
+    open(
+      <ConfirmByTypingModal
+        title="チームを脱退"
+        description={`「${teamName}」から脱退します。\n再参加には招待リンクが必要です。`}
+        confirmWord="脱退"
+        confirmLabel="脱退する"
+        blockedReason={isOwnMaster ? "あなたはこのチームの管理者（master）です。\n脱退するには、先に別のメンバーに管理者権限を渡してください。" : undefined}
+        onConfirm={async () => {
+          await leaveTeam(teamId)
+          handleManageUpdated()
+          closeManage()
+        }}
+        onClose={close}
+      />,
+    )
+  }, [ownTeamId, schedulesByTeam, isOwnMaster, open, close, handleManageUpdated, closeManage])
+
+  // アカウント削除: 「削除」と入力させる確認モーダルを overlay で開く。いずれかのチームの master は移譲が必要な旨を案内してブロック
+  const handleDeleteAccountRequest = useCallback(() => {
+    const isMasterOfAnyTeam = teams.some((t) => t.isMaster)
+    open(
+      <ConfirmByTypingModal
+        title="アカウント削除"
+        description={"あなたのアカウントと、紐づく全データ（所属・予定など）を完全に削除します。\nこの操作は取り消せません。"}
+        confirmWord="削除"
+        confirmLabel="アカウントを削除"
+        blockedReason={isMasterOfAnyTeam ? "管理者（master）を務めているチームがあります。\nアカウントを削除するには、先に別のメンバーに管理者権限を渡してください。" : undefined}
+        onConfirm={async () => {
+          await deleteAccount()
+          // 削除後はセッションも失効済み。全状態を捨てて初期表示に戻すため再読み込みする
+          window.location.href = "/team_schedules"
+        }}
+        onClose={close}
+      />,
+    )
+  }, [teams, open, close])
+
+  // ログアウト: 確認モーダルを overlay で開く。再ログインには Discord Bot のログインコマンドが必要な旨を案内する。
+  // コマンド名は API の定数（COMMANDS）から引いて文言と実体のズレを防ぐ。
+  const handleLogoutRequest = useCallback(() => {
+    open(
+      <ConfirmModal
+        title="ログアウト"
+        description={`ログアウトすると、再度ログインするには Discord Bot で /${COMMANDS.TEAM_SCHEDULE.LOGIN} を実行する必要があります。`}
+        confirmLabel="ログアウトする"
+        onConfirm={async () => {
+          await logout()
+          // セッション失効済み。全状態を捨てて未ログインの初期表示に戻すため再読み込みする
+          window.location.href = "/team_schedules"
+        }}
+        onClose={close}
+      />,
+    )
+  }, [open, close])
+
+  // 設定モーダルはログイン中なら誰でも開ける（チーム管理タブは team が無ければ案内のみ／新規作成・全体設定は常に使える）。
+  // チーム管理タブで表示する自チーム（未選択・未取得なら undefined → モーダル側で案内表示）。
+  const ownTeamForManage = ownTeamId ? schedulesByTeam[ownTeamId] : undefined
+  const settingParam = searchParams.get("setting")
+  // 有効なタブ値のときだけ開く。不正値は初期タブにフォールバック（描画用）し、URL は自己修復で正す。
+  const settingTab: SettingTab = isSettingTab(settingParam) ? settingParam : DEFAULT_SETTING_TAB
+  const showManage = isSettingTab(settingParam) && !!session
+
+  // ?setting= が来たが未ログインで開けない／値が不正なケースは、宙に浮いた param を自己修復で掃除する。
+  // 初期ロード中（loading）は session 未確定なので対象外（誤って閉じない）。deps には文字列 settingParam を使う（教訓#134）。
   useEffect(() => {
-    if (manageParam !== "1" || loading) return
-    if (!ownTeamId || (ownTeamForManage && !isOwnMember)) closeManage()
-  }, [manageParam, loading, ownTeamId, ownTeamForManage, isOwnMember, closeManage])
+    if (settingParam === null || loading) return
+    if (!session || !isSettingTab(settingParam)) closeManage()
+  }, [settingParam, loading, session, closeManage])
 
   // ビューモデル構築
   const view = useMemo(() => {
     const ownTeam = ownTeamId ? schedulesByTeam[ownTeamId] : undefined
     if (!ownTeam) return null
 
-    const opponents = opponentTeamIds.map((id) => schedulesByTeam[id]).filter((t): t is TeamSchedule => !!t)
+    // 自チームに選んだチームは相手チームの表示から必ず除外する（同一チームの二重表示を防ぐ）
+    const opponents = opponentTeamIds
+      .filter((id) => id !== ownTeamId)
+      .map((id) => schedulesByTeam[id])
+      .filter((t): t is TeamSchedule => !!t)
     const ownIndexed = indexSchedules(ownTeam.schedules)
     const oppIndexed = new Map(opponents.map((t) => [t.teamId, indexSchedules(t.schedules)]))
 
@@ -555,20 +668,41 @@ export function TeamSchedulesPage() {
     return { memberColumns, opponentColumns, rows, threshold }
   }, [ownTeamId, opponentTeamIds, schedulesByTeam, dates, dayKeys, session])
 
+  // 自分が1つでもチームに所属しているか（teams 一覧の isMember 由来）。md以下で「チームを作成」ボタンを隠す判定に使う。
+  const belongsToAnyTeam = useMemo(() => teams.some((t) => t.isMember), [teams])
+
   // md以下（lg未満）はヘッダー＋body を画面内に収め、カレンダー（グリッド）だけスクロールさせる。lg以上は通常のページスクロール。
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-zinc-950 text-zinc-100 lg:block lg:h-auto lg:min-h-screen lg:overflow-visible">
       <div className="shrink-0">
-        <LolHeader userName={session?.displayName ?? null} onLogin={openLogin} />
+        {/* 初期ロード中（session 未確定）はログインボタンを出さない。確定後に未ログインなら onLogin が渡りボタン表示、ログイン済みなら userName 表示 */}
+        <LolHeader userName={session?.displayName ?? null} onLogin={loading ? undefined : openLogin} />
       </div>
-      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col p-3 sm:p-6 lg:block">
-        <div className="flex shrink-0 flex-wrap items-start justify-between gap-2">
-          <div>
-            <h1 className="text-lg font-bold tracking-tight text-zinc-100">チーム活動 スケジュール調整</h1>
-            <p className="mt-0.5 text-sm text-zinc-400">必要人数そろって、相手も空いてる日を探す</p>
+      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col p-2.5 md:p-6 lg:block gap-1.5">
+        <div className="flex shrink-0 flex-wrap items-start justify-between md:gap-2">
+          <div className="flex min-w-0 flex-1 items-start md:gap-2">
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold tracking-tight text-zinc-100">チーム活動 スケジュール調整</h1>
+              <p className="mt-0.5 text-sm text-zinc-400">チームメンバーの活動日を集計して、スクリム相手を探す</p>
+            </div>
+            {/* md以下: 設定をタイトル右に置いて縦スペースを節約する（md以上は右側のボタン群に表示）。
+                ml-auto で右端へ寄せ、タイトル側の幅を確保する。
+                設定はログイン中なら誰でも開ける（権限不問）。 */}
+            {session && (
+              <button
+                type="button"
+                onClick={openManage}
+                aria-label="設定"
+                title="設定"
+                className="ml-auto shrink-0 rounded-lg border border-zinc-600 bg-zinc-900 p-1.5 text-zinc-200 hover:bg-zinc-800 md:hidden"
+              >
+                <SettingsIcon className="h-5 w-5 fill-current" />
+              </button>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            {/* スマホ時のみ: 表 ↔ カード切替（選択は localStorage に永続化） */}
+          <ScrollFadeRow>
+            <div className="flex w-max items-center gap-2">
+              {/* スマホ時のみ: 表 ↔ カード切替（選択は localStorage に永続化）。一旦コメントアウト中（常に表表示）。
             {isPhone && (
               <div className="flex overflow-hidden rounded-lg border border-zinc-600 text-sm">
                 <button
@@ -589,88 +723,99 @@ export function TeamSchedulesPage() {
                 </button>
               </div>
             )}
-            {isOwnMember && (
-              <button
-                type="button"
-                onClick={openManage}
-                className="rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-zinc-200 hover:bg-zinc-800"
-              >
-                チーム管理
-              </button>
-            )}
-            {isOwnAdmin && (
-              <button
-                type="button"
-                onClick={() => void handleInvite()}
-                className="rounded-lg border border-indigo-500 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-indigo-300 hover:bg-zinc-800"
-              >
-                招待リンクを発行
-              </button>
-            )}
-            {session?.canCreateTeam && (
-              <button type="button" onClick={openCreate} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">
-                チームを作成
-              </button>
-            )}
-          </div>
+            */}
+              {/* 招待リンク発行はチーム管理モーダルの「今のチーム」タブに移設した */}
+              {/* チームを作成: ログイン中なら全員に表示する（作成権限が無い場合は押下時にプレリリース案内モーダルを出す）。
+                  md以下では既に所属チームがあるなら隠す（縦スペース確保。md以上は常に表示） */}
+              {session && (
+                <button
+                  type="button"
+                  onClick={openCreate}
+                  className={"shrink-0 whitespace-nowrap rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500" + (belongsToAnyTeam ? " hidden md:inline-block" : "")}
+                >
+                  チームを作成
+                </button>
+              )}
+              {/* 設定は md以上のみここに表示（md以下はタイトル右に配置済み）。チーム作成より右に置く。ログイン中なら誰でも開ける */}
+              {session && (
+                <button
+                  type="button"
+                  onClick={openManage}
+                  aria-label="設定"
+                  title="設定"
+                  className="hidden shrink-0 rounded-lg border border-zinc-600 bg-zinc-900 p-1.5 text-zinc-200 hover:bg-zinc-800 md:inline-flex"
+                >
+                  <SettingsIcon className="h-5 w-5 fill-current" />
+                </button>
+              )}
+            </div>
+          </ScrollFadeRow>
         </div>
 
         {loadError && (
-          <div className="mt-3 shrink-0 rounded-lg border border-rose-800 bg-rose-950/50 px-3 py-2 text-xs text-rose-300">
-            データの読み込みに失敗しました。時間をおいて再読み込みしてください。
-          </div>
+          <div className="mt-3 shrink-0 rounded-lg border border-rose-800 bg-rose-950/50 px-3 py-2 text-xs text-rose-300">データの読み込みに失敗しました。時間をおいて再読み込みしてください。</div>
         )}
 
-        <div className="mt-3 flex shrink-0 flex-col gap-3">
-          <TeamCompareSelector
-            teams={teams}
-            ownTeamId={ownTeamId}
-            opponentTeamIds={opponentTeamIds}
-            onOwnTeamChange={setOwnTeamId}
-            onOpponentsChange={setOpponentTeamIds}
-          />
+        <div className="flex shrink-0 flex-col md:gap-3 gap-1.5">
+          <TeamCompareSelector teams={teams} ownTeamId={ownTeamId} opponentTeamIds={opponentTeamIds} onOwnTeamChange={setOwnTeamId} onOpponentsChange={setOpponentTeamIds} />
           {view && <ControlBar threshold={view.threshold} />}
         </div>
 
-        <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden lg:block lg:flex-none lg:overflow-visible">
-          {loading ? (
+        <div className=" flex min-h-0 flex-1 flex-col overflow-hidden lg:block lg:flex-none lg:overflow-visible">
+          {/* カレンダーは session/teams の完了（loading）を待たず、選択中チームの予定（view）が
+              用意でき次第すぐ表示する。view 未準備かつ自チーム選択済みなら取得中スピナー、
+              未選択で読み込み完了済みなら選択を促す（教訓: 体感速度のため不要な待ちを挟まない）。 */}
+          {view ? (
+            viewMode === "card" ? (
+              <ScheduleDayCards
+                rows={view.rows}
+                threshold={view.threshold}
+                opponentColumns={view.opponentColumns}
+                memberColumns={view.memberColumns}
+                onCycle={handleCycle}
+                onNoteChange={handleNoteChange}
+                onTeamCycle={handleTeamCycle}
+                onTeamNoteChange={handleTeamNoteChange}
+              />
+            ) : (
+              <ScheduleGrid
+                rows={view.rows}
+                threshold={view.threshold}
+                opponentColumns={view.opponentColumns}
+                memberColumns={view.memberColumns}
+                onCycle={handleCycle}
+                onNoteChange={handleNoteChange}
+                onTeamCycle={handleTeamCycle}
+                onTeamNoteChange={handleTeamNoteChange}
+              />
+            )
+          ) : ownTeamId || loading ? (
+            // 自チーム選択済み（予定の取得待ち）または初期ロード中はスピナー
             <p className="text-sm text-zinc-400">読み込み中…</p>
-          ) : !view ? (
-            <p className="rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-8 text-center text-sm text-zinc-400">
-              自チームを選択すると日程グリッドが表示されます。
-            </p>
-          ) : viewMode === "card" ? (
-            <ScheduleDayCards
-              rows={view.rows}
-              threshold={view.threshold}
-              opponentColumns={view.opponentColumns}
-              memberColumns={view.memberColumns}
-              onCycle={handleCycle}
-              onNoteChange={handleNoteChange}
-              onTeamCycle={handleTeamCycle}
-              onTeamNoteChange={handleTeamNoteChange}
-            />
           ) : (
-            <ScheduleGrid
-              rows={view.rows}
-              threshold={view.threshold}
-              opponentColumns={view.opponentColumns}
-              memberColumns={view.memberColumns}
-              onCycle={handleCycle}
-              onNoteChange={handleNoteChange}
-              onTeamCycle={handleTeamCycle}
-              onTeamNoteChange={handleTeamNoteChange}
-            />
+            <p className="rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-8 text-center text-sm text-zinc-400">自チームを選択すると日程グリッドが表示されます。</p>
           )}
         </div>
 
-        <p className="mt-3 max-h-24 shrink-0 overflow-y-auto text-xs leading-relaxed text-zinc-400 lg:max-h-none lg:overflow-visible">
-          ※ セルをタップで 未記入→○→△→× を循環。○数が必要人数以上かつ相手が空いている日が「成立」。×が増えて必要人数に届かない確定の日は行を薄く表示。相手の不可セルは薄く表示。チーム単位モードのチームは管理者が1列でまとめて入力します。時間は自由記入のため、○数は時間の重なりまでは見ていません。
-        </p>
+        {/* md未満: ヒントボタン（タップで説明モーダル）。md以上: 説明文を直接表示 */}
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={openHelp}
+            className="inline-flex shrink-0 items-center gap-1 self-start rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 md:hidden"
+          >
+            <span aria-hidden>💡</span>
+            使い方ヒント
+          </button>
+          <ScheduleHelpContent
+            prefix="※ "
+            className="mt-3 hidden max-h-24 w-full overflow-y-auto whitespace-pre-line text-xs leading-relaxed text-zinc-400 md:block lg:max-h-none lg:overflow-visible"
+          />
+        </div>
       </div>
 
-      {/* チーム管理モーダル（?manage=1 で表示）。useOverlay とは別に、URL 由来で直接描画する */}
-      {showManage && ownTeamForManage && (
+      {/* 設定モーダル（?setting=<tab> で表示）。ログイン中なら誰でも開ける。useOverlay とは別に、URL 由来で直接描画する */}
+      {showManage && (
         <>
           {/*
             z-30 に揃える（ヘッダー z-50 / ハンバーガーのドロワーパネル z-40 より必ず後ろ）。
@@ -690,7 +835,21 @@ export function TeamSchedulesPage() {
           */}
           <div className="pointer-events-none fixed inset-x-0 bottom-0 top-14 z-30 flex items-center justify-center md:inset-0">
             <div className="pointer-events-auto h-full w-full md:h-auto md:w-auto">
-              <TeamManageModal team={ownTeamForManage} isAdmin={isOwnAdmin} onClose={closeManage} onUpdated={handleManageUpdated} />
+              <SettingModal
+                team={ownTeamForManage ?? null}
+                isAdmin={isOwnAdmin}
+                isMember={isOwnMember}
+                canCreate={!!session?.canCreateTeam}
+                tab={settingTab}
+                onTabChange={changeSettingTab}
+                onClose={closeManage}
+                onUpdated={handleManageUpdated}
+                onCreated={handleTeamCreatedInModal}
+                onInvite={() => void handleInvite()}
+                onLeave={handleLeaveRequest}
+                onLogout={handleLogoutRequest}
+                onDeleteAccount={handleDeleteAccountRequest}
+              />
             </div>
           </div>
         </>

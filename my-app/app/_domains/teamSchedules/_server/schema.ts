@@ -2,7 +2,7 @@
 // 設計の詳細は VIBES/plan/files/team-schedules-handoff.md を参照。
 //
 // 設計方針（"善意で直さない"ための明記）:
-// - 未記入 = schedules に行が無い。status は ok / maybe / ng の3値のみ。
+// - 未回答 = schedules に行が無い。status は ok / maybe / ng の3値のみ。
 // - 状態系は ENUM ではなく text + 名前付き CHECK（後から値を増減しやすい）。
 //   Drizzle の { enum } は TS型を絞るだけで、DB制約は作らない。
 // - 集計・成立・詰みは DB に持たせず、必要範囲を SELECT してフロントで算出する。
@@ -12,6 +12,7 @@
 
 import { sql } from "drizzle-orm"
 import { pgTable, uuid, text, integer, boolean, date, timestamp, primaryKey, foreignKey, index, uniqueIndex, check } from "drizzle-orm/pg-core"
+import { DEFAULT_REQUIRED_COUNT } from "../types"
 
 // teams: チーム（自チームも相手チームも全部ここに入れる）
 export const teams = pgTable(
@@ -21,7 +22,7 @@ export const teams = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     // 「活動可能」と判定するのに必要な ok の人数。members モードで使う。team モードでは未使用
-    requiredCount: integer("required_count").notNull().default(5),
+    requiredCount: integer("required_count").notNull().default(DEFAULT_REQUIRED_COUNT),
     // 活動可否の管理方法:
     // - members: 各メンバーが schedules に入力 → ok数 >= required_count で活動可能
     // - team:    admin がチームとして team_day_status に入力（4状態）
@@ -30,10 +31,7 @@ export const teams = pgTable(
       .default("members"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [
-    check("teams_required_count_chk", sql`${t.requiredCount} >= 1`),
-    check("teams_management_mode_chk", sql`${t.managementMode} in ('members', 'team')`),
-  ],
+  (t) => [check("teams_required_count_chk", sql`${t.requiredCount} >= 1`), check("teams_management_mode_chk", sql`${t.managementMode} in ('members', 'team')`)],
 )
 
 // users: ログインする人（所属はここに持たせない＝複数チーム可）
@@ -74,12 +72,14 @@ export const teamMembers = pgTable(
     check("team_members_team_role_chk", sql`${t.teamRole} in ('master', 'admin', 'member')`),
     // master はチームに高々1人（部分ユニークインデックス）。「必ず1人必要」のうち上限を DB で担保し、
     // 下限（最低1人）は作成者を master にすることで成立させる（master 不在を作る操作は別途アプリ側で防ぐ）
-    uniqueIndex("uq_team_members_one_master").on(t.teamId).where(sql`${t.teamRole} = 'master'`),
+    uniqueIndex("uq_team_members_one_master")
+      .on(t.teamId)
+      .where(sql`${t.teamRole} = 'master'`),
     index("idx_team_members_user").on(t.userId), // 「この人の所属チーム一覧」用
   ],
 )
 
-// schedules: 予定（1日1行）。未記入 = 行が無い。状態を付けた時だけ INSERT
+// schedules: 予定（1日1行）。未回答 = 行が無い。状態を付けた時だけ INSERT
 export const schedules = pgTable(
   "schedules",
   {
@@ -105,7 +105,7 @@ export const schedules = pgTable(
 )
 
 // team_day_status: チーム単位モード（management_mode='team'）の日別状態。1チーム1日1行
-// 未記入 = 行が無い。状態を付けた時だけ INSERT（schedules と同じ流儀）
+// 未回答 = 行が無い。状態を付けた時だけ INSERT（schedules と同じ流儀）
 export const teamDayStatus = pgTable(
   "team_day_status",
   {
@@ -117,10 +117,7 @@ export const teamDayStatus = pgTable(
     note: text("note"), // 自由記入の時間/コメント
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [
-    primaryKey({ columns: [t.teamId, t.day] }),
-    check("team_day_status_status_chk", sql`${t.status} in ('ok', 'maybe', 'ng')`),
-  ],
+  (t) => [primaryKey({ columns: [t.teamId, t.day] }), check("team_day_status_status_chk", sql`${t.status} in ('ok', 'maybe', 'ng')`)],
 )
 
 // discord_links: 1アプリアカウント : N Discordアカウント（認証の背骨）

@@ -1,7 +1,11 @@
 "use client"
 
+import { COMMANDS } from "@/app/_server/util/commands"
+
 /** Discord magic-link ログインを案内するモーダル（書き込み時に未認証なら表示） */
 export function LoginModal({ onClose }: { onClose: () => void }) {
+  // コマンド名は API の定数から引いて文言と実体のズレを防ぐ
+  const loginCommand = `/${COMMANDS.TEAM_SCHEDULE.LOGIN}`
   return (
     <div className="w-[min(92vw,420px)] rounded-xl border border-zinc-700 bg-zinc-900 p-6 text-zinc-100 shadow-xl">
       <h2 className="text-base font-bold text-zinc-100">ログインが必要です</h2>
@@ -10,7 +14,7 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
       </p>
       <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm text-zinc-200">
         <li>
-          Discord で <code className="rounded bg-zinc-800 px-1 py-0.5 text-[13px]">/team-schedule-login</code> を実行
+          Discord で <code className="rounded bg-zinc-800 px-1 py-0.5 text-[13px]">{loginCommand}</code> を実行
         </li>
         <li>bot から本人にだけ届くログイン用リンクをクリック</li>
         <li>このページに戻ると、予定を編集できるようになります</li>
@@ -20,7 +24,7 @@ export function LoginModal({ onClose }: { onClose: () => void }) {
       <div className="mt-4 rounded-lg border border-zinc-700 bg-zinc-800/60 p-3 text-xs leading-relaxed text-zinc-300">
         <p>
           サーバーに bot が居ない場合は、以下のリンクから bot を導入してから{" "}
-          <code className="rounded bg-zinc-800 px-1 py-0.5">/team-schedule-login</code> を実行してください。
+          <code className="rounded bg-zinc-800 px-1 py-0.5">{loginCommand}</code> を実行してください。
         </p>
         <a
           href="https://discord.com/oauth2/authorize?client_id=1465767639484858450&scope=bot+applications.commands&permissions=84992"
