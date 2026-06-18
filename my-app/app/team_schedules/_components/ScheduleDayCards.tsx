@@ -44,14 +44,15 @@ export function ScheduleDayCards({ rows, threshold, opponentColumns, memberColum
       {rows.map((row) => {
         const d = row.date
         const day = d.key
-        const wkColor = d.isSunday ? "text-rose-400" : d.isSaturday ? "text-sky-400" : "text-zinc-100"
+        // 祝日は日曜と同じ扱い（赤系）。祝日名はツールチップで補足する
+        const wkColor = d.isSunday || d.isHoliday ? "text-rose-400" : d.isSaturday ? "text-sky-400" : "text-zinc-100"
         return (
           <div key={day} className={"rounded-lg border px-3 py-2.5 " + cardClass(row)}>
             {/* ヘッダー: 日付・曜日 / ○数 / 成立 */}
             <div className="flex items-center gap-2">
-              <span className={"text-base font-bold " + wkColor}>
+              <span className={"text-base font-bold " + wkColor} title={d.holidayName ?? undefined}>
                 {d.label}
-                <span className="ml-0.5 text-xs font-medium">（{d.weekday}）</span>
+                <span className="ml-0.5 text-xs font-medium">({d.weekday})</span>
               </span>
               {/* 自チームが活動可能な日は「活動可」を明示（成立=相手も一致 とは別軸。塗りの成立バッジと区別してアウトライン表示） */}
               {row.ownActive && <span className="rounded border border-emerald-600 px-1 py-px text-[10px] font-bold text-emerald-400">活動可</span>}

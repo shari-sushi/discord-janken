@@ -21,7 +21,7 @@ type RequestBody = {
   }
   reminder?: {
     reminder_at: string // ISO 8601 UTC（例: "2024-01-15T01:05:00.000Z"）を期待。 HH:MM（JST）/ M分後も受け付けているが非推奨とする。
-    message: string // 未記入チームへの通知メッセージを想定
+    message: string // 未回答チームへの通知メッセージを想定
   }
 }
 

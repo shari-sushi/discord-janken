@@ -72,7 +72,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
       patch.name = body.name.trim()
     }
     if (body && body.requiredCount !== undefined) {
-      // 成立に必要な人数（1以上の整数）。members モードでのみ意味を持つが、ここではモードに依らず値だけ検証して反映する
+      // 活動必要人数（1以上の整数）。members モードでのみ意味を持つが、ここではモードに依らず値だけ検証して反映する
       if (!isValidRequiredCount(body.requiredCount)) {
         return NextResponse.json({ success: false, error: "入力が不正です" }, { status: 400 })
       }

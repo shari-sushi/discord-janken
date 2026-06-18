@@ -36,12 +36,14 @@ beforeEach(() => {
 })
 
 describe("GET /team-schedules/teams", () => {
-  it("success: チーム一覧を返す", async () => {
+  it("success: チーム一覧を返す（未ログインは isMember:false）", async () => {
+    // 未ログイン（getSessionUserId 未モック→undefined）なので所属チーム照会は走らず全て isMember:false
+    mockGetSessionUserId.mockResolvedValue(null)
     selectFrom.mockResolvedValue([TEAM])
-    const res = await GET()
+    const res = await GET(createTestRequest(URL))
     const json = await res.json()
     expect(res.status).toBe(200)
-    expect(json.teams).toEqual([TEAM])
+    expect(json.teams).toEqual([{ ...TEAM, isMember: false, isMaster: false }])
   })
 })
 

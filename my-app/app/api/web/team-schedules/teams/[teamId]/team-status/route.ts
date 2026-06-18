@@ -79,7 +79,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext): Promise<NextResp
 
 /**
  * DELETE /api/web/team-schedules/teams/[teamId]/team-status
- * チーム単位モードの日別状態を1日ぶん削除（未記入に戻す・要ログイン + admin）。body: { day }
+ * チーム単位モードの日別状態を1日ぶん削除（未回答に戻す・要ログイン + admin）。body: { day }
  */
 export async function DELETE(req: NextRequest, ctx: RouteContext): Promise<NextResponse> {
   try {

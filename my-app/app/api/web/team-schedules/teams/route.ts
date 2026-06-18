@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { teamMembers, teams } from "@/app/_domains/teamSchedules/_server/schema"
@@ -9,8 +10,9 @@ import { ServerTiming } from "@/app/_server/lib/serverTiming"
 /**
  * GET /api/web/team-schedules/teams
  * チーム一覧（比較セレクタ用・public read）。
+ * ログイン中なら、各チームに「自分が所属しているか」(isMember) を付与する（未ログインは全て false）。
  */
-export async function GET(): Promise<NextResponse> {
+export async function GET(req: NextRequest): Promise<NextResponse> {
   const t = new ServerTiming()
   try {
     const rows = await t.measure("db_teams", () =>
@@ -25,7 +27,17 @@ export async function GET(): Promise<NextResponse> {
         .from(teams),
     )
 
-    const list: TeamSummary[] = rows
+    // ログイン中ユーザーの所属チームとロールを引く（未ログインなら空＝全て isMember/isMaster:false）
+    const userId = await t.measure("session", () => getSessionUserId(req))
+    const roleByTeam = new Map<string, string>()
+    if (userId) {
+      const memberRows = await t.measure("db_member_teams", () =>
+        db.select({ teamId: teamMembers.teamId, teamRole: teamMembers.teamRole }).from(teamMembers).where(eq(teamMembers.userId, userId)),
+      )
+      for (const r of memberRows) roleByTeam.set(r.teamId, r.teamRole)
+    }
+
+    const list: TeamSummary[] = rows.map((r) => ({ ...r, isMember: roleByTeam.has(r.teamId), isMaster: roleByTeam.get(r.teamId) === "master" }))
     const res = NextResponse.json({ success: true, teams: list })
     t.applyTo(res)
     return res

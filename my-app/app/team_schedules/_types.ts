@@ -1,6 +1,6 @@
 import type { ScheduleStatus } from "@/app/_domains/teamSchedules/types"
 
-/** グリッドのセル表示状態。未記入(none)を含む4状態 */
+/** グリッドのセル表示状態。未回答(none)を含む4状態 */
 export type CellStatus = ScheduleStatus | "none"
 
 /** グリッド行に対応する日付情報（UI固有） */
@@ -13,6 +13,10 @@ export type DateCell = {
   weekday: string
   isSunday: boolean
   isSaturday: boolean
+  /** 日本の祝日か（振替休日・国民の休日を含む） */
+  isHoliday: boolean
+  /** 祝日名（平日は null）。ツールチップ表示などに使う */
+  holidayName: string | null
 }
 
 /** 比較対象として選択中のチーム構成（自チーム + 相手チーム複数） */
