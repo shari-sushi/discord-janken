@@ -22,6 +22,13 @@ import { CREATE_TEAM_RESTRICTED_MESSAGE } from "./CreateTeamRestrictedModal"
 import { CloseIcon } from "./CloseIcon"
 
 type SettingModalProps = {
+  /**
+   * ログイン済みか。未ログインでもモーダルは開けるが（機能のイメージを持ってもらうため）、
+   * その場合あらゆる入力・ボタンを disabled にし、ログインを促すバナーを出す。
+   */
+  isLoggedIn: boolean
+  /** 未ログインバナーのログインボタン押下時（親がログインモーダルを開く） */
+  onLogin: () => void
   /** 選択中の自チーム。未選択（または未取得）なら null＝チーム管理タブは案内のみ表示 */
   team: TeamSchedule | null
   /**
@@ -75,11 +82,12 @@ function ComingSoonSection({ title }: { title: string }) {
 
 /**
  * 設定画面（#126 / #96 / #142）。
- * メンバーなら開けるが、編集できるのは admin 相当以上。
+ * 未ログインでも開けて機能のイメージを掴めるが、その場合は全入力・ボタンを disabled にしてログインを促す。
+ * ログイン後、編集できるのは admin 相当以上。
  * タブ構成: 今のチーム（設定変更・招待リンク発行）/ 新規チーム作成 / 全体設定（準備中）。
  * md 以下は body 全体を覆う実質ページ、lg 以上は中央カード。
  */
-export function SettingModal({ team, isAdmin, isMember, canCreate, onClose, onUpdated, onCreated, onInvite, onLeave, onLogout, onDeleteAccount, tab, onTabChange }: SettingModalProps) {
+export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, canCreate, onClose, onUpdated, onCreated, onInvite, onLeave, onLogout, onDeleteAccount, tab, onTabChange }: SettingModalProps) {
   // タブの選択状態は URL クエリ（?setting=<tab>）を単一の真実とし、親から tab/onTabChange で受け取る
   // 編集項目はモーダル末尾の「保存する」1つでまとめて保存する（変更のあった項目だけ1回の PATCH で送る）
   // team 未選択（null）でもフックは固定数呼ぶ必要があるため、初期値はフォールバックで持つ（チーム管理タブは team が無ければ案内のみ）
@@ -146,6 +154,16 @@ export function SettingModal({ team, isAdmin, isMember, canCreate, onClose, onUp
           </button>
         ))}
       </div>
+
+      {/* 未ログイン時の案内バナー。各タブの入力・ボタンは disabled のままイメージだけ見せ、ここからログインを促す */}
+      {!isLoggedIn && (
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-indigo-700 bg-indigo-950/40 px-4 py-3">
+          <p className="text-sm text-indigo-100">ログインすると、チームの作成・管理やスケジュール調整が使えるようになります！</p>
+          <button type="button" onClick={onLogin} className="ml-auto shrink-0 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">
+            ログイン
+          </button>
+        </div>
+      )}
 
       {/* チーム管理: 設定変更・招待リンク発行・脱退（自チーム未選択なら案内のみ） */}
       {tab === "team-management" && !team && (
@@ -253,9 +271,13 @@ export function SettingModal({ team, isAdmin, isMember, canCreate, onClose, onUp
       {/* 新規チーム作成: 作成フォーム（作成ボタンはフォーム内） */}
       {tab === "team-creation" && (
         <div className="mt-5">
-          {canCreate ? (
+          {!isLoggedIn ? (
+            // 未ログイン: フォームを disabled で見せ、何ができるかのイメージを持ってもらう（ログイン導線はバナー側）
+            <CreateTeamForm onCreated={onCreated} disabled />
+          ) : canCreate ? (
             <CreateTeamForm onCreated={onCreated} />
           ) : (
+            // ログイン済みだが作成権限なし: プレリリース案内
             <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-400">{CREATE_TEAM_RESTRICTED_MESSAGE}</p>
           )}
         </div>
@@ -271,7 +293,8 @@ export function SettingModal({ team, isAdmin, isMember, canCreate, onClose, onUp
             <button
               type="button"
               onClick={onLogout}
-              className="ml-auto mt-2 block w-fit rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-zinc-200 hover:bg-zinc-800"
+              disabled={!isLoggedIn}
+              className="ml-auto mt-2 block w-fit rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               ログアウト
             </button>
@@ -284,7 +307,8 @@ export function SettingModal({ team, isAdmin, isMember, canCreate, onClose, onUp
             <button
               type="button"
               onClick={onDeleteAccount}
-              className="ml-auto mt-2 block w-fit rounded-lg border-[1px] border-red-700 bg-rose-950/40 px-3 py-1.5 text-sm font-medium text-rose-300 hover:bg-rose-900/40"
+              disabled={!isLoggedIn}
+              className="ml-auto mt-2 block w-fit rounded-lg border-[1px] border-red-700 bg-rose-950/40 px-3 py-1.5 text-sm font-medium text-rose-300 hover:bg-rose-900/40 disabled:cursor-not-allowed disabled:opacity-50"
             >
               アカウントを削除
             </button>

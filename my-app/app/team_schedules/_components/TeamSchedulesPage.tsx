@@ -535,20 +535,21 @@ export function TeamSchedulesPage() {
     )
   }, [open, close])
 
-  // 設定モーダルはログイン中なら誰でも開ける（チーム管理タブは team が無ければ案内のみ／新規作成・全体設定は常に使える）。
+  // 設定モーダルは未ログインでも開ける（機能のイメージを持ってもらう）。未ログイン時はモーダル側で全入力・ボタンを
+  // disabled にし、ログインを促すバナーを出す。チーム管理タブは team が無ければ案内のみ。
   // チーム管理タブで表示する自チーム（未選択・未取得なら undefined → モーダル側で案内表示）。
   const ownTeamForManage = ownTeamId ? schedulesByTeam[ownTeamId] : undefined
   const settingParam = searchParams.get("setting")
   // 有効なタブ値のときだけ開く。不正値は初期タブにフォールバック（描画用）し、URL は自己修復で正す。
   const settingTab: SettingTab = isSettingTab(settingParam) ? settingParam : DEFAULT_SETTING_TAB
-  const showManage = isSettingTab(settingParam) && !!session
+  const showManage = isSettingTab(settingParam)
 
-  // ?setting= が来たが未ログインで開けない／値が不正なケースは、宙に浮いた param を自己修復で掃除する。
-  // 初期ロード中（loading）は session 未確定なので対象外（誤って閉じない）。deps には文字列 settingParam を使う（教訓#134）。
+  // ?setting= の値が不正なケースは、宙に浮いた param を自己修復で掃除する（未ログインでも開けるので session は条件に含めない）。
+  // deps には文字列 settingParam を使う（教訓#134）。
   useEffect(() => {
-    if (settingParam === null || loading) return
-    if (!session || !isSettingTab(settingParam)) closeManage()
-  }, [settingParam, loading, session, closeManage])
+    if (settingParam === null) return
+    if (!isSettingTab(settingParam)) closeManage()
+  }, [settingParam, closeManage])
 
   // ビューモデル構築
   const view = useMemo(() => {
@@ -687,18 +688,17 @@ export function TeamSchedulesPage() {
             </div>
             {/* md以下: 設定をタイトル右に置いて縦スペースを節約する（md以上は右側のボタン群に表示）。
                 ml-auto で右端へ寄せ、タイトル側の幅を確保する。
-                設定はログイン中なら誰でも開ける（権限不問）。 */}
-            {session && (
-              <button
-                type="button"
-                onClick={openManage}
-                aria-label="設定"
-                title="設定"
-                className="ml-auto shrink-0 rounded-lg border border-zinc-600 bg-zinc-900 p-1.5 text-zinc-200 hover:bg-zinc-800 md:hidden"
-              >
-                <SettingsIcon className="h-5 w-5 fill-current" />
-              </button>
-            )}
+                設定は未ログインでも開ける（中身は disabled で見せ、ログインを促す）。 */}
+
+            <button
+              type="button"
+              onClick={openManage}
+              aria-label="設定"
+              title="設定"
+              className="ml-auto shrink-0 rounded-lg border border-zinc-600 bg-zinc-900 p-1.5 text-zinc-200 hover:bg-zinc-800 md:hidden"
+            >
+              <SettingsIcon className="h-5 w-5 fill-current" />
+            </button>
           </div>
           <ScrollFadeRow>
             <div className="flex w-max items-center gap-2">
@@ -736,18 +736,16 @@ export function TeamSchedulesPage() {
                   チームを作成
                 </button>
               )}
-              {/* 設定は md以上のみここに表示（md以下はタイトル右に配置済み）。チーム作成より右に置く。ログイン中なら誰でも開ける */}
-              {session && (
-                <button
-                  type="button"
-                  onClick={openManage}
-                  aria-label="設定"
-                  title="設定"
-                  className="hidden shrink-0 rounded-lg border border-zinc-600 bg-zinc-900 p-1.5 text-zinc-200 hover:bg-zinc-800 md:inline-flex"
-                >
-                  <SettingsIcon className="h-5 w-5 fill-current" />
-                </button>
-              )}
+              {/* 設定は md以上のみここに表示（md以下はタイトル右に配置済み）。チーム作成より右に置く。未ログインでも開ける（中身は disabled で見せる） */}
+              <button
+                type="button"
+                onClick={openManage}
+                aria-label="設定"
+                title="設定"
+                className="hidden shrink-0 rounded-lg border border-zinc-600 bg-zinc-900 p-1.5 text-zinc-200 hover:bg-zinc-800 md:inline-flex"
+              >
+                <SettingsIcon className="h-5 w-5 fill-current" />
+              </button>
             </div>
           </ScrollFadeRow>
         </div>
@@ -836,6 +834,8 @@ export function TeamSchedulesPage() {
           <div className="pointer-events-none fixed inset-x-0 bottom-0 top-14 z-30 flex items-center justify-center md:inset-0">
             <div className="pointer-events-auto h-full w-full md:h-auto md:w-auto">
               <SettingModal
+                isLoggedIn={!!session}
+                onLogin={openLogin}
                 team={ownTeamForManage ?? null}
                 isAdmin={isOwnAdmin}
                 isMember={isOwnMember}

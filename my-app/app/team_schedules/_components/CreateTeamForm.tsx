@@ -8,10 +8,12 @@ type CreateTeamFormProps = {
   onCreated: (team: TeamSummary) => void
   /** 渡すとキャンセルボタンを表示する（単体モーダルでは閉じる用、管理モーダルのタブでは省略） */
   onCancel?: () => void
+  /** 入力・作成ボタンを無効化する（未ログイン時に値だけ見せて操作させない用途） */
+  disabled?: boolean
 }
 
 /** チーム新規作成フォーム（単体モーダルと管理モーダルのタブで共有） */
-export function CreateTeamForm({ onCreated, onCancel }: CreateTeamFormProps) {
+export function CreateTeamForm({ onCreated, onCancel, disabled = false }: CreateTeamFormProps) {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [mode, setMode] = useState<TeamManagementMode>("members")
@@ -19,7 +21,7 @@ export function CreateTeamForm({ onCreated, onCancel }: CreateTeamFormProps) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const canSubmit = name.trim().length >= 1 && !submitting
+  const canSubmit = !disabled && name.trim().length >= 1 && !submitting
 
   const handleSubmit = async () => {
     if (!canSubmit) return
@@ -49,9 +51,10 @@ export function CreateTeamForm({ onCreated, onCancel }: CreateTeamFormProps) {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            disabled={disabled}
             maxLength={50}
             placeholder="例: ○○サークル Aチーム"
-            className="rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-400 focus:outline-none"
+            className="rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-400 focus:outline-none disabled:opacity-50"
           />
         </label>
 
@@ -61,8 +64,9 @@ export function CreateTeamForm({ onCreated, onCancel }: CreateTeamFormProps) {
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            disabled={disabled}
             maxLength={200}
-            className="rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-400 focus:outline-none"
+            className="rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-400 focus:outline-none disabled:opacity-50"
           />
         </label>
 
@@ -71,7 +75,8 @@ export function CreateTeamForm({ onCreated, onCancel }: CreateTeamFormProps) {
           <select
             value={mode}
             onChange={(e) => setMode(e.target.value as TeamManagementMode)}
-            className="rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-zinc-100 focus:border-indigo-400 focus:outline-none"
+            disabled={disabled}
+            className="rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-zinc-100 focus:border-indigo-400 focus:outline-none disabled:opacity-50"
           >
             <option value="members">メンバー集計（各自が予定を入力）</option>
             <option value="team">チーム単位（管理者がまとめて入力）</option>
@@ -86,7 +91,8 @@ export function CreateTeamForm({ onCreated, onCancel }: CreateTeamFormProps) {
               min={MIN_REQUIRED_COUNT}
               value={requiredCount}
               onChange={(e) => setRequiredCount(Math.max(MIN_REQUIRED_COUNT, Number(e.target.value) || MIN_REQUIRED_COUNT))}
-              className="w-24 rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-400 focus:outline-none"
+              disabled={disabled}
+              className="w-24 rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-400 focus:outline-none disabled:opacity-50"
             />
           </label>
         )}
