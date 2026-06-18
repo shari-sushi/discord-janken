@@ -154,7 +154,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext): Promise<NextResp
 
 /**
  * DELETE /api/web/team-schedules/teams/[teamId]/schedule
- * 自分の予定を1日ぶん削除（未記入に戻す・要ログイン・本人列のみ）。body: { day }
+ * 自分の予定を1日ぶん削除（未回答に戻す・要ログイン・本人列のみ）。body: { day }
  */
 export async function DELETE(req: NextRequest, ctx: RouteContext): Promise<NextResponse> {
   try {

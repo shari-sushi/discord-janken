@@ -4,7 +4,7 @@
  * クライアントからの入力（status / day / note）を信用せず、ここで検証する。
  */
 
-import type { DayKey, ScheduleStatus, TeamManagementMode } from "@/app/_domains/teamSchedules/types"
+import { MIN_REQUIRED_COUNT, type DayKey, type ScheduleStatus, type TeamManagementMode } from "@/app/_domains/teamSchedules/types"
 
 /** status が ok / maybe / ng の3値のいずれかか */
 export function isScheduleStatus(value: unknown): value is ScheduleStatus {
@@ -31,9 +31,9 @@ export function isValidTeamDescription(value: unknown): value is string | null {
   return typeof value === "string" && value.length <= DESCRIPTION_MAX_LENGTH
 }
 
-/** requiredCount として妥当か（1以上の整数） */
+/** requiredCount として妥当か（最小値以上の整数） */
 export function isValidRequiredCount(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value >= 1
+  return typeof value === "number" && Number.isInteger(value) && value >= MIN_REQUIRED_COUNT
 }
 
 /** YYYY-MM-DD 形式のカレンダー日付か（実在日付までは厳密に見ない簡易チェック） */

@@ -3,6 +3,7 @@
 import { useState } from "react"
 import type { CellStatus } from "../_types"
 import { STATUS_STYLE } from "../_utils"
+import { StatusIcon } from "./StatusIcon"
 
 type ScheduleCellProps = {
   status: CellStatus
@@ -47,10 +48,11 @@ export function ScheduleCell({ status, note, editable, dim = false, onCycle, onN
           "mx-auto flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400 " +
           style.className +
           (editable ? " cursor-pointer hover:opacity-80" : " cursor-default") +
-          (dim ? " opacity-40" : "")
+          (dim ? " opacity-65" : "")
         }
       >
-        {style.symbol}
+        {/* ○△× はアイコンに差し替え（none は専用アイコンが無いので "–" を表示） */}
+        {status === "none" ? style.symbol : <StatusIcon status={status} />}
       </button>
       {editable ? (
         // 状態が未記入のうちはメモを保存する行が無いため、入力欄を非活性にする

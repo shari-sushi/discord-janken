@@ -100,6 +100,24 @@ export async function joinTeam(token: string): Promise<TeamSummary> {
   return json.team
 }
 
+/** ログイン中ユーザー自身がチームを脱退する（要ログイン）。master は脱退不可（サーバーが400を返す） */
+export async function leaveTeam(teamId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}/membership`, { method: "DELETE" })
+  await parse<Record<string, never>>(res, "チームからの脱退に失敗しました")
+}
+
+/** ログイン中ユーザー自身のアカウントと紐づく全データを物理削除する（要ログイン・取り消し不可） */
+export async function deleteAccount(): Promise<void> {
+  const res = await fetch(`${API_BASE}/account`, { method: "DELETE" })
+  await parse<Record<string, never>>(res, "アカウントの削除に失敗しました")
+}
+
+/** ログアウト（セッション破棄＋Cookie失効）。再ログインには Discord Bot のログインコマンドが必要 */
+export async function logout(): Promise<void> {
+  const res = await fetch(`${API_BASE}/auth/logout`, { method: "POST" })
+  await parse<Record<string, never>>(res, "ログアウトに失敗しました")
+}
+
 /** 自分の予定を1日ぶん登録/更新（要ログイン） */
 export async function upsertSchedule(input: { teamId: string; day: DayKey; status: ScheduleStatus; note: string | null }): Promise<void> {
   const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(input.teamId)}/schedule`, {
@@ -110,7 +128,7 @@ export async function upsertSchedule(input: { teamId: string; day: DayKey; statu
   await parse(res, "予定の保存に失敗しました")
 }
 
-/** 自分の予定を1日ぶん削除（未記入に戻す・要ログイン） */
+/** 自分の予定を1日ぶん削除（未回答に戻す・要ログイン） */
 export async function deleteSchedule(input: { teamId: string; day: DayKey }): Promise<void> {
   const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(input.teamId)}/schedule`, {
     method: "DELETE",
@@ -130,7 +148,7 @@ export async function upsertTeamStatus(input: { teamId: string; day: DayKey; sta
   await parse(res, "チーム状態の保存に失敗しました")
 }
 
-/** チーム単位モードの日別状態を1日ぶん削除（未記入に戻す・要ログイン + admin） */
+/** チーム単位モードの日別状態を1日ぶん削除（未回答に戻す・要ログイン + admin） */
 export async function deleteTeamStatus(input: { teamId: string; day: DayKey }): Promise<void> {
   const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(input.teamId)}/team-status`, {
     method: "DELETE",
