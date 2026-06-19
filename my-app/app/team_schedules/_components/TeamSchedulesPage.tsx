@@ -43,8 +43,8 @@ import { ScheduleHelpModal } from "./ScheduleHelpModal"
 import { ScrollFadeRow } from "./ScrollFadeRow"
 import { TeamCompareSelector } from "./TeamCompareSelector"
 import { SettingModal, DEFAULT_SETTING_TAB, isSettingTab, type SettingTab } from "./SettingModal"
-import { SettingsIcon } from "./SettingsIcon"
-import { CollapseIcon } from "./CollapseIcon"
+import { SettingsIcon } from "../_icons/SettingsIcon"
+import { CollapseIcon } from "../_icons/CollapseIcon"
 
 const NUM_DAYS = 14
 

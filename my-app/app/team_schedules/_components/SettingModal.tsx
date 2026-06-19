@@ -19,7 +19,7 @@ export function isSettingTab(value: string | null): value is SettingTab {
 import { updateTeam } from "@/app/_domains/teamSchedules/_client/teamSchedulesApiClient"
 import { CreateTeamForm } from "./CreateTeamForm"
 import { CREATE_TEAM_RESTRICTED_MESSAGE } from "./CreateTeamRestrictedModal"
-import { CloseIcon } from "./CloseIcon"
+import { CloseIcon } from "../_icons/CloseIcon"
 
 type SettingModalProps = {
   /**
