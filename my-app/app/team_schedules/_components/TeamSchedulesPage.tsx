@@ -39,7 +39,7 @@ import { InviteModal } from "./InviteModal"
 import { LoginModal } from "./LoginModal"
 import { ScheduleDayCards } from "./ScheduleDayCards"
 import { ScheduleGrid } from "./ScheduleGrid"
-import { ScheduleHelpModal, ScheduleHelpContent } from "./ScheduleHelpModal"
+import { ScheduleHelpModal } from "./ScheduleHelpModal"
 import { ScrollFadeRow } from "./ScrollFadeRow"
 import { TeamCompareSelector } from "./TeamCompareSelector"
 import { SettingModal, DEFAULT_SETTING_TAB, isSettingTab, type SettingTab } from "./SettingModal"
@@ -826,20 +826,16 @@ export function TeamSchedulesPage() {
           )}
         </div>
 
-        {/* md未満: ヒントボタン（タップで説明モーダル）。md以上: 説明文を直接表示 */}
+        {/* 使い方ヒントは全サイズでボタンに統一し、タップで説明モーダルを開く（md以上の全文インライン表示は廃止） */}
         <div className="flex justify-end">
           <button
             type="button"
             onClick={openHelp}
-            className="inline-flex shrink-0 items-center gap-1 self-start rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 md:hidden"
+            className="inline-flex shrink-0 items-center gap-1 self-start rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800"
           >
             <span aria-hidden>💡</span>
             使い方ヒント
           </button>
-          <ScheduleHelpContent
-            prefix="※ "
-            className="mt-3 hidden max-h-24 w-full overflow-y-auto whitespace-pre-line text-xs leading-relaxed text-zinc-400 md:block lg:max-h-none lg:overflow-visible"
-          />
         </div>
       </div>
 
