@@ -203,21 +203,24 @@ export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, can
             {isAdmin && (
               <p className="mt-1.5 text-xs text-zinc-500">※ 管理方法を変えると、もう一方のモードで入力済みの予定は画面に表示されなくなります（データは保持され、戻せば再表示されます）。</p>
             )}
-            {/* 活動可能人数。members モードでのみ実際に使うが、team モードでも編集・保存は許可する */}
-            <label className="mt-3 flex flex-col gap-1 text-sm">
-              <span className="font-medium text-zinc-300">{REQUIRED_COUNT_LABEL}</span>
-              <input
-                type="number"
-                min={MIN_REQUIRED_COUNT}
-                step={1}
-                value={requiredCountText}
-                onChange={(e) => setRequiredCountText(e.target.value)}
-                // 確定時に整数・最小値以上へ正規化（小数の排除・保存時の 400 予防はここで担保）
-                onBlur={() => setRequiredCountText(String(requiredCount))}
-                disabled={submitting || !isAdmin}
-                className="w-24 rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-zinc-100 focus:border-indigo-400 focus:outline-none disabled:opacity-50"
-              />
-            </label>
+            {/* 活動可能人数は members モードでのみ使うため、team モードでは非表示にする（選択中の mode に即追従）。
+                非表示中は requiredCountText に手を加えないので、既存値がそのまま保持・保存される。 */}
+            {mode !== "team" && (
+              <label className="mt-3 flex flex-col gap-1 text-sm">
+                <span className="font-medium text-zinc-300">{REQUIRED_COUNT_LABEL}</span>
+                <input
+                  type="number"
+                  min={MIN_REQUIRED_COUNT}
+                  step={1}
+                  value={requiredCountText}
+                  onChange={(e) => setRequiredCountText(e.target.value)}
+                  // 確定時に整数・最小値以上へ正規化（小数の排除・保存時の 400 予防はここで担保）
+                  onBlur={() => setRequiredCountText(String(requiredCount))}
+                  disabled={submitting || !isAdmin}
+                  className="w-24 rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-zinc-100 focus:border-indigo-400 focus:outline-none disabled:opacity-50"
+                />
+              </label>
+            )}
           </section>
 
           {/* メンバー管理（準備中）。編集権限のない一般メンバーには出さない */}
