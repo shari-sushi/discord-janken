@@ -44,6 +44,7 @@ import { ScrollFadeRow } from "./ScrollFadeRow"
 import { TeamCompareSelector } from "./TeamCompareSelector"
 import { SettingModal, DEFAULT_SETTING_TAB, isSettingTab, type SettingTab } from "./SettingModal"
 import { SettingsIcon } from "./SettingsIcon"
+import { CollapseIcon } from "./CollapseIcon"
 
 const NUM_DAYS = 14
 
@@ -76,6 +77,9 @@ export function TeamSchedulesPage() {
   const viewMode = "table" as ViewMode
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
+  // lg未満（カレンダーだけスクロールする縦圧縮レイアウト）で、表以外のチーム選択・凡例を畳んで
+  // 表に縦スペースを譲る。lg以上では常に展開（トグルも非表示）。(#156)
+  const [chromeCollapsed, setChromeCollapsed] = useState(false)
   // 選択の整合（後段の reconcile 効果で参照）。magic-link ログイン確立後の再取得で
   // false に戻し、正しい isMember を反映した teams でもう一度だけ走らせる。
   const reconciledRef = useRef(false)
@@ -721,15 +725,28 @@ export function TeamSchedulesPage() {
                 ml-auto で右端へ寄せ、タイトル側の幅を確保する。
                 設定は未ログインでも開ける（中身は disabled で見せ、ログインを促す）。 */}
 
-            <button
-              type="button"
-              onClick={openManage}
-              aria-label="設定"
-              title="設定"
-              className="ml-auto shrink-0 rounded-lg border border-zinc-600 bg-zinc-900 p-1.5 text-zinc-200 hover:bg-zinc-800 md:hidden"
-            >
-              <SettingsIcon className="h-5 w-5 fill-current" />
-            </button>
+            <div className="ml-auto flex shrink-0 items-center gap-2 md:hidden">
+              {/* たたむボタン: 設定ボタンの左。表以外（チーム選択・凡例）を畳んで表に縦スペースを譲る（#156） */}
+              <button
+                type="button"
+                onClick={() => setChromeCollapsed((v) => !v)}
+                aria-label={chromeCollapsed ? "チーム選択・凡例を開く" : "チーム選択・凡例をたたむ"}
+                aria-expanded={!chromeCollapsed}
+                title={chromeCollapsed ? "開く" : "たたむ"}
+                className="rounded-lg border border-zinc-600 bg-zinc-900 p-1.5 text-zinc-200 hover:bg-zinc-800"
+              >
+                <CollapseIcon collapsed={chromeCollapsed} className="h-5 w-5 fill-current" />
+              </button>
+              <button
+                type="button"
+                onClick={openManage}
+                aria-label="設定"
+                title="設定"
+                className="rounded-lg border border-zinc-600 bg-zinc-900 p-1.5 text-zinc-200 hover:bg-zinc-800"
+              >
+                <SettingsIcon className="h-5 w-5 fill-current" />
+              </button>
+            </div>
           </div>
           <ScrollFadeRow>
             <div className="flex w-max items-center gap-2">
@@ -767,6 +784,17 @@ export function TeamSchedulesPage() {
                   チームを作成
                 </button>
               )}
+              {/* たたむボタン: 設定ボタンの左。md〜lg未満（縦圧縮レイアウト）でのみ表示（#156） */}
+              <button
+                type="button"
+                onClick={() => setChromeCollapsed((v) => !v)}
+                aria-label={chromeCollapsed ? "チーム選択・凡例を開く" : "チーム選択・凡例をたたむ"}
+                aria-expanded={!chromeCollapsed}
+                title={chromeCollapsed ? "開く" : "たたむ"}
+                className="hidden shrink-0 rounded-lg border border-zinc-600 bg-zinc-900 p-1.5 text-zinc-200 hover:bg-zinc-800 md:inline-flex lg:hidden"
+              >
+                <CollapseIcon collapsed={chromeCollapsed} className="h-5 w-5 fill-current" />
+              </button>
               {/* 設定は md以上のみここに表示（md以下はタイトル右に配置済み）。チーム作成より右に置く。未ログインでも開ける（中身は disabled で見せる） */}
               <button
                 type="button"
@@ -785,9 +813,19 @@ export function TeamSchedulesPage() {
           <div className="mt-3 shrink-0 rounded-lg border border-rose-800 bg-rose-950/50 px-3 py-2 text-xs text-rose-300">データの読み込みに失敗しました。時間をおいて再読み込みしてください。</div>
         )}
 
-        <div className="flex shrink-0 flex-col md:gap-3 gap-1.5">
-          <TeamCompareSelector teams={teams} ownTeamId={ownTeamId} opponentTeamIds={opponentTeamIds} onOwnTeamChange={setOwnTeamId} onOpponentsChange={setOpponentTeamIds} />
-          {view && <ControlBar threshold={view.threshold} />}
+        {/* チーム選択・凡例の折りたたみ領域（#156）。grid-rows 0fr↔1fr で高さを上下スライドアニメーション。
+            lg以上は常に展開（トグルも非表示）。inner は overflow-hidden で畳み時に中身を隠す。 */}
+        <div
+          className={
+            "grid shrink-0 transition-[grid-template-rows] duration-300 ease-in-out lg:grid-rows-[1fr] " + (chromeCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]")
+          }
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="flex flex-col md:gap-3 gap-1.5">
+              <TeamCompareSelector teams={teams} ownTeamId={ownTeamId} opponentTeamIds={opponentTeamIds} onOwnTeamChange={setOwnTeamId} onOpponentsChange={setOpponentTeamIds} />
+              {view && <ControlBar threshold={view.threshold} />}
+            </div>
+          </div>
         </div>
 
         <div className=" flex min-h-0 flex-1 flex-col overflow-hidden lg:block lg:flex-none lg:overflow-visible">
