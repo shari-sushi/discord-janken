@@ -11,6 +11,7 @@ import {
   deleteAccount,
   deleteSchedule,
   deleteTeamStatus,
+  disbandTeam,
   fetchSession,
   fetchTeamSchedule,
   fetchTeams,
@@ -532,6 +533,31 @@ export function TeamSchedulesPage() {
     )
   }, [ownTeamId, schedulesByTeam, isOwnMaster, open, close, handleManageUpdated, closeManage, setOwnTeamId])
 
+  // チーム解散: 「解散」と入力させる確認モーダルを overlay で開く（master 専用・取り消し不可）。
+  // 解散するとチームと紐づく全データ（メンバー・予定）が削除されるため、選択を解除して一覧を取り直す。
+  const handleDisbandRequest = useCallback(() => {
+    if (!ownTeamId) return
+    const teamId = ownTeamId
+    const teamName = schedulesByTeam[teamId]?.name ?? "このチーム"
+    open(
+      <ConfirmByTypingModal
+        title="チームを解散"
+        description={`「${teamName}」を解散します。\nチームと、紐づく全データ（メンバー・予定など）が完全に削除されます。\nこの操作は取り消せません。`}
+        confirmWord="解散"
+        confirmLabel="解散する"
+        onConfirm={async () => {
+          await disbandTeam(teamId)
+          // 解散後はチーム自体が消える。自チーム選択を解除し、一覧を取り直してモーダルを閉じる
+          // （削除済みチームの予定取得は走らせないため handleManageUpdated は呼ばない）。
+          setOwnTeamId(null)
+          void reloadTeams()
+          closeManage()
+        }}
+        onClose={close}
+      />,
+    )
+  }, [ownTeamId, schedulesByTeam, open, close, reloadTeams, closeManage, setOwnTeamId])
+
   // アカウント削除: 「削除」と入力させる確認モーダルを overlay で開く。いずれかのチームの master は移譲が必要な旨を案内してブロック
   const handleDeleteAccountRequest = useCallback(() => {
     const isMasterOfAnyTeam = teams.some((t) => t.isMaster)
@@ -906,6 +932,7 @@ export function TeamSchedulesPage() {
                 team={ownTeamForManage ?? null}
                 isAdmin={isOwnAdmin}
                 isMember={isOwnMember}
+                isMaster={isOwnMaster}
                 canCreate={!!session?.canCreateTeam}
                 tab={settingTab}
                 onTabChange={changeSettingTab}
@@ -914,6 +941,7 @@ export function TeamSchedulesPage() {
                 onCreated={handleTeamCreatedInModal}
                 onInvite={() => void handleInvite()}
                 onLeave={handleLeaveRequest}
+                onDisband={handleDisbandRequest}
                 onLogout={handleLogoutRequest}
                 onDeleteAccount={handleDeleteAccountRequest}
               />

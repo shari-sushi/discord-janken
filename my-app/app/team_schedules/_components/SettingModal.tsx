@@ -38,6 +38,8 @@ type SettingModalProps = {
   isAdmin: boolean
   /** 選択中チームのメンバーか（脱退ボタンの表示可否に使う。非メンバーには出さない） */
   isMember: boolean
+  /** 選択中チームの master か。master には「解散」、それ以外のメンバーには「脱退」を出し分ける */
+  isMaster: boolean
   /** 新規チーム作成タブを使えるか（チーム作成権限）。無い場合は案内のみ表示 */
   canCreate: boolean
   onClose: () => void
@@ -53,6 +55,8 @@ type SettingModalProps = {
   onTabChange: (tab: SettingTab) => void
   /** 脱退の確認モーダルを開く（親が overlay で確認モーダルを表示し、確定時に leaveTeam を叩く） */
   onLeave: () => void
+  /** 解散の確認モーダルを開く（master 専用。親が overlay で確認モーダルを表示し、確定時に disbandTeam を叩く） */
+  onDisband: () => void
   /** ログアウトの確認モーダルを開く（親が overlay で確認モーダルを表示し、確定時に logout を叩く） */
   onLogout: () => void
   /** アカウント削除の確認モーダルを開く（親が overlay で確認モーダルを表示する） */
@@ -87,7 +91,7 @@ function ComingSoonSection({ title }: { title: string }) {
  * タブ構成: 今のチーム（設定変更・招待リンク発行）/ 新規チーム作成 / 全体設定（準備中）。
  * md 以下は body 全体を覆う実質ページ、lg 以上は中央カード。
  */
-export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, canCreate, onClose, onUpdated, onCreated, onInvite, onLeave, onLogout, onDeleteAccount, tab, onTabChange }: SettingModalProps) {
+export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, isMaster, canCreate, onClose, onUpdated, onCreated, onInvite, onLeave, onDisband, onLogout, onDeleteAccount, tab, onTabChange }: SettingModalProps) {
   // タブの選択状態は URL クエリ（?setting=<tab>）を単一の真実とし、親から tab/onTabChange で受け取る
   // 編集項目はモーダル末尾の「保存する」1つでまとめて保存する（変更のあった項目だけ1回の PATCH で送る）
   // team 未選択（null）でもフックは固定数呼ぶ必要があるため、初期値はフォールバックで持つ（チーム管理タブは team が無ければ案内のみ）
@@ -254,8 +258,21 @@ export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, can
             </section>
           )}
 
-          {/* 脱退（このチームのメンバーのみ）。押すと確認モーダル（「脱退」と入力で確定。master は移譲を促す案内）を親が開く */}
-          {isMember && (
+          {/* チームからの離脱: master は「解散」、それ以外のメンバーは「脱退」を出し分ける（master は脱退不可なため）。
+              非メンバーにはどちらも出さない。押すと確認モーダル（語句入力で確定）を親が開く。 */}
+          {isMaster ? (
+            <section className="rounded-lg border-[1px] border-red-700 p-4">
+              <h3 className="text-sm font-bold text-rose-300">チームを解散</h3>
+              <p className="mt-1 text-xs text-zinc-500">このチームと、紐づく全データ（メンバー・予定など）を完全に削除します。取り消せません。</p>
+              <button
+                type="button"
+                onClick={onDisband}
+                className="ml-auto mt-2 block w-fit rounded-lg border-[1px] border-red-700 bg-rose-950/40 px-3 py-1.5 text-sm font-medium text-rose-300 hover:bg-rose-900/40"
+              >
+                チームを解散
+              </button>
+            </section>
+          ) : isMember ? (
             <section className="rounded-lg border-[1px] border-red-700 p-4">
               <h3 className="text-sm font-bold text-zinc-300">チームを脱退</h3>
               <p className="mt-1 text-xs text-zinc-500">このチームから抜けます。再参加には招待リンクが必要です。</p>
@@ -267,7 +284,7 @@ export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, can
                 チームを脱退
               </button>
             </section>
-          )}
+          ) : null}
         </div>
       )}
 

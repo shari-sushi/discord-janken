@@ -106,6 +106,12 @@ export async function leaveTeam(teamId: string): Promise<void> {
   await parse<Record<string, never>>(res, "チームからの脱退に失敗しました")
 }
 
+/** チームを解散する（要ログイン + master のみ）。関連データも連鎖削除される・取り消し不可。master 以外はサーバーが400を返す */
+export async function disbandTeam(teamId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}`, { method: "DELETE" })
+  await parse<Record<string, never>>(res, "チームの解散に失敗しました")
+}
+
 /** ログイン中ユーザー自身のアカウントと紐づく全データを物理削除する（要ログイン・取り消し不可） */
 export async function deleteAccount(): Promise<void> {
   const res = await fetch(`${API_BASE}/account`, { method: "DELETE" })
