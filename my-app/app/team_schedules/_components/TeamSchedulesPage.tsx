@@ -76,6 +76,9 @@ export function TeamSchedulesPage() {
   const viewMode = "table" as ViewMode
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
+  // 選択の整合（後段の reconcile 効果で参照）。magic-link ログイン確立後の再取得で
+  // false に戻し、正しい isMember を反映した teams でもう一度だけ走らせる。
+  const reconciledRef = useRef(false)
 
   // token / join を URL から消す際、対象チーム選択用の team= だけは残して掃除する。
   // 招待リンク（?join=...&team=...）は join を消費しても team を後段の効果で読み取る必要があるため、
@@ -97,6 +100,18 @@ export function TeamSchedulesPage() {
       .then((user) => {
         if (cancelled) return
         setSession(user)
+        // 初期ロードの fetchTeams はマウント時に並行で走るため、magic-link 着地時は
+        // セッション cookie 確立前に実行され isMember が全て false になっている。
+        // ログイン確立後に取り直し、自チーム候補（isMember 由来）を正しく埋める。
+        // あわせて reconciledRef を戻し、正しい isMember で reconcile を再実行させる
+        // （参加が1チームだけなら自動選択する処理を、初回ログイン直後でも効かせるため）。
+        void fetchTeams()
+          .then((t) => {
+            if (cancelled) return
+            reconciledRef.current = false
+            setTeams(t)
+          })
+          .catch(() => {})
       })
       .catch(() => {
         // 失効/使用済みトークン等。未ログインのまま続行（書き込み時にログイン案内が出る）
@@ -149,13 +164,19 @@ export function TeamSchedulesPage() {
   // チーム一覧は public read で全チームを返すため、ここで消えるのは DB から削除されたチームのみ
   // （非メンバーでも閲覧できるので「権限喪失」では消えない）。
   // 以降の参加・作成では意図的に有効なチームを選択するため、再実行しない（選択が消されるのを防ぐ）。
-  const reconciledRef = useRef(false)
+  // 例外: magic-link ログイン確立後の再取得時のみ reconciledRef を戻し、もう一度だけ走らせる（上の宣言箇所参照）。
   useEffect(() => {
     if (loading || reconciledRef.current) return
     reconciledRef.current = true
     const valid = new Set(teams.map((t) => t.teamId))
-    const nextOwn = ownTeamId && !valid.has(ownTeamId) ? null : ownTeamId
+    let nextOwn = ownTeamId && !valid.has(ownTeamId) ? null : ownTeamId
     const nextOpponents = opponentTeamIds.filter((id) => valid.has(id))
+    // 自チーム未選択で、参加チームがちょうど1つだけならそれを自動選択する
+    // （複数参加なら本人に選ばせるため自動選択しない）
+    if (nextOwn === null) {
+      const memberTeams = teams.filter((t) => t.isMember)
+      if (memberTeams.length === 1) nextOwn = memberTeams[0].teamId
+    }
     // 変化が無ければ書き戻さない（再実行は reconciledRef で止まるのでループ防止ではなく、無駄なストア書き込み＝余計な再レンダリングの抑制）
     if (nextOwn === ownTeamId && nextOpponents.length === opponentTeamIds.length) return
     setStoredSelection({ ownTeamId: nextOwn, opponentTeamIds: nextOpponents })
@@ -163,18 +184,25 @@ export function TeamSchedulesPage() {
 
   // 「参加済み」案内リンク・招待リンクからの着地: ?team=<teamId> があれば、そのチームを自チームに選択する。
   // （Discord の招待ボタンで既に参加済みだったユーザーをスケジュール画面に誘導する導線）
-  // チーム一覧（public read で全チーム返す）の取得後に存在チェックし、setOwnTeamId 経由で
-  // localStorage にも永続化する。既に別チームが own 選択済みでも team= で上書きする（招待/誘導が優先）。
+  // 自チームは「所属チーム」だけを選べるため、isMember=true のときだけ選択する
+  // （非メンバーが共有リンク等で着地しても自チームには入れない＝セレクタは空なのにグリッドだけ出る不整合を防ぐ）。
+  // setOwnTeamId 経由で localStorage にも永続化する。既に別チームが own 選択済みでも team= で上書きする（招待/誘導が優先）。
   // 最後に URL から team= を消すため teamParam が null になり、
   // 再実行時は冒頭で早期 return する＝自然に一度きりの処理になる（専用のガードフラグは不要）。
   const teamParam = searchParams.get("team")
   useEffect(() => {
     if (!teamParam || loading) return
-    // 存在しない（削除済み等）チームIDは無視し、URLだけ掃除する
-    if (teams.some((t) => t.teamId === teamParam)) {
+    const target = teams.find((t) => t.teamId === teamParam)
+    if (target?.isMember) {
       setOwnTeamId(teamParam)
+    } else if (target) {
+      // 存在はするが isMember=false。magic-link 着地直後やリンクからの参加直後は、
+      // セッション確立・参加反映前の一覧で isMember が false のことがある。
+      // ここでは URL を掃除せず待ち、再取得で teams が更新されれば本効果が再実行されて選択する。
+      // 本当の非メンバーなら team= は残るが自チーム選択はされない（不整合は起きない）。
+      return
     }
-    // team= だけを除去し、他のクエリ（?setting=<tab> 等）は残す。全消ししないこと。
+    // 選択済み or 存在しない（削除済み等）チーム: team= だけを除去し、他のクエリ（?setting=<tab> 等）は残す。全消ししないこと。
     const params = new URLSearchParams(window.location.search)
     params.delete("team")
     const qs = params.toString()
@@ -489,13 +517,16 @@ export function TeamSchedulesPage() {
         blockedReason={isOwnMaster ? "あなたはこのチームの管理者（master）です。\n脱退するには、先に別のメンバーに管理者権限を渡してください。" : undefined}
         onConfirm={async () => {
           await leaveTeam(teamId)
+          // 脱退後はそのチームが isMember=false になり自チーム候補から外れるため、
+          // 選択を解除する（セレクタは空表示なのにグリッドだけ残る不整合を防ぐ）。
+          setOwnTeamId(null)
           handleManageUpdated()
           closeManage()
         }}
         onClose={close}
       />,
     )
-  }, [ownTeamId, schedulesByTeam, isOwnMaster, open, close, handleManageUpdated, closeManage])
+  }, [ownTeamId, schedulesByTeam, isOwnMaster, open, close, handleManageUpdated, closeManage, setOwnTeamId])
 
   // アカウント削除: 「削除」と入力させる確認モーダルを overlay で開く。いずれかのチームの master は移譲が必要な旨を案内してブロック
   const handleDeleteAccountRequest = useCallback(() => {
@@ -824,14 +855,14 @@ export function TeamSchedulesPage() {
           {/* 半透明背景（クリックで閉じる） */}
           <div className="fixed inset-0 z-30 h-full w-full bg-zinc-500/70" onClick={closeManage} />
           {/*
-            md 以下はヘッダーを隠さないよう top-14 から開始する全画面モーダル。
-            top-14(56px) は LolHeader の実高さ（py-3=24px + ボタン h-8=32px）に合わせた値。
+            md 以下はヘッダーを隠さないよう top-11 から開始する全画面モーダル。
+            top-11(44px) は LolHeader のスマホ時の実高さ（py-2=16px + ボタン h-7=28px）に合わせた値（#155）。
             ヘッダーは fixed ではなく in-flow（relative z-50）なので、ヘッダーの padding/高さを
-            変えたらこの top-14 も追従させること（ズレてもモーダルは z-30 でヘッダー背後に回るだけ）。
+            変えたらこの top-11 も追従させること（ズレてもモーダルは z-30 でヘッダー背後に回るだけ）。
             md 以上は inset-0 で中央カード。カード外クリックを背景に通すため pointer-events-none、
             コンテンツのみ有効化（OverlayProvider と同じ流儀）。
           */}
-          <div className="pointer-events-none fixed inset-x-0 bottom-0 top-14 z-30 flex items-center justify-center md:inset-0">
+          <div className="pointer-events-none fixed inset-x-0 bottom-0 top-11 z-30 flex items-center justify-center md:inset-0">
             <div className="pointer-events-auto h-full w-full md:h-auto md:w-auto">
               <SettingModal
                 isLoggedIn={!!session}
