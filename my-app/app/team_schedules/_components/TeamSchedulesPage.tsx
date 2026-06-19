@@ -166,22 +166,26 @@ export function TeamSchedulesPage() {
     }
   }, [])
 
-  // 初期ロード直後に1回だけ、復元した選択のうちチーム一覧に存在しないチームを取り除く。
-  // チーム一覧は public read で全チームを返すため、ここで消えるのは DB から削除されたチームのみ
-  // （非メンバーでも閲覧できるので「権限喪失」では消えない）。
+  // 初期ロード直後に1回だけ、復元した選択を整合させる。
+  // - 自チーム: 所属チーム（isMember）以外（削除済み・別デバイスで脱退した残り等）は null に倒す。
+  // - 相手チーム: チーム一覧（public read で全チーム返す）に存在しない＝削除済みのみ取り除く。
   // 以降の参加・作成では意図的に有効なチームを選択するため、再実行しない（選択が消されるのを防ぐ）。
   // 例外: magic-link ログイン確立後の再取得時のみ reconciledRef を戻し、もう一度だけ走らせる（上の宣言箇所参照）。
   useEffect(() => {
     if (loading || reconciledRef.current) return
     reconciledRef.current = true
     const valid = new Set(teams.map((t) => t.teamId))
-    let nextOwn = ownTeamId && !valid.has(ownTeamId) ? null : ownTeamId
+    const memberTeams = teams.filter((t) => t.isMember)
+    const memberTeamIds = new Set(memberTeams.map((t) => t.teamId))
+    // 自チームは所属チームのみ選べる。別デバイスで脱退した等で localStorage に残った
+    // 非メンバー（または削除済み）のチームIDはここで null に倒す
+    // （セレクタは空表示なのにグリッドだけ残る不整合を防ぐ）。
+    let nextOwn = ownTeamId && !memberTeamIds.has(ownTeamId) ? null : ownTeamId
     const nextOpponents = opponentTeamIds.filter((id) => valid.has(id))
     // 自チーム未選択で、参加チームがちょうど1つだけならそれを自動選択する
     // （複数参加なら本人に選ばせるため自動選択しない）
-    if (nextOwn === null) {
-      const memberTeams = teams.filter((t) => t.isMember)
-      if (memberTeams.length === 1) nextOwn = memberTeams[0].teamId
+    if (nextOwn === null && memberTeams.length === 1) {
+      nextOwn = memberTeams[0].teamId
     }
     // 変化が無ければ書き戻さない（再実行は reconciledRef で止まるのでループ防止ではなく、無駄なストア書き込み＝余計な再レンダリングの抑制）
     if (nextOwn === ownTeamId && nextOpponents.length === opponentTeamIds.length) return
