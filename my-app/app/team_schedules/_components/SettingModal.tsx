@@ -55,6 +55,8 @@ type SettingModalProps = {
   onTabChange: (tab: SettingTab) => void
   /** 脱退の確認モーダルを開く（親が overlay で確認モーダルを表示し、確定時に leaveTeam を叩く） */
   onLeave: () => void
+  /** master 継承の確認モーダルを開く（master 専用。引数は継承先メンバーの userId。確定時に succeedMaster を叩く） */
+  onSucceed: (userId: string) => void
   /** 解散の確認モーダルを開く（master 専用。親が overlay で確認モーダルを表示し、確定時に disbandTeam を叩く） */
   onDisband: () => void
   /** ログアウトの確認モーダルを開く（親が overlay で確認モーダルを表示し、確定時に logout を叩く） */
@@ -91,7 +93,7 @@ function ComingSoonSection({ title }: { title: string }) {
  * タブ構成: 今のチーム（設定変更・招待リンク発行）/ 新規チーム作成 / 全体設定（準備中）。
  * md 以下は body 全体を覆う実質ページ、lg 以上は中央カード。
  */
-export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, isMaster, canCreate, onClose, onUpdated, onCreated, onInvite, onLeave, onDisband, onLogout, onDeleteAccount, tab, onTabChange }: SettingModalProps) {
+export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, isMaster, canCreate, onClose, onUpdated, onCreated, onInvite, onLeave, onSucceed, onDisband, onLogout, onDeleteAccount, tab, onTabChange }: SettingModalProps) {
   // タブの選択状態は URL クエリ（?setting=<tab>）を単一の真実とし、親から tab/onTabChange で受け取る
   // 編集項目はモーダル末尾の「保存する」1つでまとめて保存する（変更のあった項目だけ1回の PATCH で送る）
   // team 未選択（null）でもフックは固定数呼ぶ必要があるため、初期値はフォールバックで持つ（チーム管理タブは team が無ければ案内のみ）
@@ -101,6 +103,12 @@ export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, isM
   const [requiredCountText, setRequiredCountText] = useState(String(team?.requiredCount ?? DEFAULT_REQUIRED_COUNT))
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // master 継承の継承先（選択中メンバーの userId）。確定は親の確認モーダルで行う
+  const [heirUserId, setHeirUserId] = useState("")
+
+  // 継承先の候補＝自分以外のメンバー。master はチームに高々1人かつ継承セクションは master のみ表示するため、
+  // 「master 以外」で除外すれば自分（＝現 master）が候補から外れる
+  const masterCandidates = (team?.members ?? []).filter((m) => m.teamRole !== "master")
 
   // 入力は trim 後で比較（前後空白だけの違いは変更とみなさない）。空文字は保存不可
   const trimmedName = name.trim()
@@ -255,6 +263,41 @@ export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, isM
                   {submitting ? "保存中…" : "保存する"}
                 </button>
               </div>
+            </section>
+          )}
+
+          {/* master 継承（master のみ・解散セクションの上）。継承先を選んで「継承する」で確認モーダル（「継承」と入力）を親が開く。
+              継承先がいない（自分以外のメンバーが0人）場合は案内のみ表示する。 */}
+          {isMaster && (
+            <section className="border-t border-zinc-800 pt-4">
+              <h3 className="text-sm font-bold text-zinc-300">管理者（master）を継承</h3>
+              <p className="mt-1 text-xs text-zinc-500">別のメンバーに管理者（master）を譲ります。継承後、あなたは管理者（admin）になります。</p>
+              {masterCandidates.length === 0 ? (
+                <p className="mt-2 text-xs text-zinc-500">継承できるメンバーがいません（自分以外のメンバーが必要です）。</p>
+              ) : (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <select
+                    value={heirUserId}
+                    onChange={(e) => setHeirUserId(e.target.value)}
+                    className="min-w-0 flex-1 rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-sm text-zinc-100 focus:border-indigo-400 focus:outline-none"
+                  >
+                    <option value="">継承先のメンバーを選択</option>
+                    {masterCandidates.map((m) => (
+                      <option key={m.userId} value={m.userId}>
+                        {m.displayName}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => onSucceed(heirUserId)}
+                    disabled={!heirUserId}
+                    className="shrink-0 rounded-lg border border-indigo-500 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-indigo-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    継承する
+                  </button>
+                </div>
+              )}
             </section>
           )}
 

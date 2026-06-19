@@ -18,6 +18,7 @@ import {
   joinTeam,
   leaveTeam,
   logout,
+  succeedMaster,
   upsertSchedule,
   upsertTeamStatus,
   verifyMagicLink,
@@ -533,6 +534,34 @@ export function TeamSchedulesPage() {
     )
   }, [ownTeamId, schedulesByTeam, isOwnMaster, open, close, handleManageUpdated, closeManage, setOwnTeamId])
 
+  // master 継承: 「継承」と入力させる確認モーダルを overlay で開く（master 専用）。脱退・解散と同じ確認モーダル。
+  // 継承先（heirUserId）は SettingModal の継承先セレクタで選んだメンバー。成功後は自分が admin に降格するため、
+  // チームを取り直して新しいロールを画面へ反映し、モーダルを閉じる。
+  const handleSuccessionRequest = useCallback(
+    (heirUserId: string) => {
+      if (!ownTeamId) return
+      const teamId = ownTeamId
+      const ownTeam = schedulesByTeam[teamId]
+      const teamName = ownTeam?.name ?? "このチーム"
+      const heirName = ownTeam?.members.find((m) => m.userId === heirUserId)?.displayName ?? "このメンバー"
+      open(
+        <ConfirmByTypingModal
+          title="管理者（master）を継承"
+          description={`「${teamName}」の管理者（master）を「${heirName}」に継承します。\n継承後、あなたは管理者（admin）になります。`}
+          confirmWord="継承"
+          confirmLabel="継承する"
+          onConfirm={async () => {
+            await succeedMaster(teamId, heirUserId)
+            handleManageUpdated()
+            closeManage()
+          }}
+          onClose={close}
+        />,
+      )
+    },
+    [ownTeamId, schedulesByTeam, open, close, handleManageUpdated, closeManage],
+  )
+
   // チーム解散: 「解散」と入力させる確認モーダルを overlay で開く（master 専用・取り消し不可）。
   // 解散するとチームと紐づく全データ（メンバー・予定）が削除されるため、選択を解除して一覧を取り直す。
   const handleDisbandRequest = useCallback(() => {
@@ -941,6 +970,7 @@ export function TeamSchedulesPage() {
                 onCreated={handleTeamCreatedInModal}
                 onInvite={() => void handleInvite()}
                 onLeave={handleLeaveRequest}
+                onSucceed={handleSuccessionRequest}
                 onDisband={handleDisbandRequest}
                 onLogout={handleLogoutRequest}
                 onDeleteAccount={handleDeleteAccountRequest}

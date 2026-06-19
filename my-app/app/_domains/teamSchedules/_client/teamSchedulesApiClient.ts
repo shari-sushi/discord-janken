@@ -112,6 +112,19 @@ export async function disbandTeam(teamId: string): Promise<void> {
   await parse<Record<string, never>>(res, "チームの解散に失敗しました")
 }
 
+/**
+ * チームの master を別メンバーへ継承（移譲）する（要ログイン + 現 master のみ）。
+ * 継承先（userId）はそのチームのメンバーであること。成功すると呼び出し元は admin に降格する。
+ */
+export async function succeedMaster(teamId: string, userId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}/succession`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
+  })
+  await parse<Record<string, never>>(res, "管理者（master）の継承に失敗しました")
+}
+
 /** ログイン中ユーザー自身のアカウントと紐づく全データを物理削除する（要ログイン・取り消し不可） */
 export async function deleteAccount(): Promise<void> {
   const res = await fetch(`${API_BASE}/account`, { method: "DELETE" })
