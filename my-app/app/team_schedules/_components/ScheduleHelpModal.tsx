@@ -1,6 +1,6 @@
 "use client"
 
-import { InlineStatusIcon } from "./StatusIcon"
+import { InlineStatusIcon } from "../_icons/StatusIcon"
 
 /**
  * スケジュール画面の使い方説明文（md以上はページ末に直接表示、md未満はヒントボタン→モーダルで表示）。

@@ -31,6 +31,9 @@ export function TeamCompareSelector({
     }
   }
 
+  // 自チームは「自分が所属しているチーム」だけから選べる（相手チームは全チームが候補）
+  const ownTeamCandidates = teams.filter((t) => t.isMember)
+
   // 自チームに選ばれているチームは相手候補から除外
   const opponentCandidates = teams.filter((t) => t.teamId !== ownTeamId)
 
@@ -44,7 +47,7 @@ export function TeamCompareSelector({
           自チーム
         </span>
         <OwnTeamDropdown
-          teams={teams}
+          teams={ownTeamCandidates}
           ownTeamId={ownTeamId}
           onChange={onOwnTeamChange}
           className="min-w-0 flex-1"
@@ -64,7 +67,7 @@ export function TeamCompareSelector({
           className="min-w-0 flex-1 rounded border border-zinc-600 bg-zinc-800 px-2 py-1 font-medium text-zinc-100 focus:border-indigo-400 focus:outline-none"
         >
           <option value="">選択してください</option>
-          {teams.map((t) => (
+          {ownTeamCandidates.map((t) => (
             <option key={t.teamId} value={t.teamId}>
               {t.name}
             </option>

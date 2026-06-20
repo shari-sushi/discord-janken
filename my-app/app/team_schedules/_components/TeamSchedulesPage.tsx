@@ -11,12 +11,14 @@ import {
   deleteAccount,
   deleteSchedule,
   deleteTeamStatus,
+  disbandTeam,
   fetchSession,
   fetchTeamSchedule,
   fetchTeams,
   joinTeam,
   leaveTeam,
   logout,
+  succeedMaster,
   upsertSchedule,
   upsertTeamStatus,
   verifyMagicLink,
@@ -39,11 +41,12 @@ import { InviteModal } from "./InviteModal"
 import { LoginModal } from "./LoginModal"
 import { ScheduleDayCards } from "./ScheduleDayCards"
 import { ScheduleGrid } from "./ScheduleGrid"
-import { ScheduleHelpModal, ScheduleHelpContent } from "./ScheduleHelpModal"
+import { ScheduleHelpModal } from "./ScheduleHelpModal"
 import { ScrollFadeRow } from "./ScrollFadeRow"
 import { TeamCompareSelector } from "./TeamCompareSelector"
 import { SettingModal, DEFAULT_SETTING_TAB, isSettingTab, type SettingTab } from "./SettingModal"
-import { SettingsIcon } from "./SettingsIcon"
+import { SettingsIcon } from "../_icons/SettingsIcon"
+import { CollapseIcon } from "../_icons/CollapseIcon"
 
 const NUM_DAYS = 14
 
@@ -76,6 +79,12 @@ export function TeamSchedulesPage() {
   const viewMode = "table" as ViewMode
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
+  // lg未満（カレンダーだけスクロールする縦圧縮レイアウト）で、表以外のチーム選択・凡例を畳んで
+  // 表に縦スペースを譲る。lg以上では常に展開（トグルも非表示）。(#156)
+  const [chromeCollapsed, setChromeCollapsed] = useState(false)
+  // 選択の整合（後段の reconcile 効果で参照）。magic-link ログイン確立後の再取得で
+  // false に戻し、正しい isMember を反映した teams でもう一度だけ走らせる。
+  const reconciledRef = useRef(false)
 
   // token / join を URL から消す際、対象チーム選択用の team= だけは残して掃除する。
   // 招待リンク（?join=...&team=...）は join を消費しても team を後段の効果で読み取る必要があるため、
@@ -97,6 +106,22 @@ export function TeamSchedulesPage() {
       .then((user) => {
         if (cancelled) return
         setSession(user)
+        // 初期ロードの fetchTeams はマウント時に並行で走るため、magic-link 着地時は
+        // セッション cookie 確立前に実行され isMember が全て false になっている。
+        // ログイン確立後に取り直し、自チーム候補（isMember 由来）を正しく埋める。
+        // あわせて reconciledRef を戻し、正しい isMember で reconcile を再実行させる
+        // （参加が1チームだけなら自動選択する処理を、初回ログイン直後でも効かせるため）。
+        // 前提: 初期ロードの fetchTeams（cookie 前・isMember 全 false）の方が先に解決すること。
+        // ここは verifyMagicLink→fetchTeams の逐次2往復なので、並行で走る初期ロードより後に
+        // 解決する＝後勝ちで正しい isMember を反映する想定。万一この順序が逆転すると stale な
+        // isMember=false が上書きし、自動選択が効かなくなる（実際にはまず起きないが要注意）。
+        void fetchTeams()
+          .then((t) => {
+            if (cancelled) return
+            reconciledRef.current = false
+            setTeams(t)
+          })
+          .catch(() => {})
       })
       .catch(() => {
         // 失効/使用済みトークン等。未ログインのまま続行（書き込み時にログイン案内が出る）
@@ -145,17 +170,27 @@ export function TeamSchedulesPage() {
     }
   }, [])
 
-  // 初期ロード直後に1回だけ、復元した選択のうちチーム一覧に存在しないチームを取り除く。
-  // チーム一覧は public read で全チームを返すため、ここで消えるのは DB から削除されたチームのみ
-  // （非メンバーでも閲覧できるので「権限喪失」では消えない）。
+  // 初期ロード直後に1回だけ、復元した選択を整合させる。
+  // - 自チーム: 所属チーム（isMember）以外（削除済み・別デバイスで脱退した残り等）は null に倒す。
+  // - 相手チーム: チーム一覧（public read で全チーム返す）に存在しない＝削除済みのみ取り除く。
   // 以降の参加・作成では意図的に有効なチームを選択するため、再実行しない（選択が消されるのを防ぐ）。
-  const reconciledRef = useRef(false)
+  // 例外: magic-link ログイン確立後の再取得時のみ reconciledRef を戻し、もう一度だけ走らせる（上の宣言箇所参照）。
   useEffect(() => {
     if (loading || reconciledRef.current) return
     reconciledRef.current = true
     const valid = new Set(teams.map((t) => t.teamId))
-    const nextOwn = ownTeamId && !valid.has(ownTeamId) ? null : ownTeamId
+    const memberTeams = teams.filter((t) => t.isMember)
+    const memberTeamIds = new Set(memberTeams.map((t) => t.teamId))
+    // 自チームは所属チームのみ選べる。別デバイスで脱退した等で localStorage に残った
+    // 非メンバー（または削除済み）のチームIDはここで null に倒す
+    // （セレクタは空表示なのにグリッドだけ残る不整合を防ぐ）。
+    let nextOwn = ownTeamId && !memberTeamIds.has(ownTeamId) ? null : ownTeamId
     const nextOpponents = opponentTeamIds.filter((id) => valid.has(id))
+    // 自チーム未選択で、参加チームがちょうど1つだけならそれを自動選択する
+    // （複数参加なら本人に選ばせるため自動選択しない）
+    if (nextOwn === null && memberTeams.length === 1) {
+      nextOwn = memberTeams[0].teamId
+    }
     // 変化が無ければ書き戻さない（再実行は reconciledRef で止まるのでループ防止ではなく、無駄なストア書き込み＝余計な再レンダリングの抑制）
     if (nextOwn === ownTeamId && nextOpponents.length === opponentTeamIds.length) return
     setStoredSelection({ ownTeamId: nextOwn, opponentTeamIds: nextOpponents })
@@ -163,18 +198,25 @@ export function TeamSchedulesPage() {
 
   // 「参加済み」案内リンク・招待リンクからの着地: ?team=<teamId> があれば、そのチームを自チームに選択する。
   // （Discord の招待ボタンで既に参加済みだったユーザーをスケジュール画面に誘導する導線）
-  // チーム一覧（public read で全チーム返す）の取得後に存在チェックし、setOwnTeamId 経由で
-  // localStorage にも永続化する。既に別チームが own 選択済みでも team= で上書きする（招待/誘導が優先）。
+  // 自チームは「所属チーム」だけを選べるため、isMember=true のときだけ選択する
+  // （非メンバーが共有リンク等で着地しても自チームには入れない＝セレクタは空なのにグリッドだけ出る不整合を防ぐ）。
+  // setOwnTeamId 経由で localStorage にも永続化する。既に別チームが own 選択済みでも team= で上書きする（招待/誘導が優先）。
   // 最後に URL から team= を消すため teamParam が null になり、
   // 再実行時は冒頭で早期 return する＝自然に一度きりの処理になる（専用のガードフラグは不要）。
   const teamParam = searchParams.get("team")
   useEffect(() => {
     if (!teamParam || loading) return
-    // 存在しない（削除済み等）チームIDは無視し、URLだけ掃除する
-    if (teams.some((t) => t.teamId === teamParam)) {
+    const target = teams.find((t) => t.teamId === teamParam)
+    if (target?.isMember) {
       setOwnTeamId(teamParam)
+    } else if (target) {
+      // 存在はするが isMember=false。magic-link 着地直後やリンクからの参加直後は、
+      // セッション確立・参加反映前の一覧で isMember が false のことがある。
+      // ここでは URL を掃除せず待ち、再取得で teams が更新されれば本効果が再実行されて選択する。
+      // 本当の非メンバーなら team= は残るが自チーム選択はされない（不整合は起きない）。
+      return
     }
-    // team= だけを除去し、他のクエリ（?setting=<tab> 等）は残す。全消ししないこと。
+    // 選択済み or 存在しない（削除済み等）チーム: team= だけを除去し、他のクエリ（?setting=<tab> 等）は残す。全消ししないこと。
     const params = new URLSearchParams(window.location.search)
     params.delete("team")
     const qs = params.toString()
@@ -215,7 +257,12 @@ export function TeamSchedulesPage() {
     [schedulesByTeam],
   )
 
-  // 永続化
+  // 永続化（楽観的更新の書き込み側）。
+  // catch の握りつぶしは【意図的】。安易に console.warn 追加や throw 伝播へ"修正"しないこと。
+  // ここは applyLocalEdit で先に画面を更新済みのため、保存失敗時の正しい手当ては
+  // 「楽観更新のロールバック or 再 fetch で再同期 + ユーザー通知」であって、ログ追加では片付かない。
+  // それは設計判断を伴う重い変更なので別Issue（#158）送りとし、現状は握りつぶしのまま据え置く。
+  // （非致命的な読み取りの reloadTeams の握りつぶし=warn可、とは性質が違う点に注意）
   const persist = useCallback((teamId: string, day: string, status: ScheduleStatus | null, note: string) => {
     if (status === null) {
       void deleteSchedule({ teamId, day }).catch(() => {})
@@ -235,7 +282,12 @@ export function TeamSchedulesPage() {
 
   // チーム一覧を再取得（作成・参加の直後に反映するため）
   const reloadTeams = useCallback(async () => {
-    const list = await fetchTeams().catch(() => null)
+    // 一覧の貼り直しはベストエフォート（呼び出し側は void で投げっぱなし）。失敗は非致命的
+    // （前の一覧を維持・次の reload で自己回復）なので、ここで握って warn だけ残す。
+    const list = await fetchTeams().catch((e) => {
+      console.warn("reloadTeams: チーム一覧の再取得に失敗（前の一覧を維持）", e)
+      return null
+    })
     if (list) setTeams(list)
   }, [])
 
@@ -336,7 +388,8 @@ export function TeamSchedulesPage() {
     [schedulesByTeam],
   )
 
-  // チーム単位モード: 永続化
+  // チーム単位モード: 永続化。catch の握りつぶしは【意図的】（persist と同じ理由・同じ別Issue #158）。
+  // 安易に warn 追加や throw 伝播へ"修正"しない。手当ては楽観更新のロールバック/再同期+通知が必要。
   const persistTeam = useCallback((teamId: string, day: string, status: ScheduleStatus | null, note: string) => {
     if (status === null) {
       void deleteTeamStatus({ teamId, day }).catch(() => {})
@@ -489,13 +542,71 @@ export function TeamSchedulesPage() {
         blockedReason={isOwnMaster ? "あなたはこのチームの管理者（master）です。\n脱退するには、先に別のメンバーに管理者権限を渡してください。" : undefined}
         onConfirm={async () => {
           await leaveTeam(teamId)
-          handleManageUpdated()
+          // 脱退後はそのチームが isMember=false になり自チーム候補から外れるため、
+          // 選択を解除する（セレクタは空表示なのにグリッドだけ残る不整合を防ぐ）。
+          // 自チーム選択は解除済みなので、その予定の再取得（handleManageUpdated）は不要。
+          // 一覧だけ取り直して isMember を更新する（disband と同じ流儀）。
+          setOwnTeamId(null)
+          void reloadTeams()
           closeManage()
         }}
         onClose={close}
       />,
     )
-  }, [ownTeamId, schedulesByTeam, isOwnMaster, open, close, handleManageUpdated, closeManage])
+  }, [ownTeamId, schedulesByTeam, isOwnMaster, open, close, reloadTeams, closeManage, setOwnTeamId])
+
+  // master 継承: 「継承」と入力させる確認モーダルを overlay で開く（master 専用）。脱退・解散と同じ確認モーダル。
+  // 継承先（heirUserId）は SettingModal の継承先セレクタで選んだメンバー。成功後は自分が admin に降格するため、
+  // チームを取り直して新しいロールを画面へ反映し、モーダルを閉じる。
+  const handleSuccessionRequest = useCallback(
+    (heirUserId: string) => {
+      if (!ownTeamId) return
+      const teamId = ownTeamId
+      const ownTeam = schedulesByTeam[teamId]
+      const teamName = ownTeam?.name ?? "このチーム"
+      const heirName = ownTeam?.members.find((m) => m.userId === heirUserId)?.displayName ?? "このメンバー"
+      open(
+        <ConfirmByTypingModal
+          title="管理者（master）を継承"
+          description={`「${teamName}」の管理者（master）を「${heirName}」に継承します。\n継承後、あなたは管理者（admin）になります。`}
+          confirmWord="継承"
+          confirmLabel="継承する"
+          onConfirm={async () => {
+            await succeedMaster(teamId, heirUserId)
+            handleManageUpdated()
+            closeManage()
+          }}
+          onClose={close}
+        />,
+      )
+    },
+    [ownTeamId, schedulesByTeam, open, close, handleManageUpdated, closeManage],
+  )
+
+  // チーム解散: 「解散」と入力させる確認モーダルを overlay で開く（master 専用・取り消し不可）。
+  // 解散するとチームと紐づく全データ（メンバー・予定）が削除されるため、選択を解除して一覧を取り直す。
+  const handleDisbandRequest = useCallback(() => {
+    if (!ownTeamId) return
+    const teamId = ownTeamId
+    const teamName = schedulesByTeam[teamId]?.name ?? "このチーム"
+    open(
+      <ConfirmByTypingModal
+        title="チームを解散"
+        description={`「${teamName}」を解散します。\nチームと、紐づく全データ（メンバー・予定など）が完全に削除されます。\nこの操作は取り消せません。`}
+        confirmWord="解散"
+        confirmLabel="解散する"
+        onConfirm={async () => {
+          await disbandTeam(teamId)
+          // 解散後はチーム自体が消える。自チーム選択を解除し、一覧を取り直してモーダルを閉じる
+          // （削除済みチームの予定取得は走らせないため handleManageUpdated は呼ばない）。
+          setOwnTeamId(null)
+          void reloadTeams()
+          closeManage()
+        }}
+        onClose={close}
+      />,
+    )
+  }, [ownTeamId, schedulesByTeam, open, close, reloadTeams, closeManage, setOwnTeamId])
 
   // アカウント削除: 「削除」と入力させる確認モーダルを overlay で開く。いずれかのチームの master は移譲が必要な旨を案内してブロック
   const handleDeleteAccountRequest = useCallback(() => {
@@ -690,15 +801,28 @@ export function TeamSchedulesPage() {
                 ml-auto で右端へ寄せ、タイトル側の幅を確保する。
                 設定は未ログインでも開ける（中身は disabled で見せ、ログインを促す）。 */}
 
-            <button
-              type="button"
-              onClick={openManage}
-              aria-label="設定"
-              title="設定"
-              className="ml-auto shrink-0 rounded-lg border border-zinc-600 bg-zinc-900 p-1.5 text-zinc-200 hover:bg-zinc-800 md:hidden"
-            >
-              <SettingsIcon className="h-5 w-5 fill-current" />
-            </button>
+            <div className="ml-auto flex shrink-0 items-center gap-2 md:hidden">
+              {/* たたむボタン: 設定ボタンの左。表以外（チーム選択・凡例）を畳んで表に縦スペースを譲る（#156） */}
+              <button
+                type="button"
+                onClick={() => setChromeCollapsed((v) => !v)}
+                aria-label={chromeCollapsed ? "チーム選択・凡例を開く" : "チーム選択・凡例をたたむ"}
+                aria-expanded={!chromeCollapsed}
+                title={chromeCollapsed ? "開く" : "たたむ"}
+                className="rounded-lg border border-zinc-600 bg-zinc-900 p-1.5 text-zinc-200 hover:bg-zinc-800"
+              >
+                <CollapseIcon collapsed={chromeCollapsed} className="h-5 w-5 fill-current" />
+              </button>
+              <button
+                type="button"
+                onClick={openManage}
+                aria-label="設定"
+                title="設定"
+                className="rounded-lg border border-zinc-600 bg-zinc-900 p-1.5 text-zinc-200 hover:bg-zinc-800"
+              >
+                <SettingsIcon className="h-5 w-5 fill-current" />
+              </button>
+            </div>
           </div>
           <ScrollFadeRow>
             <div className="flex w-max items-center gap-2">
@@ -736,6 +860,17 @@ export function TeamSchedulesPage() {
                   チームを作成
                 </button>
               )}
+              {/* たたむボタン: 設定ボタンの左。md〜lg未満（縦圧縮レイアウト）でのみ表示（#156） */}
+              <button
+                type="button"
+                onClick={() => setChromeCollapsed((v) => !v)}
+                aria-label={chromeCollapsed ? "チーム選択・凡例を開く" : "チーム選択・凡例をたたむ"}
+                aria-expanded={!chromeCollapsed}
+                title={chromeCollapsed ? "開く" : "たたむ"}
+                className="hidden shrink-0 rounded-lg border border-zinc-600 bg-zinc-900 p-1.5 text-zinc-200 hover:bg-zinc-800 md:inline-flex lg:hidden"
+              >
+                <CollapseIcon collapsed={chromeCollapsed} className="h-5 w-5 fill-current" />
+              </button>
               {/* 設定は md以上のみここに表示（md以下はタイトル右に配置済み）。チーム作成より右に置く。未ログインでも開ける（中身は disabled で見せる） */}
               <button
                 type="button"
@@ -754,9 +889,19 @@ export function TeamSchedulesPage() {
           <div className="mt-3 shrink-0 rounded-lg border border-rose-800 bg-rose-950/50 px-3 py-2 text-xs text-rose-300">データの読み込みに失敗しました。時間をおいて再読み込みしてください。</div>
         )}
 
-        <div className="flex shrink-0 flex-col md:gap-3 gap-1.5">
-          <TeamCompareSelector teams={teams} ownTeamId={ownTeamId} opponentTeamIds={opponentTeamIds} onOwnTeamChange={setOwnTeamId} onOpponentsChange={setOpponentTeamIds} />
-          {view && <ControlBar threshold={view.threshold} />}
+        {/* チーム選択・凡例の折りたたみ領域（#156）。grid-rows 0fr↔1fr で高さを上下スライドアニメーション。
+            lg以上は常に展開（トグルも非表示）。inner は overflow-hidden で畳み時に中身を隠す。 */}
+        <div
+          className={
+            "grid shrink-0 transition-[grid-template-rows] duration-300 ease-in-out lg:grid-rows-[1fr] " + (chromeCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]")
+          }
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="flex flex-col md:gap-3 gap-1.5">
+              <TeamCompareSelector teams={teams} ownTeamId={ownTeamId} opponentTeamIds={opponentTeamIds} onOwnTeamChange={setOwnTeamId} onOpponentsChange={setOpponentTeamIds} />
+              {view && <ControlBar threshold={view.threshold} />}
+            </div>
+          </div>
         </div>
 
         <div className=" flex min-h-0 flex-1 flex-col overflow-hidden lg:block lg:flex-none lg:overflow-visible">
@@ -795,20 +940,16 @@ export function TeamSchedulesPage() {
           )}
         </div>
 
-        {/* md未満: ヒントボタン（タップで説明モーダル）。md以上: 説明文を直接表示 */}
+        {/* 使い方ヒントは全サイズでボタンに統一し、タップで説明モーダルを開く（md以上の全文インライン表示は廃止） */}
         <div className="flex justify-end">
           <button
             type="button"
             onClick={openHelp}
-            className="inline-flex shrink-0 items-center gap-1 self-start rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800 md:hidden"
+            className="inline-flex shrink-0 items-center gap-1 self-start rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800"
           >
             <span aria-hidden>💡</span>
             使い方ヒント
           </button>
-          <ScheduleHelpContent
-            prefix="※ "
-            className="mt-3 hidden max-h-24 w-full overflow-y-auto whitespace-pre-line text-xs leading-relaxed text-zinc-400 md:block lg:max-h-none lg:overflow-visible"
-          />
         </div>
       </div>
 
@@ -824,14 +965,16 @@ export function TeamSchedulesPage() {
           {/* 半透明背景（クリックで閉じる） */}
           <div className="fixed inset-0 z-30 h-full w-full bg-zinc-500/70" onClick={closeManage} />
           {/*
-            md 以下はヘッダーを隠さないよう top-14 から開始する全画面モーダル。
-            top-14(56px) は LolHeader の実高さ（py-3=24px + ボタン h-8=32px）に合わせた値。
+            md 以下はヘッダーを隠さないよう、ヘッダー下端から開始する全画面モーダル。top-* は LolHeader のスマホ時の高さに合わせる（#155）。
+            スマホ時のヘッダー高さは、ログイン中（最大要素がハンバーガー）より未ログイン時（最大要素がログインボタン）の方がやや高い。
+            あえて低い方（ログイン中）に合わせ、高い側のときはモーダル上端がヘッダー(z-50)の背後に隠れる側へ倒す
+            （高い方に合わせると逆にログイン中でヘッダー下に背景スキマが見えるため）。
             ヘッダーは fixed ではなく in-flow（relative z-50）なので、ヘッダーの padding/高さを
-            変えたらこの top-14 も追従させること（ズレてもモーダルは z-30 でヘッダー背後に回るだけ）。
+            変えたらこの top-* も追従させること（ズレてもモーダルは z-30 でヘッダー背後に回るだけ）。
             md 以上は inset-0 で中央カード。カード外クリックを背景に通すため pointer-events-none、
             コンテンツのみ有効化（OverlayProvider と同じ流儀）。
           */}
-          <div className="pointer-events-none fixed inset-x-0 bottom-0 top-14 z-30 flex items-center justify-center md:inset-0">
+          <div className="pointer-events-none fixed inset-x-0 bottom-0 top-11 z-30 flex items-center justify-center md:inset-0">
             <div className="pointer-events-auto h-full w-full md:h-auto md:w-auto">
               <SettingModal
                 isLoggedIn={!!session}
@@ -839,6 +982,7 @@ export function TeamSchedulesPage() {
                 team={ownTeamForManage ?? null}
                 isAdmin={isOwnAdmin}
                 isMember={isOwnMember}
+                isMaster={isOwnMaster}
                 canCreate={!!session?.canCreateTeam}
                 tab={settingTab}
                 onTabChange={changeSettingTab}
@@ -847,6 +991,8 @@ export function TeamSchedulesPage() {
                 onCreated={handleTeamCreatedInModal}
                 onInvite={() => void handleInvite()}
                 onLeave={handleLeaveRequest}
+                onSucceed={handleSuccessionRequest}
+                onDisband={handleDisbandRequest}
                 onLogout={handleLogoutRequest}
                 onDeleteAccount={handleDeleteAccountRequest}
               />

@@ -3,7 +3,7 @@
 import { useState } from "react"
 import type { CellStatus } from "../_types"
 import { STATUS_STYLE } from "../_utils"
-import { StatusIcon } from "./StatusIcon"
+import { StatusIcon } from "../_icons/StatusIcon"
 
 type ScheduleCellProps = {
   status: CellStatus

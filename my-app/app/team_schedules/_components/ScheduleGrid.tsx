@@ -5,7 +5,7 @@ import { type ColumnDef, type Column, flexRender, getCoreRowModel, useReactTable
 import type { CellStatus, GridRow, ScheduleColumn } from "../_types"
 import { makeCellHandlers } from "../_utils"
 import { ScheduleCell } from "./ScheduleCell"
-import { CircleIcon } from "./StatusIcon"
+import { CircleIcon } from "../_icons/StatusIcon"
 
 type EditPayload = { teamId: string; userId: string; day: string }
 type TeamEditPayload = { teamId: string; day: string }

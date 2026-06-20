@@ -71,11 +71,12 @@ export default function LolHeader({ userName, onLogin }: LolHeaderProps = {}) {
       </div>
 
       <header className="relative z-50 bg-zinc-900 text-zinc-100 border-b border-zinc-700">
-        <div className="flex items-center gap-4 px-4 py-3">
-          {/* ハンバーガーボタン（左上） */}
+        {/* スマホ（md未満）はヘッダーを細くして縦スペースを節約する。md以上は従来サイズ（#155） */}
+        <div className="flex items-center gap-3 px-4 py-2 md:gap-4 md:py-3">
+          {/* ハンバーガーボタン（左上）。スマホは一回り小さく、md以上は従来サイズ */}
           <button
             onClick={() => setIsOpen((prev) => !prev)}
-            className="flex flex-col justify-center gap-1.5 w-8 h-8 focus:outline-none hover:opacity-70 cursor-pointer shrink-0"
+            className="flex flex-col justify-center gap-1.5 w-7 h-7 md:w-8 md:h-8 focus:outline-none hover:opacity-70 cursor-pointer shrink-0"
             aria-label="メニューを開閉する"
           >
             <span className={`block h-0.5 w-full bg-zinc-100 transition-transform duration-200 ${isOpen ? "translate-y-2 rotate-45" : ""}`} />
@@ -83,7 +84,7 @@ export default function LolHeader({ userName, onLogin }: LolHeaderProps = {}) {
             <span className={`block h-0.5 w-full bg-zinc-100 transition-transform duration-200 ${isOpen ? "-translate-y-2 -rotate-45" : ""}`} />
           </button>
 
-          <Link href="/lol" className="font-bold text-lg hover:text-zinc-300 hover:opacity-70">
+          <Link href="/lol" className="font-bold text-base md:text-lg hover:text-zinc-300 hover:opacity-70">
             LoL ツール
           </Link>
 

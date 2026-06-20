@@ -122,3 +122,50 @@ export async function PATCH(req: NextRequest, ctx: RouteContext): Promise<NextRe
     return NextResponse.json({ success: false, error: "チームの更新に失敗しました" }, { status: 500 })
   }
 }
+
+/**
+ * DELETE /api/web/team-schedules/teams/[teamId]
+ * チームを解散する（要ログイン + master のみ）。teams 行を1件削除すると FK の onDelete 連鎖で
+ * 関連データがまとめて消える:
+ * - team_members（teamId, onDelete: cascade）→ schedules（複合FK, onDelete: cascade）
+ * - team_day_status（teamId, onDelete: cascade）
+ *
+ * 認可は「認証 → メンバーシップ → master」の順:
+ * - 非UUID / 非メンバー: 存在を隠して 404
+ * - メンバーだが master 未満（admin / member）: 権限不足で 400
+ *   （リソース内ロール不足は PATCH / team-status に揃えて 400。解散はチーム全体を消す破壊的操作のため master 専用）
+ *
+ * 注: Redis に残る招待トークンは解散後も残るが、join 時にチーム存在を検証して弾かれるため実害は無い
+ *     （account DELETE と同じ割り切り）。注: メンバー自身の脱退は membership DELETE（別操作）。
+ */
+export async function DELETE(req: NextRequest, ctx: RouteContext): Promise<NextResponse> {
+  try {
+    const { teamId } = await ctx.params
+
+    if (!isUuid(teamId)) {
+      return NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 })
+    }
+
+    const userId = await getSessionUserId(req)
+    if (!userId) {
+      return NextResponse.json({ success: false, error: "ログインが必要です" }, { status: 401 })
+    }
+
+    const role = await getTeamRole(teamId, userId)
+    if (role === null) {
+      // 非メンバー（または削除済みチーム）は存在を隠して 404
+      return NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 })
+    }
+    if (role !== "master") {
+      // 解散は master 専用。admin / member はロール不足（PATCH / team-status に揃えて 400）
+      return NextResponse.json({ success: false, error: "チームを解散する権限がありません（管理者（master）のみ可能です）" }, { status: 400 })
+    }
+
+    await db.delete(teams).where(eq(teams.teamId, teamId))
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("team-schedules teams DELETE error:", error)
+    return NextResponse.json({ success: false, error: "チームの解散に失敗しました" }, { status: 500 })
+  }
+}

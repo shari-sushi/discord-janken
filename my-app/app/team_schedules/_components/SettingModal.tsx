@@ -19,7 +19,7 @@ export function isSettingTab(value: string | null): value is SettingTab {
 import { updateTeam } from "@/app/_domains/teamSchedules/_client/teamSchedulesApiClient"
 import { CreateTeamForm } from "./CreateTeamForm"
 import { CREATE_TEAM_RESTRICTED_MESSAGE } from "./CreateTeamRestrictedModal"
-import { CloseIcon } from "./CloseIcon"
+import { CloseIcon } from "../_icons/CloseIcon"
 
 type SettingModalProps = {
   /**
@@ -38,6 +38,8 @@ type SettingModalProps = {
   isAdmin: boolean
   /** 選択中チームのメンバーか（脱退ボタンの表示可否に使う。非メンバーには出さない） */
   isMember: boolean
+  /** 選択中チームの master か。master には「解散」、それ以外のメンバーには「脱退」を出し分ける */
+  isMaster: boolean
   /** 新規チーム作成タブを使えるか（チーム作成権限）。無い場合は案内のみ表示 */
   canCreate: boolean
   onClose: () => void
@@ -53,6 +55,10 @@ type SettingModalProps = {
   onTabChange: (tab: SettingTab) => void
   /** 脱退の確認モーダルを開く（親が overlay で確認モーダルを表示し、確定時に leaveTeam を叩く） */
   onLeave: () => void
+  /** master 継承の確認モーダルを開く（master 専用。引数は継承先メンバーの userId。確定時に succeedMaster を叩く） */
+  onSucceed: (userId: string) => void
+  /** 解散の確認モーダルを開く（master 専用。親が overlay で確認モーダルを表示し、確定時に disbandTeam を叩く） */
+  onDisband: () => void
   /** ログアウトの確認モーダルを開く（親が overlay で確認モーダルを表示し、確定時に logout を叩く） */
   onLogout: () => void
   /** アカウント削除の確認モーダルを開く（親が overlay で確認モーダルを表示する） */
@@ -87,7 +93,7 @@ function ComingSoonSection({ title }: { title: string }) {
  * タブ構成: 今のチーム（設定変更・招待リンク発行）/ 新規チーム作成 / 全体設定（準備中）。
  * md 以下は body 全体を覆う実質ページ、lg 以上は中央カード。
  */
-export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, canCreate, onClose, onUpdated, onCreated, onInvite, onLeave, onLogout, onDeleteAccount, tab, onTabChange }: SettingModalProps) {
+export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, isMaster, canCreate, onClose, onUpdated, onCreated, onInvite, onLeave, onSucceed, onDisband, onLogout, onDeleteAccount, tab, onTabChange }: SettingModalProps) {
   // タブの選択状態は URL クエリ（?setting=<tab>）を単一の真実とし、親から tab/onTabChange で受け取る
   // 編集項目はモーダル末尾の「保存する」1つでまとめて保存する（変更のあった項目だけ1回の PATCH で送る）
   // team 未選択（null）でもフックは固定数呼ぶ必要があるため、初期値はフォールバックで持つ（チーム管理タブは team が無ければ案内のみ）
@@ -97,6 +103,12 @@ export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, can
   const [requiredCountText, setRequiredCountText] = useState(String(team?.requiredCount ?? DEFAULT_REQUIRED_COUNT))
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // master 継承の継承先（選択中メンバーの userId）。確定は親の確認モーダルで行う
+  const [heirUserId, setHeirUserId] = useState("")
+
+  // 継承先の候補＝自分以外のメンバー。master はチームに高々1人かつ継承セクションは master のみ表示するため、
+  // 「master 以外」で除外すれば自分（＝現 master）が候補から外れる
+  const masterCandidates = (team?.members ?? []).filter((m) => m.teamRole !== "master")
 
   // 入力は trim 後で比較（前後空白だけの違いは変更とみなさない）。空文字は保存不可
   const trimmedName = name.trim()
@@ -203,21 +215,24 @@ export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, can
             {isAdmin && (
               <p className="mt-1.5 text-xs text-zinc-500">※ 管理方法を変えると、もう一方のモードで入力済みの予定は画面に表示されなくなります（データは保持され、戻せば再表示されます）。</p>
             )}
-            {/* 活動可能人数。members モードでのみ実際に使うが、team モードでも編集・保存は許可する */}
-            <label className="mt-3 flex flex-col gap-1 text-sm">
-              <span className="font-medium text-zinc-300">{REQUIRED_COUNT_LABEL}</span>
-              <input
-                type="number"
-                min={MIN_REQUIRED_COUNT}
-                step={1}
-                value={requiredCountText}
-                onChange={(e) => setRequiredCountText(e.target.value)}
-                // 確定時に整数・最小値以上へ正規化（小数の排除・保存時の 400 予防はここで担保）
-                onBlur={() => setRequiredCountText(String(requiredCount))}
-                disabled={submitting || !isAdmin}
-                className="w-24 rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-zinc-100 focus:border-indigo-400 focus:outline-none disabled:opacity-50"
-              />
-            </label>
+            {/* 活動可能人数は members モードでのみ使うため、team モードでは非表示にする（選択中の mode に即追従）。
+                非表示中は requiredCountText に手を加えないので、既存値がそのまま保持・保存される。 */}
+            {mode !== "team" && (
+              <label className="mt-3 flex flex-col gap-1 text-sm">
+                <span className="font-medium text-zinc-300">{REQUIRED_COUNT_LABEL}</span>
+                <input
+                  type="number"
+                  min={MIN_REQUIRED_COUNT}
+                  step={1}
+                  value={requiredCountText}
+                  onChange={(e) => setRequiredCountText(e.target.value)}
+                  // 確定時に整数・最小値以上へ正規化（小数の排除・保存時の 400 予防はここで担保）
+                  onBlur={() => setRequiredCountText(String(requiredCount))}
+                  disabled={submitting || !isAdmin}
+                  className="w-24 rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-zinc-100 focus:border-indigo-400 focus:outline-none disabled:opacity-50"
+                />
+              </label>
+            )}
           </section>
 
           {/* メンバー管理（準備中）。編集権限のない一般メンバーには出さない */}
@@ -251,8 +266,56 @@ export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, can
             </section>
           )}
 
-          {/* 脱退（このチームのメンバーのみ）。押すと確認モーダル（「脱退」と入力で確定。master は移譲を促す案内）を親が開く */}
-          {isMember && (
+          {/* master 継承（master のみ・解散セクションの上）。継承先を選んで「継承する」で確認モーダル（「継承」と入力）を親が開く。
+              継承先がいない（自分以外のメンバーが0人）場合は案内のみ表示する。 */}
+          {isMaster && (
+            <section className="border-t border-zinc-800 pt-4">
+              <h3 className="text-sm font-bold text-zinc-300">管理者（master）を継承</h3>
+              <p className="mt-1 text-xs text-zinc-500">別のメンバーに管理者（master）を譲ります。継承後、あなたは管理者（admin）になります。</p>
+              {masterCandidates.length === 0 ? (
+                <p className="mt-2 text-xs text-zinc-500">継承できるメンバーがいません（自分以外のメンバーが必要です）。</p>
+              ) : (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <select
+                    value={heirUserId}
+                    onChange={(e) => setHeirUserId(e.target.value)}
+                    className="min-w-0 flex-1 rounded border border-zinc-600 bg-zinc-800 px-2.5 py-1.5 text-sm text-zinc-100 focus:border-indigo-400 focus:outline-none"
+                  >
+                    <option value="">継承先のメンバーを選択</option>
+                    {masterCandidates.map((m) => (
+                      <option key={m.userId} value={m.userId}>
+                        {m.displayName}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => onSucceed(heirUserId)}
+                    disabled={!heirUserId}
+                    className="shrink-0 rounded-lg border border-indigo-500 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-indigo-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    継承する
+                  </button>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* チームからの離脱: master は「解散」、それ以外のメンバーは「脱退」を出し分ける（master は脱退不可なため）。
+              非メンバーにはどちらも出さない。押すと確認モーダル（語句入力で確定）を親が開く。 */}
+          {isMaster ? (
+            <section className="rounded-lg border-[1px] border-red-700 p-4">
+              <h3 className="text-sm font-bold text-rose-300">チームを解散</h3>
+              <p className="mt-1 text-xs text-zinc-500">このチームと、紐づく全データ（メンバー・予定など）を完全に削除します。取り消せません。</p>
+              <button
+                type="button"
+                onClick={onDisband}
+                className="ml-auto mt-2 block w-fit rounded-lg border-[1px] border-red-700 bg-rose-950/40 px-3 py-1.5 text-sm font-medium text-rose-300 hover:bg-rose-900/40"
+              >
+                チームを解散
+              </button>
+            </section>
+          ) : isMember ? (
             <section className="rounded-lg border-[1px] border-red-700 p-4">
               <h3 className="text-sm font-bold text-zinc-300">チームを脱退</h3>
               <p className="mt-1 text-xs text-zinc-500">このチームから抜けます。再参加には招待リンクが必要です。</p>
@@ -264,7 +327,7 @@ export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, can
                 チームを脱退
               </button>
             </section>
-          )}
+          ) : null}
         </div>
       )}
 
