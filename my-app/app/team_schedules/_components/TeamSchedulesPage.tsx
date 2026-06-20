@@ -228,8 +228,11 @@ export function TeamSchedulesPage() {
   // 予定取得: 選択中チーム + 参加チーム全てを先読みする（#165）。
   // 自チームに選べるのは参加チームだけなので、開いた時点で全参加チームを取得しておけば
   // 自チーム切替時のスピナーを無くせる。相手チームは選択時に取得し、以降はキャッシュを使う。
+  // loading でガードしないのは意図的: 初期ロード中（teams が空）は memberIds が空になり ids=選択中チームだけになる。
+  // localStorage 復元済みの選択中チームの予定を初期ロードと並行で取得し、view を loading 完了前に出すため
+  // （下部カレンダーの「loading を待たず view 準備でき次第表示」コメント参照）。loading 完了で teams が入ると
+  // deps 経由で再実行され、参加チーム全件を先読みする。
   useEffect(() => {
-    if (loading) return
     const from = dayKeys[0]
     const to = dayKeys[dayKeys.length - 1]
     const memberIds = teams.filter((t) => t.isMember).map((t) => t.teamId)
@@ -243,7 +246,7 @@ export function TeamSchedulesPage() {
         .catch(() => {})
         .finally(() => fetchingRef.current.delete(id))
     })
-  }, [loading, teams, ownTeamId, opponentTeamIds, dayKeys, schedulesByTeam])
+  }, [teams, ownTeamId, opponentTeamIds, dayKeys, schedulesByTeam])
 
   // ローカルの予定を更新（楽観的更新）
   const applyLocalEdit = useCallback((teamId: string, userId: string, day: string, status: CellStatus, note: string) => {
