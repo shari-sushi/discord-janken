@@ -111,6 +111,10 @@ export function TeamSchedulesPage() {
         // ログイン確立後に取り直し、自チーム候補（isMember 由来）を正しく埋める。
         // あわせて reconciledRef を戻し、正しい isMember で reconcile を再実行させる
         // （参加が1チームだけなら自動選択する処理を、初回ログイン直後でも効かせるため）。
+        // 前提: 初期ロードの fetchTeams（cookie 前・isMember 全 false）の方が先に解決すること。
+        // ここは verifyMagicLink→fetchTeams の逐次2往復なので、並行で走る初期ロードより後に
+        // 解決する＝後勝ちで正しい isMember を反映する想定。万一この順序が逆転すると stale な
+        // isMember=false が上書きし、自動選択が効かなくなる（実際にはまず起きないが要注意）。
         void fetchTeams()
           .then((t) => {
             if (cancelled) return
@@ -253,7 +257,12 @@ export function TeamSchedulesPage() {
     [schedulesByTeam],
   )
 
-  // 永続化
+  // 永続化（楽観的更新の書き込み側）。
+  // catch の握りつぶしは【意図的】。安易に console.warn 追加や throw 伝播へ"修正"しないこと。
+  // ここは applyLocalEdit で先に画面を更新済みのため、保存失敗時の正しい手当ては
+  // 「楽観更新のロールバック or 再 fetch で再同期 + ユーザー通知」であって、ログ追加では片付かない。
+  // それは設計判断を伴う重い変更なので別Issue（#158）送りとし、現状は握りつぶしのまま据え置く。
+  // （非致命的な読み取りの reloadTeams の握りつぶし=warn可、とは性質が違う点に注意）
   const persist = useCallback((teamId: string, day: string, status: ScheduleStatus | null, note: string) => {
     if (status === null) {
       void deleteSchedule({ teamId, day }).catch(() => {})
@@ -273,7 +282,12 @@ export function TeamSchedulesPage() {
 
   // チーム一覧を再取得（作成・参加の直後に反映するため）
   const reloadTeams = useCallback(async () => {
-    const list = await fetchTeams().catch(() => null)
+    // 一覧の貼り直しはベストエフォート（呼び出し側は void で投げっぱなし）。失敗は非致命的
+    // （前の一覧を維持・次の reload で自己回復）なので、ここで握って warn だけ残す。
+    const list = await fetchTeams().catch((e) => {
+      console.warn("reloadTeams: チーム一覧の再取得に失敗（前の一覧を維持）", e)
+      return null
+    })
     if (list) setTeams(list)
   }, [])
 
@@ -374,7 +388,8 @@ export function TeamSchedulesPage() {
     [schedulesByTeam],
   )
 
-  // チーム単位モード: 永続化
+  // チーム単位モード: 永続化。catch の握りつぶしは【意図的】（persist と同じ理由・同じ別Issue #158）。
+  // 安易に warn 追加や throw 伝播へ"修正"しない。手当ては楽観更新のロールバック/再同期+通知が必要。
   const persistTeam = useCallback((teamId: string, day: string, status: ScheduleStatus | null, note: string) => {
     if (status === null) {
       void deleteTeamStatus({ teamId, day }).catch(() => {})
@@ -529,14 +544,16 @@ export function TeamSchedulesPage() {
           await leaveTeam(teamId)
           // 脱退後はそのチームが isMember=false になり自チーム候補から外れるため、
           // 選択を解除する（セレクタは空表示なのにグリッドだけ残る不整合を防ぐ）。
+          // 自チーム選択は解除済みなので、その予定の再取得（handleManageUpdated）は不要。
+          // 一覧だけ取り直して isMember を更新する（disband と同じ流儀）。
           setOwnTeamId(null)
-          handleManageUpdated()
+          void reloadTeams()
           closeManage()
         }}
         onClose={close}
       />,
     )
-  }, [ownTeamId, schedulesByTeam, isOwnMaster, open, close, handleManageUpdated, closeManage, setOwnTeamId])
+  }, [ownTeamId, schedulesByTeam, isOwnMaster, open, close, reloadTeams, closeManage, setOwnTeamId])
 
   // master 継承: 「継承」と入力させる確認モーダルを overlay で開く（master 専用）。脱退・解散と同じ確認モーダル。
   // 継承先（heirUserId）は SettingModal の継承先セレクタで選んだメンバー。成功後は自分が admin に降格するため、

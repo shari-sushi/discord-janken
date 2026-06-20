@@ -10,8 +10,14 @@ const API_BASE = "/api/web/team-schedules"
 type ApiResult<T> = { success: boolean; error?: string } & T
 
 async function parse<T>(res: Response, fallbackError: string): Promise<ApiResult<T>> {
-  const json = (await res.json()) as ApiResult<T>
-  if (!json.success) throw new Error(json.error ?? fallbackError)
+  // ボディが JSON でない失敗（プラットフォーム由来の 500/502 が HTML や空で返る等）でも
+  // res.json() の SyntaxError で潰れないよう、パース失敗は null に倒して握る。
+  const json = (await res.json().catch(() => null)) as ApiResult<T> | null
+  // res.ok も併せて見る（success フィールドを持たない非JSON失敗を確実に弾く）。
+  // メッセージはサーバーの error を優先し、無ければ fallback に HTTP ステータスを添える。
+  if (!res.ok || !json?.success) {
+    throw new Error(json?.error ?? `${fallbackError}（HTTP ${res.status}）`)
+  }
   return json
 }
 
