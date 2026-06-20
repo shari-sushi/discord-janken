@@ -820,7 +820,7 @@ export function TeamSchedulesPage() {
           <div className="flex min-w-0 flex-1 items-start md:gap-2">
             <div className="min-w-0">
               <h1 className="text-lg font-bold tracking-tight text-zinc-100">チーム活動 スケジュール調整</h1>
-              <p className="mt-0.5 text-sm text-zinc-400">チームメンバーの活動日を集計して、スクリム相手を探す</p>
+              <p className="mt-0.5 text-sm text-zinc-400">メンバーの参加可能日から、スクリム相手を探す</p>
             </div>
             {/* md以下: 設定をタイトル右に置いて縦スペースを節約する（md以上は右側のボタン群に表示）。
                 ml-auto で右端へ寄せ、タイトル側の幅を確保する。
@@ -838,13 +838,7 @@ export function TeamSchedulesPage() {
               >
                 <CollapseIcon collapsed={chromeCollapsed} className="h-5 w-5 fill-current" />
               </button>
-              <button
-                type="button"
-                onClick={openManage}
-                aria-label="設定"
-                title="設定"
-                className="rounded-lg border border-zinc-600 bg-zinc-900 p-1.5 text-zinc-200 hover:bg-zinc-800"
-              >
+              <button type="button" onClick={openManage} aria-label="設定" title="設定" className="rounded-lg border border-zinc-600 bg-zinc-900 p-1.5 text-zinc-200 hover:bg-zinc-800">
                 <SettingsIcon className="h-5 w-5 fill-current" />
               </button>
             </div>
@@ -916,11 +910,7 @@ export function TeamSchedulesPage() {
 
         {/* チーム選択・凡例の折りたたみ領域（#156）。grid-rows 0fr↔1fr で高さを上下スライドアニメーション。
             lg以上は常に展開（トグルも非表示）。inner は overflow-hidden で畳み時に中身を隠す。 */}
-        <div
-          className={
-            "grid shrink-0 transition-[grid-template-rows] duration-300 ease-in-out lg:grid-rows-[1fr] " + (chromeCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]")
-          }
-        >
+        <div className={"grid shrink-0 transition-[grid-template-rows] duration-300 ease-in-out lg:grid-rows-[1fr] " + (chromeCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]")}>
           <div className="min-h-0 overflow-hidden">
             <div className="flex flex-col md:gap-3 gap-1.5">
               <TeamCompareSelector teams={teams} ownTeamId={ownTeamId} opponentTeamIds={opponentTeamIds} onOwnTeamChange={setOwnTeamId} onOpponentsChange={setOpponentTeamIds} />
