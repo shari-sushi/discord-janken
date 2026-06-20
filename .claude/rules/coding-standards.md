@@ -18,8 +18,9 @@
 ブランチ運用は **feature → `develop` → `main`** で、issue の auto-close は
 **default ブランチ（`main`）向け PR でしか発火しない**。これを踏まえて:
 
-- **feature → develop の PR**: その PR で完了させる issue を「**close予定**」として本文に**列挙**する
-  （参照のみ。`Closes #N` は develop base では発火しないので使わない）。develop→main PR を組むときの拾い漏れ防止。
+- **feature → develop の PR**: その PR で完了させる issue を本文に `- close #N` の形式で**列挙**する
+  （`#N` は GitHub 上で issue タイトルがリンク表示されるため、タイトルは書かない。develop base では `Closes #N` でも
+  auto-close は発火しないので、ここでは close せず一覧として残す目的。develop→main PR を組むときの拾い漏れ防止）。
 - **develop → main の PR**: 束ねた close予定 issue を `Closes #N` で本文に列挙する → main マージ時に auto-close される（手動 close 不要）。
 - フォローアップとして**新規起票した issue は列挙しない**（その PR では閉じないため）。
 - やむを得ず develop の時点で閉じる場合のみ `gh issue close #N -c "..."` で手動 close する。
