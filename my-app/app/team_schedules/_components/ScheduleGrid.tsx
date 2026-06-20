@@ -15,6 +15,8 @@ type ScheduleGridProps = {
   threshold: number
   opponentColumns: ScheduleColumn[]
   memberColumns: ScheduleColumn[]
+  /** ○数列ヘッダーの上に表示する自チーム名 */
+  ownTeamName: string
   onCycle: (payload: EditPayload & { current: CellStatus }) => void
   onNoteChange: (payload: EditPayload & { value: string }) => void
   /** チーム単位モード列の状態トグル（userId を持たない） */
@@ -58,7 +60,7 @@ function pinnedStyle(column: Column<GridRow>, isHeader: boolean): React.CSSPrope
   }
 }
 
-export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, onCycle, onNoteChange, onTeamCycle, onTeamNoteChange }: ScheduleGridProps) {
+export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, ownTeamName, onCycle, onNoteChange, onTeamCycle, onTeamNoteChange }: ScheduleGridProps) {
   const columns = useMemo<ColumnDef<GridRow>[]>(() => {
     // 列の種別に応じた編集ハンドラ（表・カード共通の makeCellHandlers に委譲）
     const cellHandlers = (col: ScheduleColumn, day: string, current: CellStatus) => makeCellHandlers(col, day, current, { onCycle, onNoteChange, onTeamCycle, onTeamNoteChange })
@@ -85,7 +87,15 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
 
     const countCol: ColumnDef<GridRow> = {
       id: "count",
-      header: "○数",
+      // ○数の上に自チーム名を表示する。div は列幅と同じ 64px 固定、span は左寄せ・1行・はみ出しは隠す
+      header: () => (
+        <div className="flex flex-col items-center gap-0.5">
+          <div className="mx-auto w-16">
+            <span className="block overflow-hidden whitespace-nowrap text-left text-[10px] font-normal text-zinc-300">{ownTeamName}</span>
+          </div>
+          <span>○数</span>
+        </div>
+      ),
       size: SIZE.count,
       cell: ({ row }) => {
         const r = row.original
@@ -144,7 +154,7 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
     const ownIsTeamMode = memberColumns[0]?.kind === "team"
     // 日付を一番左に。続けて 相手チーム → ○数（自チーム集計・members モードのみ）→ 各メンバー
     return [dateCol, ...opponentCols, ...(ownIsTeamMode ? [] : [countCol]), ...memberCols]
-  }, [opponentColumns, memberColumns, threshold, onCycle, onNoteChange, onTeamCycle, onTeamNoteChange])
+  }, [opponentColumns, memberColumns, ownTeamName, threshold, onCycle, onNoteChange, onTeamCycle, onTeamNoteChange])
 
   const leftPinned = useMemo(() => {
     const ownIsTeamMode = memberColumns[0]?.kind === "team"

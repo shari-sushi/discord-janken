@@ -789,7 +789,7 @@ export function TeamSchedulesPage() {
 
     // team モードは単一状態（ok=活動可能）なので閾値は 1
     const threshold = ownTeam.managementMode === "team" ? 1 : ownTeam.requiredCount
-    return { memberColumns, opponentColumns, rows, threshold, managementMode: ownTeam.managementMode }
+    return { memberColumns, opponentColumns, rows, threshold, managementMode: ownTeam.managementMode, ownTeamName: ownTeam.name }
   }, [ownTeamId, opponentTeamIds, schedulesByTeam, dates, dayKeys, session])
 
   // 自分が1つでもチームに所属しているか（teams 一覧の isMember 由来）。md以下で「チームを作成」ボタンを隠す判定に使う。
@@ -941,6 +941,7 @@ export function TeamSchedulesPage() {
                 threshold={view.threshold}
                 opponentColumns={view.opponentColumns}
                 memberColumns={view.memberColumns}
+                ownTeamName={view.ownTeamName}
                 onCycle={handleCycle}
                 onNoteChange={handleNoteChange}
                 onTeamCycle={handleTeamCycle}
