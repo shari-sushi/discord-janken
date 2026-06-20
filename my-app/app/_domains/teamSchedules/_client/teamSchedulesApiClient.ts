@@ -10,8 +10,14 @@ const API_BASE = "/api/web/team-schedules"
 type ApiResult<T> = { success: boolean; error?: string } & T
 
 async function parse<T>(res: Response, fallbackError: string): Promise<ApiResult<T>> {
-  const json = (await res.json()) as ApiResult<T>
-  if (!json.success) throw new Error(json.error ?? fallbackError)
+  // ボディが JSON でない失敗（プラットフォーム由来の 500/502 が HTML や空で返る等）でも
+  // res.json() の SyntaxError で潰れないよう、パース失敗は null に倒して握る。
+  const json = (await res.json().catch(() => null)) as ApiResult<T> | null
+  // res.ok も併せて見る（success フィールドを持たない非JSON失敗を確実に弾く）。
+  // メッセージはサーバーの error を優先し、無ければ fallback に HTTP ステータスを添える。
+  if (!res.ok || !json?.success) {
+    throw new Error(json?.error ?? `${fallbackError}（HTTP ${res.status}）`)
+  }
   return json
 }
 
@@ -104,6 +110,25 @@ export async function joinTeam(token: string): Promise<TeamSummary> {
 export async function leaveTeam(teamId: string): Promise<void> {
   const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}/membership`, { method: "DELETE" })
   await parse<Record<string, never>>(res, "チームからの脱退に失敗しました")
+}
+
+/** チームを解散する（要ログイン + master のみ）。関連データも連鎖削除される・取り消し不可。master 以外はサーバーが400を返す */
+export async function disbandTeam(teamId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}`, { method: "DELETE" })
+  await parse<Record<string, never>>(res, "チームの解散に失敗しました")
+}
+
+/**
+ * チームの master を別メンバーへ継承（移譲）する（要ログイン + 現 master のみ）。
+ * 継承先（userId）はそのチームのメンバーであること。成功すると呼び出し元は admin に降格する。
+ */
+export async function succeedMaster(teamId: string, userId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}/succession`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
+  })
+  await parse<Record<string, never>>(res, "管理者（master）の継承に失敗しました")
 }
 
 /** ログイン中ユーザー自身のアカウントと紐づく全データを物理削除する（要ログイン・取り消し不可） */
