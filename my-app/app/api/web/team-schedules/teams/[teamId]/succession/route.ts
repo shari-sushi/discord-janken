@@ -24,8 +24,11 @@ type RouteContext = { params: Promise<{ teamId: string }> }
  * master はチームに高々1人（部分ユニークインデックス uq_team_members_one_master）のため、
  * 先に昇格すると一意制約に当たる。必ず降格を先に実行する。
  * トランザクションは使わない（neon-http はインタラクティブ tx 非対応・コード全体でも未使用）。
- * 万一の競合（検証後に継承先が脱退等）で昇格が 0 行になった場合は、降格した自分を master に戻して
- * master 不在を作らないように補償する。降格〜昇格の極小区間で master 0人になり得るが、
+ * 降格と昇格は別 HTTP リクエストになるため、降格成功後に昇格が
+ * (a) 0 行（検証後に継承先が脱退等）／(b) 例外（neon-http の通信失敗等）
+ * のいずれで失敗しても、降格した自分を master に戻して master 不在を防ぐ（補償）。
+ * 補償をしないと master 不在チームが残り、継承も解散も master 必須のため UI からは復旧不能になる。
+ * 降格〜昇格の極小区間で master 0人になり得るが、
  * ユニークインデックスは「高々1人」の制約で 0 人は許容されるため不変条件は壊れない。
  */
 export async function POST(req: NextRequest, ctx: RouteContext): Promise<NextResponse> {
@@ -67,17 +70,29 @@ export async function POST(req: NextRequest, ctx: RouteContext): Promise<NextRes
       return NextResponse.json({ success: false, error: "指定したユーザーはこのチームのメンバーではありません" }, { status: 400 })
     }
 
+    // 降格した自分を master に戻す補償。昇格が 0 行／例外のどちらで失敗しても master 不在を防ぐために呼ぶ
+    const restoreSelfAsMaster = () =>
+      db.update(teamMembers).set({ teamRole: "master" }).where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
+
     // 現 master（自分）を admin に降格してから、継承先を master に昇格する（一意制約のため順序固定）
     await db.update(teamMembers).set({ teamRole: "admin" }).where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
-    const promoted = await db
-      .update(teamMembers)
-      .set({ teamRole: "master" })
-      .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, heirUserId)))
-      .returning({ userId: teamMembers.userId })
+
+    let promoted: { userId: string }[]
+    try {
+      promoted = await db
+        .update(teamMembers)
+        .set({ teamRole: "master" })
+        .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, heirUserId)))
+        .returning({ userId: teamMembers.userId })
+    } catch (promoteError) {
+      // 昇格の通信失敗等。降格済みの自分を master に戻してから再 throw し、master 不在チームを残さない
+      await restoreSelfAsMaster()
+      throw promoteError
+    }
 
     if (promoted.length === 0) {
       // 検証後に継承先が脱退した等で昇格できなかった場合、降格した自分を master に戻して master 不在を防ぐ
-      await db.update(teamMembers).set({ teamRole: "master" }).where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
+      await restoreSelfAsMaster()
       return NextResponse.json({ success: false, error: "指定したユーザーはこのチームのメンバーではありません" }, { status: 400 })
     }
 
