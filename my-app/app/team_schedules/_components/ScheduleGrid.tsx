@@ -26,19 +26,24 @@ const SIZE = { date: 64, count: 64, opponent: 70, member: 78 }
 
 const HEADER_BASE = "border-b border-r border-zinc-700 md:px-2  md:py-2 text-xs font-semibold"
 
-/** 行の背景色（成立 > 詰み > 通常） */
+/**
+ * 行の背景色（成立 > 詰み > 通常）。
+ * sticky 列の下を非固定セルが流れても透けないよう、すべて不透明（solid）にする。
+ * 成立行は「emerald-900 を 30% で zinc-900 に重ねた色」を不透明化した #132825。
+ */
 function rowBgClass(row: GridRow): string {
-  if (row.success) return "bg-emerald-900/30"
+  if (row.success) return "bg-[#132825]"
   if (row.impossible) return "bg-zinc-950"
   return "bg-zinc-900"
 }
 
 /**
  * チーム単位モード列のセル全体を状態別に強調する（他チームからの視認性向上）。
- * ○: 背景を少し明るく / ×: セル全体を薄く（opacity 30）。△・未記入は通常表示。
+ * ○: 背景を少し明るく / ×: セル中身を薄く（opacity 60）。△・未記入は通常表示。
  */
 function teamCellEmphasis(status: CellStatus): { bg: string | null; faded: boolean } {
-  if (status === "ok") return { bg: "bg-emerald-900/40", faded: false }
+  // ○: emerald-900 を 40% で zinc-900 に重ねた色を不透明化した #112e28（sticky 列で透けないよう solid）
+  if (status === "ok") return { bg: "bg-[#112e28]", faded: false }
   if (status === "ng") return { bg: null, faded: true }
   return { bg: null, faded: false }
 }
@@ -197,7 +202,7 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
             const r = row.original
             const bg = rowBgClass(r)
             return (
-              <tr key={row.id} className={r.impossible ? "opacity-70" : ""}>
+              <tr key={row.id}>
                 {row.getVisibleCells().map((cell) => {
                   const col = cell.column
                   const pinned = col.getIsPinned() === "left"
@@ -208,13 +213,15 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
                   // team 列は bg を状態強調に使うため indigo bg は敷かない（編集可は下の ring で表現）
                   let cellBg = pinned ? bg : editableMember && !isTeamCol ? "bg-indigo-950/40" : ""
                   // チーム単位モード列は、その日のセル状態に応じてセル全体を強調する（○=bg を上書き / ×=中身を薄く）。
-                  // ○の強調 bg は成立行の背景と同じく半透明の emerald 系。ピン留め相手team列でも視認性優先で行背景より優先する。
+                  // ○の強調 bg は成立行の背景に近い不透明の emerald 系（#112e28）。ピン留め相手team列でも視認性優先で行背景より優先する。
                   const emphasis = isTeamCol ? teamCellEmphasis(schedCol!.cells.get(r.date.key)?.status ?? "none") : null
                   if (emphasis?.bg) cellBg = emphasis.bg
                   // 編集可能な team 列は bg を状態強調に使うため、編集可インジケータは ring（枠線）で表現する（bg と両立）
                   const teamEditRing = isTeamCol && schedCol!.editable ? " ring-1 ring-inset ring-indigo-500/50" : ""
-                  // × セルは td の bg は変えず（行背景のまま）、中身だけ opacity-60 で薄くする
                   const content = flexRender(col.columnDef.cell, cell.getContext())
+                  // 薄く見せるのは「中身だけ」に opacity を掛ける（td/tr 全体に掛けると sticky 列でも透けるため）。
+                  // 詰み行は行全体を opacity-70、team× セルはその中身を opacity-60 で薄くする。
+                  const fadeClass = r.impossible ? "opacity-70" : emphasis?.faded ? "opacity-60" : null
                   // ○数列だけ横padを半分にして（px-1.5→px-[3px]）活動可バッジの幅を確保する
                   const xPad = col.id === "count" ? "px-[3px]" : "px-1.5"
                   return (
@@ -223,7 +230,7 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
                       className={"border-b border-r border-zinc-700 py-1.5 align-top text-center " + xPad + " " + cellBg + teamEditRing}
                       style={{ ...pinnedStyle(col, false), minWidth: col.getSize(), width: pinned ? col.getSize() : undefined }}
                     >
-                      {emphasis?.faded ? <div className="opacity-60">{content}</div> : content}
+                      {fadeClass ? <div className={fadeClass}>{content}</div> : content}
                     </td>
                   )
                 })}

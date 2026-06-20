@@ -85,6 +85,8 @@ export function TeamSchedulesPage() {
   // 選択の整合（後段の reconcile 効果で参照）。magic-link ログイン確立後の再取得で
   // false に戻し、正しい isMember を反映した teams でもう一度だけ走らせる。
   const reconciledRef = useRef(false)
+  // 同一チームの取得が複数 effect 発火で二重に走らないようにする（#165: 先読みと選択取得の重複防止）
+  const fetchingRef = useRef<Set<string>>(new Set())
 
   // token / join を URL から消す際、対象チーム選択用の team= だけは残して掃除する。
   // 招待リンク（?join=...&team=...）は join を消費しても team を後段の効果で読み取る必要があるため、
@@ -223,18 +225,28 @@ export function TeamSchedulesPage() {
     router.replace(qs ? `/team_schedules?${qs}` : "/team_schedules")
   }, [teamParam, loading, teams, setOwnTeamId, router])
 
-  // 選択中チームの予定を取得
+  // 予定取得: 選択中チーム + 参加チーム全てを先読みする（#165）。
+  // 自チームに選べるのは参加チームだけなので、開いた時点で全参加チームを取得しておけば
+  // 自チーム切替時のスピナーを無くせる。相手チームは選択時に取得し、以降はキャッシュを使う。
+  // loading でガードしないのは意図的: 初期ロード中（teams が空）は memberIds が空になり ids=選択中チームだけになる。
+  // localStorage 復元済みの選択中チームの予定を初期ロードと並行で取得し、view を loading 完了前に出すため
+  // （下部カレンダーの「loading を待たず view 準備でき次第表示」コメント参照）。loading 完了で teams が入ると
+  // deps 経由で再実行され、参加チーム全件を先読みする。
   useEffect(() => {
-    const ids = [ownTeamId, ...opponentTeamIds].filter((id): id is string => !!id)
     const from = dayKeys[0]
     const to = dayKeys[dayKeys.length - 1]
+    const memberIds = teams.filter((t) => t.isMember).map((t) => t.teamId)
+    const selectedIds = [ownTeamId, ...opponentTeamIds].filter((id): id is string => !!id)
+    const ids = Array.from(new Set([...selectedIds, ...memberIds]))
     ids.forEach((id) => {
-      if (schedulesByTeam[id]) return
+      if (schedulesByTeam[id] || fetchingRef.current.has(id)) return
+      fetchingRef.current.add(id)
       void fetchTeamSchedule(id, from, to)
         .then((team) => setSchedulesByTeam((prev) => ({ ...prev, [id]: team })))
         .catch(() => {})
+        .finally(() => fetchingRef.current.delete(id))
     })
-  }, [ownTeamId, opponentTeamIds, dayKeys, schedulesByTeam])
+  }, [teams, ownTeamId, opponentTeamIds, dayKeys, schedulesByTeam])
 
   // ローカルの予定を更新（楽観的更新）
   const applyLocalEdit = useCallback((teamId: string, userId: string, day: string, status: CellStatus, note: string) => {
@@ -808,7 +820,7 @@ export function TeamSchedulesPage() {
           <div className="flex min-w-0 flex-1 items-start md:gap-2">
             <div className="min-w-0">
               <h1 className="text-lg font-bold tracking-tight text-zinc-100">チーム活動 スケジュール調整</h1>
-              <p className="mt-0.5 text-sm text-zinc-400">チームメンバーの活動日を集計して、スクリム相手を探す</p>
+              <p className="mt-0.5 text-sm text-zinc-400">メンバーの参加可能日から、スクリム相手を探す</p>
             </div>
             {/* md以下: 設定をタイトル右に置いて縦スペースを節約する（md以上は右側のボタン群に表示）。
                 ml-auto で右端へ寄せ、タイトル側の幅を確保する。
@@ -826,13 +838,7 @@ export function TeamSchedulesPage() {
               >
                 <CollapseIcon collapsed={chromeCollapsed} className="h-5 w-5 fill-current" />
               </button>
-              <button
-                type="button"
-                onClick={openManage}
-                aria-label="設定"
-                title="設定"
-                className="rounded-lg border border-zinc-600 bg-zinc-900 p-1.5 text-zinc-200 hover:bg-zinc-800"
-              >
+              <button type="button" onClick={openManage} aria-label="設定" title="設定" className="rounded-lg border border-zinc-600 bg-zinc-900 p-1.5 text-zinc-200 hover:bg-zinc-800">
                 <SettingsIcon className="h-5 w-5 fill-current" />
               </button>
             </div>
@@ -904,11 +910,7 @@ export function TeamSchedulesPage() {
 
         {/* チーム選択・凡例の折りたたみ領域（#156）。grid-rows 0fr↔1fr で高さを上下スライドアニメーション。
             lg以上は常に展開（トグルも非表示）。inner は overflow-hidden で畳み時に中身を隠す。 */}
-        <div
-          className={
-            "grid shrink-0 transition-[grid-template-rows] duration-300 ease-in-out lg:grid-rows-[1fr] " + (chromeCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]")
-          }
-        >
+        <div className={"grid shrink-0 transition-[grid-template-rows] duration-300 ease-in-out lg:grid-rows-[1fr] " + (chromeCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]")}>
           <div className="min-h-0 overflow-hidden">
             <div className="flex flex-col md:gap-3 gap-1.5">
               <TeamCompareSelector teams={teams} ownTeamId={ownTeamId} opponentTeamIds={opponentTeamIds} onOwnTeamChange={setOwnTeamId} onOpponentsChange={setOpponentTeamIds} />

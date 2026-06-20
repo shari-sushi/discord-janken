@@ -18,6 +18,16 @@
 ブランチ運用は **feature → `develop` → `main`** で、issue の auto-close は
 **default ブランチ（`main`）向け PR でしか発火しない**。これを踏まえて:
 
+### develop への push 禁止（厳守）
+
+- **ユーザーが明示的に「develop に push」と指示しない限り、`develop` への push は禁止**。
+  `git push origin develop` / `git push`（upstream が develop の状態）/ force-push を含め一切行わない。
+- **文脈から「develop に入れてほしそう」と読み取れる場合でも禁止**。推測で push しない。
+- 変更は必ず **feature ブランチを切ってそこへ commit / push** し、`develop` へは PR 経由で入れる。
+- 既に develop へ直 push してしまった場合も、巻き戻し（reset + force-push）は破壊的操作なので
+  **必ずユーザーに確認してから**実行する（勝手に force-push しない）。
+
+
 - **feature → develop の PR**: その PR で完了させる issue を本文に `- close #N` の形式で**列挙**する
   （`#N` は GitHub 上で issue タイトルがリンク表示されるため、タイトルは書かない。develop base では `Closes #N` でも
   auto-close は発火しないので、ここでは close せず一覧として残す目的。develop→main PR を組むときの拾い漏れ防止）。
