@@ -224,10 +224,12 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
                   const fadeClass = r.impossible ? "opacity-70" : emphasis?.faded ? "opacity-60" : null
                   // ○数列だけ横padを半分にして（px-1.5→px-[3px]）活動可バッジの幅を確保する
                   const xPad = col.id === "count" ? "px-[3px]" : "px-1.5"
+                  // 日付列はボタン+入力欄を持つ他列より背が低いので、縦中央に揃える（他列は上揃え）
+                  const valign = col.id === "date" ? "align-middle" : "align-top"
                   return (
                     <td
                       key={cell.id}
-                      className={"border-b border-r border-zinc-700 py-1.5 align-top text-center " + xPad + " " + cellBg + teamEditRing}
+                      className={"border-b border-r border-zinc-700 py-1.5 text-center " + valign + " " + xPad + " " + cellBg + teamEditRing}
                       style={{ ...pinnedStyle(col, false), minWidth: col.getSize(), width: pinned ? col.getSize() : undefined }}
                     >
                       {fadeClass ? <div className={fadeClass}>{content}</div> : content}

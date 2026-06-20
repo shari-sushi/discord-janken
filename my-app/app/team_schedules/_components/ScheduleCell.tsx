@@ -47,7 +47,9 @@ export function ScheduleCell({ status, note, editable, dim = false, onCycle, onN
         className={
           "mx-auto flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400 " +
           style.className +
-          (editable ? " cursor-pointer hover:opacity-80" : " cursor-default") +
+          // 未編集（他人の予定等）は矢印カーソル。globals.css の未レイヤー `button{cursor:pointer}` に
+          // 勝つため important 修飾子（cursor-default!）で上書きする。
+          (editable ? " cursor-pointer hover:opacity-80" : " cursor-default!") +
           (dim ? " opacity-65" : "")
         }
       >
