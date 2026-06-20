@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import Link from "next/link"
 import { useOverlay } from "@/app/_client/lib/modal/ModalContext"
 import { DiscordWebhookOverlay } from "@/app/lol/opgg-multi-link/_components/DiscordWebhookOverlay"
@@ -14,16 +14,15 @@ const NAV_LINKS = [
 ]
 
 /**
- * ログイン中ユーザー名を右側に表示したいページから渡す。
- * - userName があればその名前を表示
- * - userName が無く onLogin が渡されていれば「ログイン」ボタンを表示
+ * ヘッダー右端に表示する任意の要素。
+ * ログイン表示などページ固有の要素は、ここに渡して組み込む（LolHeader 自身はログイン等の概念を持たない）。
+ * 未指定なら右端は空（lol 配下の各ページは渡さない）。
  */
 type LolHeaderProps = {
-  userName?: string | null
-  onLogin?: () => void
+  rightSlot?: ReactNode
 }
 
-export default function LolHeader({ userName, onLogin }: LolHeaderProps = {}) {
+export default function LolHeader({ rightSlot }: LolHeaderProps = {}) {
   const [isOpen, setIsOpen] = useState(false)
   const { open } = useOverlay()
 
@@ -88,23 +87,8 @@ export default function LolHeader({ userName, onLogin }: LolHeaderProps = {}) {
             LoL ツール
           </Link>
 
-          {/* 右端: ログイン中はユーザー名、未ログイン時はログインボタン */}
-          {userName ? (
-            <span className="ml-auto flex items-center gap-1.5 truncate text-sm text-zinc-300" title={userName}>
-              <span aria-hidden="true">👤</span>
-              <span className="truncate">{userName}</span>
-            </span>
-          ) : (
-            onLogin && (
-              <button
-                type="button"
-                onClick={onLogin}
-                className="ml-auto rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
-              >
-                ログイン
-              </button>
-            )
-          )}
+          {/* 右端: ページ固有の要素（ログイン表示など）を渡された場合のみ表示する */}
+          {rightSlot && <div className="ml-auto flex items-center">{rightSlot}</div>}
         </div>
       </header>
     </>

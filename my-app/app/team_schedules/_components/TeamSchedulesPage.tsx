@@ -777,18 +777,31 @@ export function TeamSchedulesPage() {
 
     // team モードは単一状態（ok=活動可能）なので閾値は 1
     const threshold = ownTeam.managementMode === "team" ? 1 : ownTeam.requiredCount
-    return { memberColumns, opponentColumns, rows, threshold }
+    return { memberColumns, opponentColumns, rows, threshold, managementMode: ownTeam.managementMode }
   }, [ownTeamId, opponentTeamIds, schedulesByTeam, dates, dayKeys, session])
 
   // 自分が1つでもチームに所属しているか（teams 一覧の isMember 由来）。md以下で「チームを作成」ボタンを隠す判定に使う。
   const belongsToAnyTeam = useMemo(() => teams.some((t) => t.isMember), [teams])
 
-  // md以下（lg未満）はヘッダー＋body を画面内に収め、カレンダー（グリッド）だけスクロールさせる。lg以上は通常のページスクロール。
+  // ヘッダー右端のログイン表示（team_schedules 固有）。LolHeader には rightSlot で渡す。
+  // 初期ロード中（session 未確定）はログインボタンを出さない（loading 中は null）。
+  // 確定後はログイン済みならユーザー名、未ログインならログインボタンを表示する。
+  const loginSlot = session?.displayName ? (
+    <span className="flex items-center gap-1.5 truncate text-sm text-zinc-300" title={session.displayName}>
+      <span aria-hidden="true">👤</span>
+      <span className="truncate">{session.displayName}</span>
+    </span>
+  ) : loading ? null : (
+    <button type="button" onClick={openLogin} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">
+      ログイン
+    </button>
+  )
+
+  // ビューポート枠（h-dvh の flex 縦積み等）は layout.tsx に移設済み。ここはその中身（ヘッダー＋body）を返す。
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-zinc-950 text-zinc-100 lg:block lg:h-auto lg:min-h-screen lg:overflow-visible">
+    <>
       <div className="shrink-0">
-        {/* 初期ロード中（session 未確定）はログインボタンを出さない。確定後に未ログインなら onLogin が渡りボタン表示、ログイン済みなら userName 表示 */}
-        <LolHeader userName={session?.displayName ?? null} onLogin={loading ? undefined : openLogin} />
+        <LolHeader rightSlot={loginSlot} />
       </div>
       <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col p-2.5 md:p-6 lg:block gap-1.5">
         <div className="flex shrink-0 flex-wrap items-start justify-between md:gap-2">
@@ -899,7 +912,7 @@ export function TeamSchedulesPage() {
           <div className="min-h-0 overflow-hidden">
             <div className="flex flex-col md:gap-3 gap-1.5">
               <TeamCompareSelector teams={teams} ownTeamId={ownTeamId} opponentTeamIds={opponentTeamIds} onOwnTeamChange={setOwnTeamId} onOpponentsChange={setOpponentTeamIds} />
-              {view && <ControlBar threshold={view.threshold} />}
+              {view && <ControlBar threshold={view.threshold} managementMode={view.managementMode} />}
             </div>
           </div>
         </div>
@@ -1002,6 +1015,6 @@ export function TeamSchedulesPage() {
       )}
 
       <DbHealthButton />
-    </div>
+    </>
   )
 }
