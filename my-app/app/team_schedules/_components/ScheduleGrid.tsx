@@ -26,6 +26,12 @@ type ScheduleGridProps = {
 
 const SIZE = { date: 64, count: 64, opponent: 70, member: 78 }
 
+// 2段ヘッダーの上段（自チーム名）の固定高さ(px)。下段ヘッダーの sticky top に使うため固定値にする。
+const OWN_NAME_H = 16
+// 自チーム名の左インデント(px)。padding/margin だと横スクロールでスペースが消えるため、
+// sticky の left オフセットに織り込んで、スクロールしても余白ごと固定されるようにする（≒ pl-5）。
+const OWN_NAME_INDENT = 20
+
 const HEADER_BASE = "border-b border-r border-zinc-700 md:px-2  md:py-2 text-xs font-semibold"
 
 /**
@@ -75,7 +81,7 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
         // 祝日は日曜と同じ扱い（赤系）。祝日名はツールチップで補足する
         const wkColor = d.isSunday || d.isHoliday ? "text-rose-400" : d.isSaturday ? "text-sky-400" : "text-zinc-200"
         return (
-          <div className="flex flex-col items-center gap-0.5 pt-1">
+          <div className="flex flex-row items-center gap-0.5 pt-1">
             <span className={"text-xs font-medium " + wkColor} title={d.holidayName ?? undefined}>
               {d.label}
               <span className="ml-0.5 text-[11px]">({d.weekday})</span>
@@ -87,15 +93,8 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
 
     const countCol: ColumnDef<GridRow> = {
       id: "count",
-      // ○数の上に自チーム名を表示する。div は列幅と同じ 64px 固定、span は左寄せ・1行・はみ出しは隠す
-      header: () => (
-        <div className="flex flex-col items-center gap-0.5">
-          <div className="mx-auto w-16">
-            <span className="block overflow-hidden whitespace-nowrap text-left text-[10px] font-normal text-zinc-300">{ownTeamName}</span>
-          </div>
-          <span>○数</span>
-        </div>
-      ),
+      // 自チーム名は countCol 単体ではなく、○数〜各メンバーをまたぐ上段ヘッダーで表示する（thead で組み立て）
+      header: "○数",
       size: SIZE.count,
       cell: ({ row }) => {
         const r = row.original
@@ -154,12 +153,13 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
     const ownIsTeamMode = memberColumns[0]?.kind === "team"
     // 日付を一番左に。続けて 相手チーム → ○数（自チーム集計・members モードのみ）→ 各メンバー
     return [dateCol, ...opponentCols, ...(ownIsTeamMode ? [] : [countCol]), ...memberCols]
-  }, [opponentColumns, memberColumns, ownTeamName, threshold, onCycle, onNoteChange, onTeamCycle, onTeamNoteChange])
+  }, [opponentColumns, memberColumns, threshold, onCycle, onNoteChange, onTeamCycle, onTeamNoteChange])
 
+  // ピン留め（sticky-left）は日付＋相手チームのみ。○数〜各メンバー（自チーム区画）は
+  // 上段の自チーム名ヘッダーと一体でスクロールさせたいので、○数のピン留めはしない。
   const leftPinned = useMemo(() => {
-    const ownIsTeamMode = memberColumns[0]?.kind === "team"
-    return ["date", ...opponentColumns.map((c) => `opp:${c.teamId}`), ...(ownIsTeamMode ? [] : ["count"])]
-  }, [opponentColumns, memberColumns])
+    return ["date", ...opponentColumns.map((c) => `opp:${c.teamId}`)]
+  }, [opponentColumns])
 
   // td の className 算出でセル状態を引くための、テーブル列ID → ScheduleColumn の対応表。
   // opponent/member いずれも ScheduleColumn.id がテーブル列IDと一致する（opp:teamId / own:userId など）。
@@ -179,33 +179,83 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
     state: { columnPinning: { left: leftPinned, right: [] } },
   })
 
+  // 自チーム区画の下段ヘッダー（○数＋各メンバー）。members モードは ○数＋メンバー、team モードはチーム1列。
+  const ownIsTeamMode = memberColumns[0]?.kind === "team"
+  const ownLeaves: { key: string; node: React.ReactNode; bg: string; size: number }[] = [
+    ...(ownIsTeamMode ? [] : [{ key: "count", node: "○数", bg: "bg-zinc-800 text-zinc-300", size: SIZE.count }]),
+    ...memberColumns.map((c) => ({ key: c.id, node: c.label, bg: c.editable ? "bg-indigo-600 text-white" : "bg-zinc-800 text-zinc-300", size: SIZE.member })),
+  ]
+  // 2列以上のときだけ上段にチーム名をまたがせる（1列＝team モードはその列ヘッダーを2段ぶち抜きにする）
+  const ownGrouped = ownLeaves.length >= 2
+  // 自チーム名（上段）をピン留めする左オフセット = 日付＋相手チーム（ピン留め列）の合計幅。
+  // これにより横スクロールしてもチーム名だけは相手列の右に常に残る。
+  const ownSectionLeft = SIZE.date + opponentColumns.length * SIZE.opponent
+
   return (
     <div className="h-full min-w-0 overflow-auto rounded-lg border border-zinc-700 bg-zinc-900 lg:h-auto">
       <table className="border-collapse text-sm">
+        {/*
+          2段ヘッダー。日付・相手チームは rowSpan=2 で2段ぶち抜き（従来どおりピン留め）。
+          自チーム区画（○数＋各メンバー）は上段にチーム名を colSpan で渡し、下段に各列ヘッダーを置く。
+          下段は sticky top を上段の高さ(OWN_NAME_H)に合わせて、縦スクロールでも2段固定する。
+        */}
         <thead>
-          {table.getHeaderGroups().map((hg) => (
-            <tr key={hg.id}>
-              {hg.headers.map((header) => {
-                const col = header.column
-                const pinned = col.getIsPinned() === "left"
-                const isEditableMember = memberColumns.find((c) => c.id === col.id)?.editable
-                const isEditableOpp = opponentColumns.find((c) => `opp:${c.teamId}` === col.id)?.editable
-                const editable = isEditableMember || isEditableOpp
-                const bg = editable ? "bg-indigo-600 text-white" : "bg-zinc-800 text-zinc-300"
-                return (
-                  <th
-                    key={header.id}
-                    className={HEADER_BASE + " text-center " + bg}
-                    // position:sticky + top:0 で縦スクロール時はヘッダーを固定。pinned 列のみ left も付くため横スクロールでも残り、
-                    // メンバー列ヘッダーは left を持たない＝縦は固定だが横スクロールでは一緒に流れる。
-                    style={{ ...pinnedStyle(col, true), position: "sticky", top: 0, minWidth: col.getSize(), width: pinned ? col.getSize() : undefined, zIndex: pinned ? 30 : 20 }}
-                  >
-                    {flexRender(col.columnDef.header, header.getContext())}
-                  </th>
-                )
-              })}
+          <tr>
+            {/* 日付: 2段ぶち抜き・ピン留め */}
+            <th
+              rowSpan={2}
+              className={HEADER_BASE + " text-center align-middle bg-zinc-800 text-zinc-300"}
+              style={{ position: "sticky", left: 0, top: 0, zIndex: 30, minWidth: SIZE.date, width: SIZE.date }}
+            >
+              日付
+            </th>
+            {/* 相手チーム: 2段ぶち抜き・ピン留め・相手セレクタの選択中チップと同色（amber） */}
+            {opponentColumns.map((c, i) => (
+              <th
+                key={`opp:${c.teamId}`}
+                rowSpan={2}
+                className={HEADER_BASE + " text-center align-middle bg-amber-500/15 text-amber-300"}
+                style={{ position: "sticky", left: SIZE.date + i * SIZE.opponent, top: 0, zIndex: 30, minWidth: SIZE.opponent, width: SIZE.opponent }}
+              >
+                {c.label}
+              </th>
+            ))}
+            {/* 自チーム: 上段にチーム名（○数〜各メンバーをまたぐ）。自分の色（indigo）で目立たせ、はみ出しは title で全文表示 */}
+            {ownGrouped ? (
+              <th colSpan={ownLeaves.length} className="border-b border-r border-zinc-700 px-2 text-left bg-indigo-500/15" style={{ position: "sticky", top: 0, zIndex: 20, height: OWN_NAME_H }}>
+                {/*
+                  colSpan セル自体への sticky-left は border-collapse 下で効かないことがあるため、
+                  ラベル（span）を sticky-left で固定する。セルは幅が広く背景は残るので、横スクロールしても
+                  チーム名テキストだけが相手列の右に常に残る。左インデントは padding でなく left に織り込み、
+                  スクロールしても余白ごと固定する。
+                */}
+                <span title={ownTeamName} className="inline-block whitespace-nowrap text-[10px] font-medium leading-none text-indigo-300" style={{ position: "sticky", left: ownSectionLeft + OWN_NAME_INDENT }}>
+                  {ownTeamName}
+                </span>
+              </th>
+            ) : (
+              // 自チームが1列（team モード）なら、その列ヘッダーを2段ぶち抜きで表示する
+              ownLeaves.map((l) => (
+                <th key={l.key} rowSpan={2} className={HEADER_BASE + " text-center align-middle " + l.bg} style={{ position: "sticky", top: 0, zIndex: 20, minWidth: l.size }}>
+                  {l.node}
+                </th>
+              ))
+            )}
+          </tr>
+          {ownGrouped && (
+            <tr>
+              {/* 下段: ○数＋各メンバー。sticky top は上段の高さに合わせる */}
+              {ownLeaves.map((l) => (
+                <th
+                  key={l.key}
+                  className={"border-b border-r border-zinc-700 px-2 py-0.5 text-center text-xs font-semibold " + l.bg}
+                  style={{ position: "sticky", top: OWN_NAME_H, zIndex: 20, minWidth: l.size }}
+                >
+                  {l.node}
+                </th>
+              ))}
             </tr>
-          ))}
+          )}
         </thead>
         <tbody>
           {table.getRowModel().rows.map((row) => {
@@ -219,9 +269,9 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
                   const schedCol = columnById.get(col.id)
                   const isTeamCol = schedCol?.kind === "team"
                   const editableMember = memberColumns.find((c) => c.id === col.id)?.editable
-                  // ピン留め列（日付・○数・相手・成立）は行背景を敷く。自メンバー列は編集中のみハイライト。
-                  // team 列は bg を状態強調に使うため indigo bg は敷かない（編集可は下の ring で表現）
-                  let cellBg = pinned ? bg : editableMember && !isTeamCol ? "bg-indigo-950/40" : ""
+                  // ピン留め列（日付・相手）と ○数 は行背景を敷く（○数はピン留めしないが集計列なので行背景を維持）。
+                  // 自メンバー列は編集中のみハイライト。team 列は bg を状態強調に使うため indigo bg は敷かない（編集可は下の ring で表現）
+                  let cellBg = pinned || col.id === "count" ? bg : editableMember && !isTeamCol ? "bg-indigo-950/40" : ""
                   // チーム単位モード列は、その日のセル状態に応じてセル全体を強調する（○=bg を上書き / ×=中身を薄く）。
                   // ○の強調 bg は成立行の背景に近い不透明の emerald 系（#112e28）。ピン留め相手team列でも視認性優先で行背景より優先する。
                   const emphasis = isTeamCol ? teamCellEmphasis(schedCol!.cells.get(r.date.key)?.status ?? "none") : null
