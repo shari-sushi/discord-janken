@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { assertTeamAdmin, getSessionUserId } from "@/app/_domains/teamSchedules/_server/authz"
+import { assertTeamAdmin, getSessionUserId, isUserSuspended } from "@/app/_domains/teamSchedules/_server/authz"
 import { createInviteToken, INVITE_TTL } from "@/app/_domains/teamSchedules/_server/invites"
 import { isUuid } from "@/app/_domains/teamSchedules/_server/validators"
 import { APP_URL } from "@/app/_server/lib/env"
@@ -21,6 +21,11 @@ export async function POST(req: NextRequest, ctx: RouteContext): Promise<NextRes
     const userId = await getSessionUserId(req)
     if (!userId) {
       return NextResponse.json({ success: false, error: "ログインが必要です" }, { status: 401 })
+    }
+
+    // 利用停止中ユーザーは書き込み不可（#166）
+    if (await isUserSuspended(userId)) {
+      return NextResponse.json({ success: false, error: "アカウントが利用停止中のため、この操作はできません" }, { status: 403 })
     }
 
     // admin でなければ存在を隠して 404

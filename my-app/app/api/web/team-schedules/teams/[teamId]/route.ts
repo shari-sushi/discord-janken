@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { teams } from "@/app/_domains/teamSchedules/_server/schema"
-import { getSessionUserId, getTeamRole } from "@/app/_domains/teamSchedules/_server/authz"
+import { getSessionUserId, getTeamRole, isUserSuspended } from "@/app/_domains/teamSchedules/_server/authz"
 import { hasAdminAuthority } from "@/app/_domains/teamSchedules/types"
 import { isManagementMode, isUuid, isValidRequiredCount, isValidTeamName } from "@/app/_domains/teamSchedules/_server/validators"
 import type { TeamManagementMode, TeamSummary } from "@/app/_domains/teamSchedules/types"
@@ -27,6 +27,11 @@ async function authorizeTeamAdmin(req: NextRequest, teamId: string): Promise<Aut
   const userId = await getSessionUserId(req)
   if (!userId) {
     return { ok: false, res: NextResponse.json({ success: false, error: "ログインが必要です" }, { status: 401 }) }
+  }
+
+  // 利用停止中ユーザーは書き込み不可（#166）。ログイン確認の直後に判定する
+  if (await isUserSuspended(userId)) {
+    return { ok: false, res: NextResponse.json({ success: false, error: "アカウントが利用停止中のため、この操作はできません" }, { status: 403 }) }
   }
 
   const role = await getTeamRole(teamId, userId)
@@ -149,6 +154,11 @@ export async function DELETE(req: NextRequest, ctx: RouteContext): Promise<NextR
     const userId = await getSessionUserId(req)
     if (!userId) {
       return NextResponse.json({ success: false, error: "ログインが必要です" }, { status: 401 })
+    }
+
+    // 利用停止中ユーザーは書き込み不可（#166）
+    if (await isUserSuspended(userId)) {
+      return NextResponse.json({ success: false, error: "アカウントが利用停止中のため、この操作はできません" }, { status: 403 })
     }
 
     const role = await getTeamRole(teamId, userId)

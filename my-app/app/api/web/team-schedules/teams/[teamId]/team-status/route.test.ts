@@ -5,9 +5,11 @@ import { createTestRequest } from "@/__tests__/helpers/api-test-utils"
 // 認可ヘルパーをモック（非メンバー404・非admin400・admin200 のロジックを route 単体で検証する）
 const mockGetSessionUserId = vi.fn()
 const mockGetTeamRole = vi.fn()
+const mockIsUserSuspended = vi.fn()
 vi.mock("@/app/_domains/teamSchedules/_server/authz", () => ({
   getSessionUserId: (...args: unknown[]) => mockGetSessionUserId(...args),
   getTeamRole: (...args: unknown[]) => mockGetTeamRole(...args),
+  isUserSuspended: (...args: unknown[]) => mockIsUserSuspended(...args),
 }))
 
 // DB は実接続しない。書き込みが呼ばれたことだけ確認する
@@ -37,6 +39,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   // clearAllMocks は実装を消さないが、Once 上書きの取り残しを避けるため毎回デフォルトを張り直す
   selectLimit.mockResolvedValue([{ managementMode: "team" }])
+  mockIsUserSuspended.mockResolvedValue(false)
 })
 
 describe("PUT /team-schedules/teams/[teamId]/team-status", () => {
@@ -63,6 +66,15 @@ describe("PUT /team-schedules/teams/[teamId]/team-status", () => {
     const req = createTestRequest(URL, { method: "PUT", body: { day: "2026-06-14", status: "ok", note: null } })
     const res = await PUT(req, ctxFor())
     expect(res.status).toBe(400)
+    expect(insert).not.toHaveBeenCalled()
+  })
+
+  it("failure: 利用停止中ユーザーは403（書き込みもしない）", async () => {
+    mockGetSessionUserId.mockResolvedValue("user-1")
+    mockIsUserSuspended.mockResolvedValue(true)
+    const req = createTestRequest(URL, { method: "PUT", body: { day: "2026-06-14", status: "ok", note: null } })
+    const res = await PUT(req, ctxFor())
+    expect(res.status).toBe(403)
     expect(insert).not.toHaveBeenCalled()
   })
 
