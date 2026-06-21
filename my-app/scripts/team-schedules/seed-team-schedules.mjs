@@ -1,7 +1,8 @@
 // スクリム調整機能（/team_schedules）のローカル動作確認用シードスクリプト。
 //
 // Discord 経由でしかチーム/ユーザーを作れないため、ローカルDBに
-// 「管理者(master)1人 + 一般メンバー2人 + チーム1つ + 数日ぶんの予定」を投入し、
+// 「チーム1つ + 管理者(master)1人 + 一般メンバーA1人（ここまでチーム所属）
+//   + チーム未参加のB1人（ログインのみ・非メンバー体験のテスト用） + 数日ぶんの予定」を投入し、
 // 各ユーザーの magic-link ログインURL（Redis のワンタイムトークン）を発行する。
 // 発行したURLをブラウザで開けば、Discord を介さずにそのユーザーとしてログインできる。
 //
@@ -9,16 +10,19 @@
 //   cd my-app
 //   node scripts/team-schedules/seed-team-schedules.mjs                 # シード + 全ユーザーのログインURL発行
 //   node scripts/team-schedules/seed-team-schedules.mjs --login-only    # シードせず、ログインURLだけ再発行（トークン失効時）
+//   EXTRA_MEMBERS=10 node scripts/team-schedules/seed-team-schedules.mjs # 固定3人に加え、一般メンバーを10人ぶん自動生成して投入
+//   （Makefile からは `make seed MEMBERS=10` で同じことができる）
+//   ※ EXTRA_MEMBERS は --login-only でも同じ数を指定すること（生成メンバーぶんのログインURLを再発行するため）
 //
-// 接続先は my-app/.env の DATABASE_URL / REDIS_URL / APP_URL を使う
-// （コマンド先頭で `APP_URL=http://localhost:3000 node ...` のように上書きも可能）。
+// 接続先は my-app の .env.local / .env の DATABASE_URL / REDIS_URL / APP_URL を使う
+// （next dev と同じ優先順位。コマンド先頭で `APP_URL=http://localhost:3000 node ...` のように上書きも可能）。
 // 注意: magic-link は「dev サーバーが読む Redis」に書く必要があるため、
 //       REDIS_URL は起動中の next dev と同じものを指すこと。
 //
 // 安全弁: DATABASE_URL が neon.tech（本番/プレビュー想定）の場合は、
 //         誤爆防止のため CONFIRM_SEED=yes を付けないと実行できない。
 
-import "dotenv/config"
+import "../loadEnv.mjs"
 import { randomBytes } from "crypto"
 import { Pool } from "pg"
 import { createClient } from "redis"
@@ -29,12 +33,28 @@ const MAGIC_LINK_TTL = Number(process.env.MAGIC_LINK_TTL_SECONDS ?? 3600) // dev
 
 const TEAM = { teamId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", name: "テストチーム（管理用）", description: "ローカル動作確認用のシードチーム", requiredCount: 3, managementMode: "members" }
 
-// teamRole: master = 管理者（チームに1人）, member = 一般
-const SEED_USERS = [
+// teamRole: master = 管理者（チームに1人）, member = 一般メンバー, null = チーム未参加
+// （null はユーザー/ログインだけ作り、チームには入れない。非メンバーから見た表示のテスト用）
+const BASE_USERS = [
   { userId: "11111111-1111-4111-8111-111111111111", discordUserId: "900000000000000001", displayName: "テスト管理者", teamRole: "master" },
   { userId: "22222222-2222-4222-8222-222222222222", discordUserId: "900000000000000002", displayName: "テストメンバーA", teamRole: "member" },
-  { userId: "33333333-3333-4333-8333-333333333333", discordUserId: "900000000000000003", displayName: "テストメンバーB", teamRole: "member" },
+  { userId: "33333333-3333-4333-8333-333333333333", discordUserId: "900000000000000003", displayName: "テストメンバーB", teamRole: null },
 ]
+
+// EXTRA_MEMBERS=N で、固定3人に加えて一般メンバー(member)を N 人ぶん自動生成する。
+// 冪等にするため、index から決め打ちの UUID / Discord ID を組み立てる（再実行で同じ人に上書きされる）。
+const extraMembers = Math.max(0, Math.floor(Number(process.env.EXTRA_MEMBERS ?? 0)) || 0)
+const GENERATED_USERS = Array.from({ length: extraMembers }, (_, idx) => {
+  const n = idx + 1
+  return {
+    userId: `cccccccc-cccc-4ccc-8ccc-${String(n).padStart(12, "0")}`,
+    discordUserId: `9000001${String(n).padStart(11, "0")}`, // 7 + 11 = 18桁（Discord snowflake と同じ桁数）
+    displayName: `自動メンバー${n}`,
+    teamRole: "member",
+  }
+})
+
+const SEED_USERS = [...BASE_USERS, ...GENERATED_USERS]
 
 const loginOnly = process.argv.includes("--login-only")
 
@@ -103,8 +123,14 @@ async function seed(pool) {
     [TEAM.teamId, TEAM.name, TEAM.description, TEAM.requiredCount, TEAM.managementMode],
   )
 
-  // team_members（ロールは常に整合させる）
+  // team_members: teamRole があるユーザーだけ登録（ロールは常に整合させる）。
+  // teamRole=null（未参加）は、過去の seed で参加済みだった場合に備えて所属と予定を掃除する。
   for (const u of SEED_USERS) {
+    if (u.teamRole === null) {
+      await pool.query(`DELETE FROM team_members WHERE team_id = $1 AND user_id = $2`, [TEAM.teamId, u.userId])
+      await pool.query(`DELETE FROM schedules WHERE team_id = $1 AND user_id = $2`, [TEAM.teamId, u.userId])
+      continue
+    }
     await pool.query(
       `INSERT INTO team_members (team_id, user_id, team_role) VALUES ($1, $2, $3)
        ON CONFLICT (team_id, user_id) DO UPDATE SET team_role = EXCLUDED.team_role`,
@@ -112,11 +138,13 @@ async function seed(pool) {
     )
   }
 
-  // schedules（members モードのグリッドが空にならないよう、今日から数日ぶんを投入）
+  // schedules（members モードのグリッドが空にならないよう、今日から数日ぶんを投入）。
+  // チーム所属メンバー（teamRole != null）のぶんだけ入れる。
+  const members = SEED_USERS.filter((u) => u.teamRole !== null)
   const statuses = ["ok", "maybe", "ng"]
   let count = 0
-  for (let i = 0; i < SEED_USERS.length; i++) {
-    const u = SEED_USERS[i]
+  for (let i = 0; i < members.length; i++) {
+    const u = members[i]
     for (let d = 0; d < 4; d++) {
       // ユーザー/日でずらして ok/maybe/ng を散らす
       const status = statuses[(i + d) % statuses.length]
@@ -130,7 +158,8 @@ async function seed(pool) {
     }
   }
 
-  console.log(`シード完了: team「${TEAM.name}」/ users ${SEED_USERS.length}人 / schedules ${count}行`)
+  const nonMembers = SEED_USERS.length - members.length
+  console.log(`シード完了: team「${TEAM.name}」/ メンバー ${members.length}人 + 未参加 ${nonMembers}人 / schedules ${count}行`)
 }
 
 // --- magic-link 発行（Redis書き込み） ---------------------------------------
@@ -142,7 +171,7 @@ async function issueLoginLinks(redis) {
     // login.ts と同じ形: key=ts:magic:{token}, value={discordUserId, username}
     const payload = JSON.stringify({ discordUserId: u.discordUserId, username: u.displayName })
     await redis.setEx(`ts:magic:${token}`, MAGIC_LINK_TTL, payload)
-    const roleLabel = u.teamRole === "master" ? "管理者(master)" : "メンバー"
+    const roleLabel = u.teamRole === "master" ? "管理者(master)" : u.teamRole === "member" ? "メンバー" : "未参加（チーム未所属）"
     lines.push(`  [${roleLabel}] ${u.displayName}\n    ${appUrl}/team_schedules?token=${token}`)
   }
   const expiryMinutes = Math.round(MAGIC_LINK_TTL / 60)
