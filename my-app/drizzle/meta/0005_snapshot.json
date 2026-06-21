@@ -1,6 +1,6 @@
 {
-  "id": "08d6b230-817e-4247-bbb8-e4b8100cf939",
-  "prevId": "0baa93fa-2e60-4246-ba62-84210a40208f",
+  "id": "24f0306d-7f39-426a-942a-1dddc3fedb5a",
+  "prevId": "08d6b230-817e-4247-bbb8-e4b8100cf939",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -93,6 +93,68 @@
         }
       },
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.schedule_notifications": {
+      "name": "schedule_notifications",
+      "schema": "",
+      "columns": {
+        "team_id": {
+          "name": "team_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "day": {
+          "name": "day",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'activity_reached'"
+        },
+        "notified_at": {
+          "name": "notified_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "schedule_notifications_team_id_teams_team_id_fk": {
+          "name": "schedule_notifications_team_id_teams_team_id_fk",
+          "tableFrom": "schedule_notifications",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "team_id"
+          ],
+          "columnsTo": [
+            "team_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "schedule_notifications_team_id_day_kind_pk": {
+          "name": "schedule_notifications_team_id_day_kind_pk",
+          "columns": [
+            "team_id",
+            "day",
+            "kind"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -432,6 +494,96 @@
         "team_members_team_role_chk": {
           "name": "team_members_team_role_chk",
           "value": "\"team_members\".\"team_role\" in ('master', 'admin', 'member')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.team_webhooks": {
+      "name": "team_webhooks",
+      "schema": "",
+      "columns": {
+        "team_id": {
+          "name": "team_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slot": {
+          "name": "slot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'discord'"
+        },
+        "webhook_url": {
+          "name": "webhook_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notify_activity_reached": {
+          "name": "notify_activity_reached",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "team_webhooks_team_id_teams_team_id_fk": {
+          "name": "team_webhooks_team_id_teams_team_id_fk",
+          "tableFrom": "team_webhooks",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "team_id"
+          ],
+          "columnsTo": [
+            "team_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "team_webhooks_team_id_slot_pk": {
+          "name": "team_webhooks_team_id_slot_pk",
+          "columns": [
+            "team_id",
+            "slot"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "team_webhooks_slot_chk": {
+          "name": "team_webhooks_slot_chk",
+          "value": "\"team_webhooks\".\"slot\" in ('own', 'shared')"
+        },
+        "team_webhooks_provider_chk": {
+          "name": "team_webhooks_provider_chk",
+          "value": "\"team_webhooks\".\"provider\" in ('discord')"
         }
       },
       "isRLSEnabled": false

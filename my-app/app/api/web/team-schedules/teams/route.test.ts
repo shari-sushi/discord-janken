@@ -5,9 +5,11 @@ import { createTestRequest } from "@/__tests__/helpers/api-test-utils"
 // 認可ヘルパーをモック（未ログイン401・権限なし403・作成成功 のロジックを route 単体で検証する）
 const mockGetSessionUserId = vi.fn()
 const mockCanCreateTeam = vi.fn()
+const mockIsUserSuspended = vi.fn()
 vi.mock("@/app/_domains/teamSchedules/_server/authz", () => ({
   getSessionUserId: (...args: unknown[]) => mockGetSessionUserId(...args),
   canCreateTeam: (...args: unknown[]) => mockCanCreateTeam(...args),
+  isUserSuspended: (...args: unknown[]) => mockIsUserSuspended(...args),
 }))
 
 // DB は実接続しない。
@@ -33,6 +35,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   insertReturning.mockResolvedValue([TEAM])
   selectFrom.mockResolvedValue([])
+  // デフォルトは利用停止でない（個別テストで上書き）
+  mockIsUserSuspended.mockResolvedValue(false)
 })
 
 describe("GET /team-schedules/teams", () => {
@@ -58,6 +62,14 @@ describe("POST /team-schedules/teams", () => {
   it("failure: 作成権限が無ければ403（作成しない）", async () => {
     mockGetSessionUserId.mockResolvedValue("user-1")
     mockCanCreateTeam.mockResolvedValue(false)
+    const res = await POST(createTestRequest(URL, { method: "POST", body: validBody }))
+    expect(res.status).toBe(403)
+    expect(insert).not.toHaveBeenCalled()
+  })
+
+  it("failure: 利用停止中ユーザーは403（作成しない）", async () => {
+    mockGetSessionUserId.mockResolvedValue("user-1")
+    mockIsUserSuspended.mockResolvedValue(true)
     const res = await POST(createTestRequest(URL, { method: "POST", body: validBody }))
     expect(res.status).toBe(403)
     expect(insert).not.toHaveBeenCalled()

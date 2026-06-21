@@ -6,8 +6,10 @@ import { inviteKey } from "@/app/_domains/teamSchedules/_server/redisKeys"
 
 // 認可ヘルパーをモック
 const mockGetSessionUserId = vi.fn()
+const mockIsUserSuspended = vi.fn()
 vi.mock("@/app/_domains/teamSchedules/_server/authz", () => ({
   getSessionUserId: (...args: unknown[]) => mockGetSessionUserId(...args),
+  isUserSuspended: (...args: unknown[]) => mockIsUserSuspended(...args),
 }))
 
 // DB は実接続しない。
@@ -34,6 +36,7 @@ const TOKEN = "invite-token-abc"
 beforeEach(() => {
   vi.clearAllMocks()
   selectLimit.mockResolvedValue([TEAM])
+  mockIsUserSuspended.mockResolvedValue(false)
 })
 
 describe("POST /team-schedules/join", () => {
@@ -42,6 +45,15 @@ describe("POST /team-schedules/join", () => {
     await redisSet(inviteKey(TOKEN), { teamId: TEAM.teamId }, 600)
     const res = await POST(createTestRequest(URL, { method: "POST", body: { token: TOKEN } }))
     expect(res.status).toBe(401)
+    expect(insert).not.toHaveBeenCalled()
+  })
+
+  it("failure: 利用停止中ユーザーは403（参加しない）", async () => {
+    mockGetSessionUserId.mockResolvedValue("user-1")
+    mockIsUserSuspended.mockResolvedValue(true)
+    await redisSet(inviteKey(TOKEN), { teamId: TEAM.teamId }, 600)
+    const res = await POST(createTestRequest(URL, { method: "POST", body: { token: TOKEN } }))
+    expect(res.status).toBe(403)
     expect(insert).not.toHaveBeenCalled()
   })
 

@@ -39,6 +39,9 @@ export const users = pgTable("users", {
   userId: uuid("user_id").primaryKey().defaultRandom(),
   displayName: text("display_name").notNull(), // 重複OK（ログインは一覧から選んで解決）
   passwordHash: text("password_hash").notNull(), // bcrypt。平文は入れない（認証方式が確定したら削除を検討）
+  // 利用停止フラグ（#166）。true の間は書き込み系 API が 403 を返す（読み取りは透過）。解除可能。
+  // 既ログインユーザーへの即時失効はせず、新規操作の遮断のみ（管理画面の運用手段）。
+  suspended: boolean("suspended").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -176,6 +179,14 @@ export const discordLinks = pgTable(
   (t) => [index("idx_discord_links_user").on(t.userId)],
 )
 
+// discord_bans: magic-link ログイン/サインアップを遮断する Discord ID のブラックリスト（#166）
+// auth/verify（新規ログイン時）でのみ判定する。既に ts_session を持つユーザーの即時失効は将来対応。
+export const discordBans = pgTable("discord_bans", {
+  discordUserId: text("discord_user_id").primaryKey(), // Discordのsnowflake。discord_links とは独立（FKは張らない）
+  reason: text("reason"), // BAN 理由（任意・運用メモ）
+  bannedAt: timestamp("banned_at", { withTimezone: true }).notNull().defaultNow(),
+})
+
 // 推論される型（クエリ結果や INSERT 値に効く）
 export type Team = typeof teams.$inferSelect
 export type NewTeam = typeof teams.$inferInsert
@@ -193,3 +204,5 @@ export type TeamWebhook = typeof teamWebhooks.$inferSelect
 export type NewTeamWebhook = typeof teamWebhooks.$inferInsert
 export type ScheduleNotification = typeof scheduleNotifications.$inferSelect
 export type NewScheduleNotification = typeof scheduleNotifications.$inferInsert
+export type DiscordBan = typeof discordBans.$inferSelect
+export type NewDiscordBan = typeof discordBans.$inferInsert

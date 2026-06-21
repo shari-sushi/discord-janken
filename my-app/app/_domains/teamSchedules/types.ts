@@ -153,3 +153,57 @@ export type SessionUser = {
   /** チーム作成権限を持つか（ENV の許可 Discord ID） */
   canCreateTeam: boolean
 }
+
+// ───────────────────────────────────────────────────────────
+// 管理画面（開発者用 /developers/team-schedules）専用の型（#166）
+// admin 認証済みのため Discord ID / suspended を含めてよい
+// （通常の利用者 API では返さない方針を維持する）。
+// ───────────────────────────────────────────────────────────
+
+/** 管理画面に表示するチームメンバー（Discord ID・suspended 含む） */
+export type AdminTeamMember = {
+  userId: string
+  displayName: string
+  teamRole: TeamRole
+  /** 利用停止中か */
+  suspended: boolean
+  /** このユーザーに紐づく Discord ID（0件以上） */
+  discordUserIds: string[]
+  roles: LolRoleFlags
+}
+
+/** 管理画面に表示するチーム（設定＋メンバー一覧） */
+export type AdminTeam = {
+  teamId: string
+  name: string
+  description: string | null
+  requiredCount: number
+  managementMode: TeamManagementMode
+  /** 作成日時（ISO8601 文字列） */
+  createdAt: string
+  members: AdminTeamMember[]
+}
+
+/** どのチームにも所属していないユーザー（掃除対象の候補） */
+export type AdminOrphanUser = {
+  userId: string
+  displayName: string
+  suspended: boolean
+  discordUserIds: string[]
+  /** 作成日時（ISO8601 文字列） */
+  createdAt: string
+}
+
+/** GET /admin/overview のレスポンス本体 */
+export type AdminOverview = {
+  teams: AdminTeam[]
+  orphanUsers: AdminOrphanUser[]
+}
+
+/** Discord BAN 1件 */
+export type AdminDiscordBan = {
+  discordUserId: string
+  reason: string | null
+  /** BAN 日時（ISO8601 文字列） */
+  bannedAt: string
+}
