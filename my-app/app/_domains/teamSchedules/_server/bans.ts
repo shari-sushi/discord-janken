@@ -25,18 +25,19 @@ export async function listDiscordBans(): Promise<DiscordBan[]> {
 }
 
 /**
- * Discord ID を BAN に追加する（理由は任意）。既に存在する場合は理由を上書きしない（冪等）。
- * 追加された行を返す（既存なら既存行）。
+ * Discord ID を BAN に追加する（理由は任意）。
+ * 既に BAN 済みの ID を再 BAN した場合は理由と BAN 日時を上書きする（upsert）。
+ * 「理由を直したくて再登録したのに旧理由のまま」を防ぐため、冪等な no-op ではなく更新する。
+ * 追加/更新後の行を返す（onConflictDoUpdate は競合時も必ず1行返すため、追加 SELECT は不要）。
  */
 export async function addDiscordBan(discordUserId: string, reason: string | null): Promise<DiscordBan> {
-  const inserted = await db.insert(discordBans).values({ discordUserId, reason }).onConflictDoNothing({ target: discordBans.discordUserId }).returning()
-  if (inserted[0]) return inserted[0]
-  // 既に BAN 済み（onConflictDoNothing で 0 行）。既存行を引いて返す。
-  // neon-http はトランザクション非対応のため、INSERT と SELECT の極小区間で当該行が
-  // 削除されると 0 行になり得る（admin 専用フローなので実質起こらないが）。その場合は例外にする。
-  const existing = await db.select().from(discordBans).where(eq(discordBans.discordUserId, discordUserId)).limit(1)
-  if (!existing[0]) throw new Error("BAN 行の取得に失敗しました")
-  return existing[0]
+  const rows = await db
+    .insert(discordBans)
+    .values({ discordUserId, reason })
+    .onConflictDoUpdate({ target: discordBans.discordUserId, set: { reason, bannedAt: new Date() } })
+    .returning()
+  if (!rows[0]) throw new Error("BAN 行の取得に失敗しました")
+  return rows[0]
 }
 
 /** Discord ID の BAN を解除する。削除できたら true（存在しなければ false） */
