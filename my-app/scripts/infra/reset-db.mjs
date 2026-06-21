@@ -22,8 +22,9 @@
 //    （実行ブランチに応じた environment の DATABASE_URL secret で migrate が走る）。
 // 4. run が緑になれば __drizzle_migrations と実スキーマが一致した状態になる。
 
-// my-app/.env を読み込む。環境変数で DATABASE_URL が渡っていればそちらが優先される。
-import "dotenv/config"
+// my-app の .env.local / .env を next dev と同じ優先順位で読み込む。
+// 環境変数で DATABASE_URL が渡っていればそちらが優先される（ファイルでは上書きしない）。
+import "../loadEnv.mjs"
 import { Pool } from "pg"
 
 const url = process.env.DATABASE_URL

@@ -50,7 +50,9 @@ npm run db:studio     # GUIで中身を確認
 npm run db:push       # 開発時に生成をスキップして直接スキーマを反映（任意）
 ```
 
-- `drizzle-kit` は `dotenv/config` で **`.env`** を読む（`.env.local` ではない）。
+- `drizzle-kit` / seed・infra スクリプトは `my-app/scripts/loadEnv.mjs` を読み込み、**`next dev` と同じ優先順位**で env を解決する（`.env.local` > `.env`。シェルの export / `VAR=x` CLI 指定が最優先）。
+  - これにより「dev は `.env.local`・migrate/seed は `.env`」と接続先がズレる事故を防ぐ。
+  - シェルに `export DATABASE_URL=...` 等が残っていると `.env.local` より優先されて事故るため、ルートの `Makefile` の各ターゲットは `env -u DATABASE_URL -u REDIS_URL` で接続文字列を剥がしてから実行する。
 - CHECK制約は Drizzle のバージョンによって生成SQLに出ないことがある。`db:generate` 後、
   出力された SQL に `CONSTRAINT ... CHECK` が入っているか目視確認する。
 
