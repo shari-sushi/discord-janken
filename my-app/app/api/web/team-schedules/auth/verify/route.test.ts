@@ -21,12 +21,20 @@ vi.mock("@/app/_server/lib/db", () => ({
   },
 }))
 
+// BAN 判定はモック（デフォルトは未 BAN）。実 DB を引かないよう bans モジュールごと差し替える
+const mockIsDiscordBanned = vi.fn()
+vi.mock("@/app/_domains/teamSchedules/_server/bans", () => ({
+  isDiscordBanned: (...a: unknown[]) => mockIsDiscordBanned(...a),
+}))
+
 const URL = "http://localhost:3000/api/web/team-schedules/auth/verify"
 
 beforeEach(() => {
   vi.clearAllMocks()
   // 既存 discord_links 検索は「無し」を返す（→ セルフサインアップ経路）
   selectLimit.mockResolvedValue([])
+  // デフォルトは未 BAN（個別テストで上書き）
+  mockIsDiscordBanned.mockResolvedValue(false)
 })
 
 describe("POST /team-schedules/auth/verify", () => {
@@ -53,6 +61,18 @@ describe("POST /team-schedules/auth/verify", () => {
     expect(res.cookies.get("ts_session")?.value).toBeTruthy()
     // users / discord_links の2回 INSERT
     expect(insert).toHaveBeenCalledTimes(2)
+  })
+
+  it("failure: BAN 済み Discord ID は403（ユーザー作成・Cookie設定をしない）", async () => {
+    const token = "banned-token"
+    await redisSet(magicLinkKey(token), { discordUserId: "banned-discord", username: "荒らし" }, 600)
+    mockIsDiscordBanned.mockResolvedValue(true)
+
+    const res = await POST(createTestRequest(URL, { method: "POST", body: { token } }))
+    expect(res.status).toBe(403)
+    // ユーザー作成はしない / セッションCookieも設定しない
+    expect(insert).not.toHaveBeenCalled()
+    expect(res.cookies.get("ts_session")?.value).toBeFalsy()
   })
 
   it("failure: 一度使ったtokenは単回使用で消費され、2回目は401", async () => {

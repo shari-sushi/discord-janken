@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { teamMembers, teams } from "@/app/_domains/teamSchedules/_server/schema"
-import { canCreateTeam, getSessionUserId } from "@/app/_domains/teamSchedules/_server/authz"
+import { canCreateTeam, getSessionUserId, isUserSuspended } from "@/app/_domains/teamSchedules/_server/authz"
 import { isManagementMode, isValidRequiredCount, isValidTeamDescription, isValidTeamName } from "@/app/_domains/teamSchedules/_server/validators"
 import type { TeamSummary } from "@/app/_domains/teamSchedules/types"
 import { ServerTiming } from "@/app/_server/lib/serverTiming"
@@ -61,6 +61,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const userId = await getSessionUserId(req)
     if (!userId) {
       return NextResponse.json({ success: false, error: "ログインが必要です" }, { status: 401 })
+    }
+
+    // 利用停止中ユーザーは書き込み不可（#166）
+    if (await isUserSuspended(userId)) {
+      return NextResponse.json({ success: false, error: "アカウントが利用停止中のため、この操作はできません" }, { status: 403 })
     }
 
     // 作成権限（許可された Discord ID を持つユーザーのみ）

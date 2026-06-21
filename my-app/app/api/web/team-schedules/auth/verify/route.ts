@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { magicLinkKey } from "@/app/_domains/teamSchedules/_server/redisKeys"
 import { createUserSession, sessionCookieOptions, TS_SESSION_COOKIE } from "@/app/_domains/teamSchedules/_server/session"
 import { canCreateTeam } from "@/app/_domains/teamSchedules/_server/authz"
+import { isDiscordBanned } from "@/app/_domains/teamSchedules/_server/bans"
 import { resolveOrCreateUserByDiscordId } from "@/app/_domains/teamSchedules/_server/userResolver"
 import { redisGet, redisDelete } from "@/app/_server/lib/redis/redis"
 import type { MagicLinkPayload } from "@/app/api/discord/command/team-schedule/login"
@@ -36,6 +37,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     await redisDelete(magicLinkKey(token))
 
     const { discordUserId, username } = payload
+
+    // BAN 済み Discord ID は新規ログイン/サインアップを遮断（#166）。
+    // ↓注意: 既に ts_session を持つユーザーの即時失効はここでは行わない（将来対応）。
+    if (await isDiscordBanned(discordUserId)) {
+      console.warn(`team-schedules auth/verify: banned discord id rejected token=${tokenPrefix}…`)
+      return NextResponse.json({ success: false, error: "このアカウントはご利用いただけません" }, { status: 403 })
+    }
 
     // discord_links を引いて既存ユーザーを解決。無ければセルフサインアップで作成
     const { userId, displayName } = await resolveOrCreateUserByDiscordId(discordUserId, username)

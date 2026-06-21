@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { teamMembers } from "@/app/_domains/teamSchedules/_server/schema"
-import { getSessionUserId, getTeamRole } from "@/app/_domains/teamSchedules/_server/authz"
+import { getSessionUserId, getTeamRole, getTeamMembershipWithSuspension } from "@/app/_domains/teamSchedules/_server/authz"
 import { isUuid } from "@/app/_domains/teamSchedules/_server/validators"
 
 type RouteContext = { params: Promise<{ teamId: string }> }
@@ -44,7 +44,12 @@ export async function POST(req: NextRequest, ctx: RouteContext): Promise<NextRes
       return NextResponse.json({ success: false, error: "ログインが必要です" }, { status: 401 })
     }
 
-    const role = await getTeamRole(teamId, userId)
+    // 操作者の利用停止判定とロール取得を1クエリにまとめる（#166・DB往復削減）。suspend→403 を先に判定する
+    // （継承先 heir のロールは別ユーザーなので、後段で getTeamRole を個別に引く）
+    const { suspended, teamRole: role } = await getTeamMembershipWithSuspension(teamId, userId)
+    if (suspended) {
+      return NextResponse.json({ success: false, error: "アカウントが利用停止中のため、この操作はできません" }, { status: 403 })
+    }
     if (role === null) {
       // 非メンバー（または削除済みチーム）は存在を隠して 404
       return NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 })

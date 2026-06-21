@@ -2,12 +2,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { PATCH } from "./route"
 import { createTestRequest } from "@/__tests__/helpers/api-test-utils"
 
-// 認可ヘルパーをモック（非メンバー404・非admin400・admin200 のロジックを route 単体で検証する）
+// 認可ヘルパーをモック（非メンバー404・非admin400・admin200 のロジックを route 単体で検証する）。
+// route は suspend 判定とロール取得を getTeamMembershipWithSuspension の1クエリに畳んでいるため、
+// テストは従来どおり「suspended」「teamRole」を別々に与えられるよう、2つの粒度モックから合成する。
 const mockGetSessionUserId = vi.fn()
 const mockGetTeamRole = vi.fn()
+const mockIsUserSuspended = vi.fn()
 vi.mock("@/app/_domains/teamSchedules/_server/authz", () => ({
   getSessionUserId: (...args: unknown[]) => mockGetSessionUserId(...args),
-  getTeamRole: (...args: unknown[]) => mockGetTeamRole(...args),
+  getTeamMembershipWithSuspension: async (...args: unknown[]) => ({
+    suspended: await mockIsUserSuspended(...args),
+    teamRole: await mockGetTeamRole(...args),
+  }),
 }))
 
 // DB は実接続しない。update が呼ばれたかと、返却用の re-select だけ確認する
@@ -34,6 +40,7 @@ const ctxFor = () => ({ params: Promise.resolve({ teamId: TEAM_ID }) })
 beforeEach(() => {
   vi.clearAllMocks()
   selectLimit.mockResolvedValue([{ ...TEAM_ROW, teamId: TEAM_ID }])
+  mockIsUserSuspended.mockResolvedValue(false)
 })
 
 describe("PATCH /team-schedules/teams/[teamId]", () => {
@@ -42,6 +49,15 @@ describe("PATCH /team-schedules/teams/[teamId]", () => {
     const req = createTestRequest(URL, { method: "PATCH", body: { managementMode: "team" } })
     const res = await PATCH(req, ctxFor())
     expect(res.status).toBe(401)
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it("failure: 利用停止中ユーザーは403（更新もしない）", async () => {
+    mockGetSessionUserId.mockResolvedValue("user-1")
+    mockIsUserSuspended.mockResolvedValue(true)
+    const req = createTestRequest(URL, { method: "PATCH", body: { managementMode: "team" } })
+    const res = await PATCH(req, ctxFor())
+    expect(res.status).toBe(403)
     expect(update).not.toHaveBeenCalled()
   })
 

@@ -16,6 +16,11 @@ type RouteContext = { params: Promise<{ teamId: string }> }
  * - それ以外のメンバー（admin / member）: 自分の行を削除して 200
  *
  * 注: チームそのものの削除ではない（DELETE /teams/[teamId] とは別操作）。
+ *
+ * #166: 利用停止中（suspended）でも脱退は許可する（isUserSuspended ガードを意図的に付けない）。
+ *       suspend は「新しいコンテンツ・参加を作らせない」ための制限で、自分の footprint を減らす
+ *       自己片付け（脱退・アカウント削除）は止めない方針。チーム設定編集/解散（PATCH/DELETE teams）は
+ *       コンテンツ書き込みなのでガード対象、という非対称を明示しておく。
  */
 export async function DELETE(req: NextRequest, ctx: RouteContext): Promise<NextResponse> {
   try {

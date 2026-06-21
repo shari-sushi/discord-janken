@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { teamMembers, teams } from "@/app/_domains/teamSchedules/_server/schema"
-import { getSessionUserId } from "@/app/_domains/teamSchedules/_server/authz"
+import { getSessionUserId, isUserSuspended } from "@/app/_domains/teamSchedules/_server/authz"
 import { inviteKey } from "@/app/_domains/teamSchedules/_server/redisKeys"
 import type { InvitePayload } from "@/app/_domains/teamSchedules/_server/invites"
 import { redisGet } from "@/app/_server/lib/redis/redis"
@@ -21,6 +21,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const userId = await getSessionUserId(req)
     if (!userId) {
       return NextResponse.json({ success: false, error: "ログインが必要です" }, { status: 401 })
+    }
+
+    // 利用停止中ユーザーは書き込み不可（#166）
+    if (await isUserSuspended(userId)) {
+      return NextResponse.json({ success: false, error: "アカウントが利用停止中のため、この操作はできません" }, { status: 403 })
     }
 
     const body = (await req.json().catch(() => null)) as { token?: unknown } | null
