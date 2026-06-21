@@ -13,15 +13,15 @@
 //   node scripts/team-schedules/creator-login-links.mjs                 # member作成 + ログインURL発行
 //   node scripts/team-schedules/creator-login-links.mjs --login-only    # 作成せず、既存ユーザーのログインURLだけ再発行
 //
-// 接続先は my-app/.env の DATABASE_URL / REDIS_URL / APP_URL を使う
-// （コマンド先頭で `APP_URL=http://localhost:3000 node ...` のように上書きも可能）。
+// 接続先は my-app の .env.local / .env の DATABASE_URL / REDIS_URL / APP_URL を使う
+// （next dev と同じ優先順位。コマンド先頭で `APP_URL=http://localhost:3000 node ...` のように上書きも可能）。
 // 注意: magic-link は「dev サーバーが読む Redis」に書く必要があるため、
 //       REDIS_URL は起動中の next dev と同じものを指すこと。
 //
 // 安全弁: DATABASE_URL が neon.tech（本番/プレビュー想定）の場合は、
 //         誤爆防止のため CONFIRM_SEED=yes を付けないと実行できない。
 
-import "dotenv/config"
+import "../loadEnv.mjs"
 import { randomBytes } from "crypto"
 import { Pool } from "pg"
 import { createClient } from "redis"

@@ -9,9 +9,9 @@
 // drizzle-kit migrate がエラーを握り潰すため、ここでは __drizzle_migrations の
 // 適用記録と、実際に存在するテーブル/カラム/制約を SELECT で読み出して突き合わせる。
 
-// my-app/.env を読み込む（drizzle.config.ts と同じ挙動）。
-// 既に環境変数で DATABASE_URL が渡っていればそちらが優先される（dotenv は上書きしない）。
-import "dotenv/config"
+// my-app の .env.local / .env を next dev と同じ優先順位で読み込む（drizzle.config.ts と同じ挙動）。
+// 既に環境変数で DATABASE_URL が渡っていればそちらが優先される（ファイルでは上書きしない）。
+import "../loadEnv.mjs"
 import { Pool } from "pg"
 
 const url = process.env.DATABASE_URL

@@ -1,4 +1,4 @@
-import "dotenv/config"
+import "./scripts/loadEnv.mjs"
 import { defineConfig } from "drizzle-kit"
 
 // マイグレーション生成・適用の設定。
