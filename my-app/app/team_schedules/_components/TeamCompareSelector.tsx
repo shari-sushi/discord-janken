@@ -145,15 +145,16 @@ function OwnTeamDropdown({
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  // パネル外クリックで閉じる
+  // パネル外クリックで閉じる。pointerdown ではなく click で閉じるのが重要:
+  // pointerdown だと暗幕（DimOverlay）タップ時に pointerdown 段階で overlay が unmount され、
+  // 続く click が裏の要素にすり抜けてボタンが誤発火する（ゴーストクリック）。
   useEffect(() => {
     if (!open) return
-    const onPointerDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node))
-        setOpen(false)
+    const onDocClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
-    document.addEventListener("pointerdown", onPointerDown)
-    return () => document.removeEventListener("pointerdown", onPointerDown)
+    document.addEventListener("click", onDocClick)
+    return () => document.removeEventListener("click", onDocClick)
   }, [open])
 
   const selected = teams.find((t) => t.teamId === ownTeamId) ?? null
@@ -237,15 +238,16 @@ function OpponentDropdown({
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  // パネル外クリックで閉じる
+  // パネル外クリックで閉じる。pointerdown ではなく click で閉じるのが重要:
+  // pointerdown だと暗幕（DimOverlay）タップ時に pointerdown 段階で overlay が unmount され、
+  // 続く click が裏の要素にすり抜けてボタンが誤発火する（ゴーストクリック）。
   useEffect(() => {
     if (!open) return
-    const onPointerDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node))
-        setOpen(false)
+    const onDocClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
-    document.addEventListener("pointerdown", onPointerDown)
-    return () => document.removeEventListener("pointerdown", onPointerDown)
+    document.addEventListener("click", onDocClick)
+    return () => document.removeEventListener("click", onDocClick)
   }, [open])
 
   // 候補順を保ったまま選択中だけ抽出（トリガー内に1行で並べる）
