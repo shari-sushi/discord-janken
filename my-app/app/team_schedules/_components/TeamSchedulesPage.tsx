@@ -82,6 +82,18 @@ export function TeamSchedulesPage() {
   // lg未満（カレンダーだけスクロールする縦圧縮レイアウト）で、表以外のチーム選択・凡例を畳んで
   // 表に縦スペースを譲る。lg以上では常に展開（トグルも非表示）。(#156)
   const [chromeCollapsed, setChromeCollapsed] = useState(false)
+  // 折りたたみ領域の overflow。畳みアニメ中は overflow-hidden で中身を隠す必要があるが、
+  // 展開しきった状態では自チーム/相手チームのドロップダウン（absolute）が領域外へ出られるよう
+  // overflow-visible にする（#156 のアニメと、未選択時にドロップダウンがグリッド案内文の後ろへ
+  // 隠れる不具合の両立）。畳む時は即クリップ、展開時はアニメ完了後（onTransitionEnd）に可視化する。
+  const [chromeOverflowVisible, setChromeOverflowVisible] = useState(true)
+  // 折りたたみトグル。畳む時は即クリップ（スライドを正しく見せる）、展開時はアニメ完了後
+  // （grid の onTransitionEnd）に overflow を可視化する。
+  const toggleChrome = () => {
+    const next = !chromeCollapsed
+    setChromeCollapsed(next)
+    if (next) setChromeOverflowVisible(false)
+  }
   // 選択の整合（後段の reconcile 効果で参照）。magic-link ログイン確立後の再取得で
   // false に戻し、正しい isMember を反映した teams でもう一度だけ走らせる。
   const reconciledRef = useRef(false)
@@ -830,7 +842,7 @@ export function TeamSchedulesPage() {
               {/* たたむボタン: 設定ボタンの左。表以外（チーム選択・凡例）を畳んで表に縦スペースを譲る（#156） */}
               <button
                 type="button"
-                onClick={() => setChromeCollapsed((v) => !v)}
+                onClick={toggleChrome}
                 aria-label={chromeCollapsed ? "チーム選択・凡例を開く" : "チーム選択・凡例をたたむ"}
                 aria-expanded={!chromeCollapsed}
                 title={chromeCollapsed ? "開く" : "たたむ"}
@@ -882,7 +894,7 @@ export function TeamSchedulesPage() {
               {/* たたむボタン: 設定ボタンの左。md〜lg未満（縦圧縮レイアウト）でのみ表示（#156） */}
               <button
                 type="button"
-                onClick={() => setChromeCollapsed((v) => !v)}
+                onClick={toggleChrome}
                 aria-label={chromeCollapsed ? "チーム選択・凡例を開く" : "チーム選択・凡例をたたむ"}
                 aria-expanded={!chromeCollapsed}
                 title={chromeCollapsed ? "開く" : "たたむ"}
@@ -910,8 +922,14 @@ export function TeamSchedulesPage() {
 
         {/* チーム選択・凡例の折りたたみ領域（#156）。grid-rows 0fr↔1fr で高さを上下スライドアニメーション。
             lg以上は常に展開（トグルも非表示）。inner は overflow-hidden で畳み時に中身を隠す。 */}
-        <div className={"grid shrink-0 transition-[grid-template-rows] duration-300 ease-in-out lg:grid-rows-[1fr] " + (chromeCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]")}>
-          <div className="min-h-0 overflow-hidden">
+        <div
+          className={"grid shrink-0 transition-[grid-template-rows] duration-300 ease-in-out lg:grid-rows-[1fr] " + (chromeCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]")}
+          onTransitionEnd={(e) => {
+            // 展開アニメ完了時のみ overflow を可視化（ドロップダウンが領域外へ出られるように）
+            if (e.propertyName === "grid-template-rows" && !chromeCollapsed) setChromeOverflowVisible(true)
+          }}
+        >
+          <div className={"min-h-0 " + (chromeOverflowVisible ? "overflow-visible" : "overflow-hidden")}>
             <div className="flex flex-col md:gap-3 gap-1.5">
               <TeamCompareSelector teams={teams} ownTeamId={ownTeamId} opponentTeamIds={opponentTeamIds} onOwnTeamChange={setOwnTeamId} onOpponentsChange={setOpponentTeamIds} />
               {view && <ControlBar threshold={view.threshold} managementMode={view.managementMode} />}
