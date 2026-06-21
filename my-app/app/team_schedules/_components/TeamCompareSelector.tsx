@@ -190,15 +190,16 @@ function OwnTeamDropdown({
         </button>
         {open && (
           <div className="absolute inset-x-0 z-10 mt-1 max-h-60 overflow-y-auto rounded-lg border border-zinc-600 bg-zinc-900 py-1 shadow-lg">
-            <button
-              type="button"
-              onClick={() => handleSelect(null)}
-              className="flex w-full items-center px-3 py-1.5 text-left hover:bg-zinc-800"
-            >
-              <span className={ownTeamId === null ? "text-indigo-300" : "text-zinc-400"}>
-                選択してください
-              </span>
-            </button>
+            {/* 「選択してください」は未選択時のプレースホルダのみ。チーム選択済みなら不要なので出さない */}
+            {ownTeamId === null && (
+              <button
+                type="button"
+                onClick={() => handleSelect(null)}
+                className="flex w-full items-center px-3 py-1.5 text-left hover:bg-zinc-800"
+              >
+                <span className="text-indigo-300">選択してください</span>
+              </button>
+            )}
             {teams.map((t) => {
               const isSelected = t.teamId === ownTeamId
               return (
