@@ -103,6 +103,49 @@ export type TeamSchedule = {
   teamStatus: TeamDayStatusEntry[]
 }
 
+/**
+ * 通知 Webhook の枠（#172）。
+ * - own:    自分たち用サーバー
+ * - shared: 相手も見る共有サーバー
+ */
+export type WebhookSlot = "own" | "shared"
+
+/** Webhook の送信先サービス種別。今は Discord のみ（将来 "slack" 等を加算）。 */
+export type WebhookProvider = "discord"
+
+/** Webhook 枠の表示ラベル（この用語で統一する） */
+export const WEBHOOK_SLOT_LABEL: Record<WebhookSlot, string> = {
+  own: "自分たち用",
+  shared: "相手も見るサーバー用",
+}
+
+/** 表示順を固定するための枠一覧 */
+export const WEBHOOK_SLOTS: WebhookSlot[] = ["own", "shared"]
+
+/**
+ * Webhook 設定の取得結果（GET /webhooks）。閲覧権限で中身が変わる:
+ * - master: 生の webhookUrl を含む（URL を読めるのは master のみ）。
+ * - admin（非 master）: webhookUrl は null、maskedUrl に部分マスク（ドメイン+1文字）だけ入る。
+ */
+export type TeamWebhookView = {
+  slot: WebhookSlot
+  provider: WebhookProvider
+  notifyActivityReached: boolean
+  /** 設定済みか（URL を伏せても登録の有無は admin に見せる） */
+  configured: boolean
+  /** 生 URL。master のみ。admin/未設定では null */
+  webhookUrl?: string | null
+  /** 部分マスク済み URL（origin + パス先頭1文字）。admin の設定済み枠でのみ入る */
+  maskedUrl?: string | null
+}
+
+/** Webhook 1枠ぶんの更新内容（PUT /webhooks）。webhookUrl は変更時のみ・トグルのみ更新も可 */
+export type TeamWebhookSlotPatch = {
+  provider?: WebhookProvider
+  webhookUrl?: string
+  notifyActivityReached?: boolean
+}
+
 /** ログイン中のユーザー（未ログインは null） */
 export type SessionUser = {
   userId: string

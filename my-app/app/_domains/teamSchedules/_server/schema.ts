@@ -120,6 +120,49 @@ export const teamDayStatus = pgTable(
   (t) => [primaryKey({ columns: [t.teamId, t.day] }), check("team_day_status_status_chk", sql`${t.status} in ('ok', 'maybe', 'ng')`)],
 )
 
+// team_webhooks: チームの通知先 Webhook（1枠1行）。#172 活動可能通知の送信先。
+// - slot: own=自分たち用 / shared=相手も見るサーバー用。1チーム1枠1行（行が存在=設定済み）。
+// - provider: その URL が何のサービス向けか。いまは Discord 専用だが、テーブル名を汎用に保ち
+//   将来 Slack 等を加算的に足せるよう discriminator 列を最初から持つ。CHECK は 'discord' のみに絞り、
+//   未対応のものを許可しない（拡張時に CHECK 値・ペイロード整形・検証・UI を加算する）。
+// - notifyActivityReached: 「活動可能になった」通知の ON/OFF（今はこの1イベントのみ）。
+export const teamWebhooks = pgTable(
+  "team_webhooks",
+  {
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.teamId, { onDelete: "cascade" }),
+    slot: text("slot", { enum: ["own", "shared"] }).notNull(),
+    provider: text("provider", { enum: ["discord"] }).notNull().default("discord"),
+    webhookUrl: text("webhook_url").notNull(),
+    notifyActivityReached: boolean("notify_activity_reached").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.teamId, t.slot] }),
+    check("team_webhooks_slot_chk", sql`${t.slot} in ('own', 'shared')`),
+    check("team_webhooks_provider_chk", sql`${t.provider} in ('discord')`),
+  ],
+)
+
+// schedule_notifications: 活動可能通知の重複送信防止マーカー（エッジトリガの latch）。
+// 行の存在/不在が「その日の通知を送ったか」の状態。notified_at は送信時刻のメモ。
+// 達成の立ち上がりで INSERT（送信）、谷に落ちたら DELETE（再武装）。詳細は notify.ts。
+export const scheduleNotifications = pgTable(
+  "schedule_notifications",
+  {
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.teamId, { onDelete: "cascade" }),
+    day: date("day").notNull(),
+    // 将来イベント種別が増えたときの判別。今は activity_reached のみ
+    kind: text("kind").notNull().default("activity_reached"),
+    notifiedAt: timestamp("notified_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.teamId, t.day, t.kind] })],
+)
+
 // discord_links: 1アプリアカウント : N Discordアカウント（認証の背骨）
 export const discordLinks = pgTable(
   "discord_links",
@@ -146,3 +189,7 @@ export type TeamDayStatus = typeof teamDayStatus.$inferSelect
 export type NewTeamDayStatus = typeof teamDayStatus.$inferInsert
 export type DiscordLink = typeof discordLinks.$inferSelect
 export type NewDiscordLink = typeof discordLinks.$inferInsert
+export type TeamWebhook = typeof teamWebhooks.$inferSelect
+export type NewTeamWebhook = typeof teamWebhooks.$inferInsert
+export type ScheduleNotification = typeof scheduleNotifications.$inferSelect
+export type NewScheduleNotification = typeof scheduleNotifications.$inferInsert

@@ -1,8 +1,9 @@
 import { and, eq } from "drizzle-orm"
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse, after } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { teamDayStatus, teams } from "@/app/_domains/teamSchedules/_server/schema"
 import { getSessionUserId, getTeamRole } from "@/app/_domains/teamSchedules/_server/authz"
+import { maybeNotifyActivityReached } from "@/app/_domains/teamSchedules/_server/notify"
 import { hasAdminAuthority } from "@/app/_domains/teamSchedules/types"
 import { isDayKey, isScheduleStatus, isUuid, isValidNote } from "@/app/_domains/teamSchedules/_server/validators"
 
@@ -70,6 +71,9 @@ export async function PUT(req: NextRequest, ctx: RouteContext): Promise<NextResp
         set: { status, note, updatedAt: new Date() },
       })
 
+    // チーム状態が ok になった立ち上がりエッジなら Webhook 通知（#172）。レスポンス後に実行・内部で握る。
+    after(() => maybeNotifyActivityReached(teamId, day))
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("team-schedules team-status PUT error:", error)
@@ -95,6 +99,9 @@ export async function DELETE(req: NextRequest, ctx: RouteContext): Promise<NextR
     const { day } = body
 
     await db.delete(teamDayStatus).where(and(eq(teamDayStatus.teamId, teamId), eq(teamDayStatus.day, day)))
+
+    // ok を取り消して活動可能でなくなった場合にマーカーを再武装するため、削除後も通知判定を回す（#172）
+    after(() => maybeNotifyActivityReached(teamId, day))
 
     return NextResponse.json({ success: true })
   } catch (error) {

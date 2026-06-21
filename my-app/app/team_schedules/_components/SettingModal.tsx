@@ -19,6 +19,7 @@ export function isSettingTab(value: string | null): value is SettingTab {
 import { updateTeam } from "@/app/_domains/teamSchedules/_client/teamSchedulesApiClient"
 import { CreateTeamForm } from "./CreateTeamForm"
 import { CREATE_TEAM_RESTRICTED_MESSAGE } from "./CreateTeamRestrictedModal"
+import { WebhookSettingsSection } from "./WebhookSettingsSection"
 import { CloseIcon } from "../_icons/CloseIcon"
 
 type SettingModalProps = {
@@ -262,6 +263,10 @@ export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, isM
               </div>
             </section>
           )}
+
+          {/* 活動可能の通知（Discord Webhook）（#172・admin 相当以上）。閲覧/変更の権限差・テスト強制・保存は
+              セクション内で自己完結する（本体の「保存する」とは独立。テスト強制で名前変更等までブロックしないため）。 */}
+          {isAdmin && <WebhookSettingsSection teamId={team.teamId} isMaster={isMaster} />}
 
           {/* master 継承（master のみ・解散セクションの上）。継承先を選んで「継承する」で確認モーダル（「継承」と入力）を親が開く。
               継承先がいない（自分以外のメンバーが0人）場合は案内のみ表示する。 */}
