@@ -145,15 +145,16 @@ function OwnTeamDropdown({
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  // パネル外クリックで閉じる
+  // パネル外クリックで閉じる。pointerdown ではなく click で閉じるのが重要:
+  // pointerdown だと暗幕（DimOverlay）タップ時に pointerdown 段階で overlay が unmount され、
+  // 続く click が裏の要素にすり抜けてボタンが誤発火する（ゴーストクリック）。
   useEffect(() => {
     if (!open) return
-    const onPointerDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node))
-        setOpen(false)
+    const onDocClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
-    document.addEventListener("pointerdown", onPointerDown)
-    return () => document.removeEventListener("pointerdown", onPointerDown)
+    document.addEventListener("click", onDocClick)
+    return () => document.removeEventListener("click", onDocClick)
   }, [open])
 
   const selected = teams.find((t) => t.teamId === ownTeamId) ?? null
@@ -189,15 +190,16 @@ function OwnTeamDropdown({
         </button>
         {open && (
           <div className="absolute inset-x-0 z-10 mt-1 max-h-60 overflow-y-auto rounded-lg border border-zinc-600 bg-zinc-900 py-1 shadow-lg">
-            <button
-              type="button"
-              onClick={() => handleSelect(null)}
-              className="flex w-full items-center px-3 py-1.5 text-left hover:bg-zinc-800"
-            >
-              <span className={ownTeamId === null ? "text-indigo-300" : "text-zinc-400"}>
-                選択してください
-              </span>
-            </button>
+            {/* 「選択してください」は未選択時のプレースホルダのみ。チーム選択済みなら不要なので出さない */}
+            {ownTeamId === null && (
+              <button
+                type="button"
+                onClick={() => handleSelect(null)}
+                className="flex w-full items-center px-3 py-1.5 text-left hover:bg-zinc-800"
+              >
+                <span className="text-indigo-300">選択してください</span>
+              </button>
+            )}
             {teams.map((t) => {
               const isSelected = t.teamId === ownTeamId
               return (
@@ -237,15 +239,16 @@ function OpponentDropdown({
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  // パネル外クリックで閉じる
+  // パネル外クリックで閉じる。pointerdown ではなく click で閉じるのが重要:
+  // pointerdown だと暗幕（DimOverlay）タップ時に pointerdown 段階で overlay が unmount され、
+  // 続く click が裏の要素にすり抜けてボタンが誤発火する（ゴーストクリック）。
   useEffect(() => {
     if (!open) return
-    const onPointerDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node))
-        setOpen(false)
+    const onDocClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
-    document.addEventListener("pointerdown", onPointerDown)
-    return () => document.removeEventListener("pointerdown", onPointerDown)
+    document.addEventListener("click", onDocClick)
+    return () => document.removeEventListener("click", onDocClick)
   }, [open])
 
   // 候補順を保ったまま選択中だけ抽出（トリガー内に1行で並べる）
