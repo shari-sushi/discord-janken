@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { teamDayStatus, teams } from "@/app/_domains/teamSchedules/_server/schema"
-import { getSessionUserId, getTeamRole, isUserSuspended } from "@/app/_domains/teamSchedules/_server/authz"
+import { getSessionUserId, getTeamMembershipWithSuspension } from "@/app/_domains/teamSchedules/_server/authz"
 import { hasAdminAuthority } from "@/app/_domains/teamSchedules/types"
 import { isDayKey, isScheduleStatus, isUuid, isValidNote } from "@/app/_domains/teamSchedules/_server/validators"
 
@@ -28,12 +28,11 @@ async function authorizeTeamStatusAdmin(req: NextRequest, teamId: string): Promi
     return { ok: false, res: NextResponse.json({ success: false, error: "ログインが必要です" }, { status: 401 }) }
   }
 
-  // 利用停止中ユーザーは書き込み不可（#166）。ログイン確認の直後に判定する
-  if (await isUserSuspended(userId)) {
+  // 利用停止判定とロール取得を1クエリにまとめる（#166・DB往復削減）。suspend→403 を先に判定する
+  const { suspended, teamRole: role } = await getTeamMembershipWithSuspension(teamId, userId)
+  if (suspended) {
     return { ok: false, res: NextResponse.json({ success: false, error: "アカウントが利用停止中のため、この操作はできません" }, { status: 403 }) }
   }
-
-  const role = await getTeamRole(teamId, userId)
   if (role === null) {
     return { ok: false, res: NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 }) }
   }

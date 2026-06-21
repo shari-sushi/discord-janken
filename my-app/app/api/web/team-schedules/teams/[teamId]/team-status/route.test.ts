@@ -2,14 +2,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { PUT, DELETE } from "./route"
 import { createTestRequest } from "@/__tests__/helpers/api-test-utils"
 
-// 認可ヘルパーをモック（非メンバー404・非admin400・admin200 のロジックを route 単体で検証する）
+// 認可ヘルパーをモック（非メンバー404・非admin400・admin200 のロジックを route 単体で検証する）。
+// route は suspend 判定とロール取得を getTeamMembershipWithSuspension の1クエリに畳んでいるため、
+// テストは従来どおり「suspended」「teamRole」を別々に与えられるよう、2つの粒度モックから合成する。
 const mockGetSessionUserId = vi.fn()
 const mockGetTeamRole = vi.fn()
 const mockIsUserSuspended = vi.fn()
 vi.mock("@/app/_domains/teamSchedules/_server/authz", () => ({
   getSessionUserId: (...args: unknown[]) => mockGetSessionUserId(...args),
-  getTeamRole: (...args: unknown[]) => mockGetTeamRole(...args),
-  isUserSuspended: (...args: unknown[]) => mockIsUserSuspended(...args),
+  getTeamMembershipWithSuspension: async (...args: unknown[]) => ({
+    suspended: await mockIsUserSuspended(...args),
+    teamRole: await mockGetTeamRole(...args),
+  }),
 }))
 
 // DB は実接続しない。書き込みが呼ばれたことだけ確認する

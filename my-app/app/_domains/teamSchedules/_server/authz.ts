@@ -41,6 +41,36 @@ export async function isUserSuspended(userId: string): Promise<boolean> {
   return rows[0]?.suspended === true
 }
 
+/** getTeamMembershipWithSuspension の戻り値 */
+export type TeamMembershipWithSuspension = {
+  /** 利用停止中か（users.suspended）。非メンバーでも必ず取れる */
+  suspended: boolean
+  /** チーム内ロール（非メンバーは null） */
+  teamRole: TeamRole | null
+}
+
+/**
+ * (teamId, userId) のチーム内ロールと、そのユーザーの利用停止状態を「1クエリ」で返す（#166）。
+ *
+ * このアプリはインフラ都合で1クエリごとにコネクションを貼り直すため DB 往復が高コスト。
+ * 書き込み系 API では従来 isUserSuspended（users）と getTeamRole/assertTeamMember/assertTeamAdmin
+ * （team_members）で2往復していたのを、users を基点に team_members を LEFT JOIN して1往復に畳む。
+ *
+ * users 起点の LEFT JOIN なので、非メンバーでも suspended は必ず取れる（teamRole だけ null になる）。
+ * 呼び出し側は「suspended → 403」を先に、「teamRole → 404/400」を必要な箇所で判定すれば、
+ * 従来と同じ順序・レスポンスを保てる（ロール判定は getTeamRole 等と同じ意味）。
+ */
+export async function getTeamMembershipWithSuspension(teamId: string, userId: string): Promise<TeamMembershipWithSuspension> {
+  const rows = await db
+    .select({ suspended: users.suspended, teamRole: teamMembers.teamRole })
+    .from(users)
+    .leftJoin(teamMembers, and(eq(teamMembers.userId, users.userId), eq(teamMembers.teamId, teamId)))
+    .where(eq(users.userId, userId))
+    .limit(1)
+  const row = rows[0]
+  return { suspended: row?.suspended === true, teamRole: row?.teamRole ?? null }
+}
+
 /** (teamId, userId) が team_members に存在するか（＝そのチームの編集権がある人か） */
 export async function assertTeamMember(teamId: string, userId: string): Promise<boolean> {
   const rows = await db
