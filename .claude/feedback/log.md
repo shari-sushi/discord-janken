@@ -103,3 +103,14 @@
 
 **補足**: 今回は feature→develop PR の時点で手動 close したが、本来は「develop にいる間は open のまま追い、main PR で auto-close」が素直。
 **仕組み化**: 「(1) feature→develop PR では close予定 issue を列挙、(2) develop→main PR では `Closes #N` で列挙」を運用ルール化。
+
+## 2026-06-21: develop→main リリース PR で close 対象 issue を拾い漏れた（PR #174 / #163）
+
+**カテゴリ**: process
+**状況**: develop→main のリリース PR(#174) を作成。含まれる feature PR(#170/#173) の本文に `close #N` 行が無かったため「close する issue はなし」とした。直後のセルフレビューで、PR#170 の「○数列ヘッダーに自チーム名を固定表示」が open issue #163「closeしたらチーム名が見えなくなる対策（⚪︎数の上にチーム名を出す）」に直接対応していると判明。
+
+**ミス**: develop→main PR の close 列挙を、含まれる feature PR の `close #N` 行だけに依存して機械的に作った。feature PR(#170) 側が close 行を書き忘れていたため、そのまま拾い漏れた。規約 coding-standards.md が明示的に警告する「develop→main PR を組むときの拾い漏れ」そのもの。
+
+**正解**: develop→main PR を作るときは、含まれる PR の close 行を転記するだけでなく、**リリース範囲のコミット内容（コミットメッセージ）と open issue 一覧を突き合わせ、対応する issue が無いか能動的に確認する**。feature PR 側の close 行記載漏れを前提に二重チェックする。
+
+**なぜセルフレビューで見つからなかったか**: 初回作成時は「feature PR に close 行が無い＝close 対象なし」と機械的に結論づけ、コミット内容 ↔ open issue の意味的な突き合わせをしなかった。セルフレビュー（fresh-eyes）で open issue 一覧を引いて初めて #163 とのマッチに気づいた。close 行の有無は必要条件であって十分条件ではない。
