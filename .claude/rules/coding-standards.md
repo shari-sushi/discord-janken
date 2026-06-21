@@ -28,10 +28,13 @@
   **必ずユーザーに確認してから**実行する（勝手に force-push しない）。
 
 
-- **feature → develop の PR**: その PR で完了させる issue を本文に `- close #N` の形式で**列挙**する
-  （`#N` は GitHub 上で issue タイトルがリンク表示されるため、タイトルは書かない。develop base では `Closes #N` でも
-  auto-close は発火しないので、ここでは close せず一覧として残す目的。develop→main PR を組むときの拾い漏れ防止）。
+- **feature → develop の PR**: その PR で完了させる issue を本文に `- #N` の形式で**列挙**する
+  （`#N` は GitHub 上で issue タイトルがリンク表示されるため、タイトルは書かない。
+  `close` / `closes` / `fix` / `resolves` 等のクローズキーワードは**絶対に付けない** —
+  これらは大文字小文字を問わず予約語で、PR の base を main に付け替えた瞬間などに意図せず auto-close が発火する。
+  ここは develop→main PR を組むときの拾い漏れ防止の一覧であって、閉じる指示ではない）。
 - **develop → main の PR**: 束ねた close予定 issue を `Closes #N` で本文に列挙する → main マージ時に auto-close される（手動 close 不要）。
+  クローズキーワードを使うのは**この develop→main PR だけ**。
 - フォローアップとして**新規起票した issue は列挙しない**（その PR では閉じないため）。
 - やむを得ず develop の時点で閉じる場合のみ `gh issue close #N -c "..."` で手動 close する。
 

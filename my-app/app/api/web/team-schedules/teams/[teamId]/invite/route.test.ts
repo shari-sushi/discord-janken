@@ -3,12 +3,19 @@ import { POST } from "./route"
 import { createTestRequest } from "@/__tests__/helpers/api-test-utils"
 import { redisSet } from "@/app/_server/lib/redis/redis"
 
-// 認可ヘルパーをモック（未ログイン401・非admin404・admin200 のロジックを route 単体で検証する）
+// 認可ヘルパーをモック（未ログイン401・非admin404・admin200 のロジックを route 単体で検証する）。
+// route は suspend 判定とロール取得を getTeamMembershipWithSuspension の1クエリに畳んでいるため、
+// 従来の「suspended」「admin か否か」を別々に与えられるよう2つの粒度モックから合成する
+// （admin 判定は hasAdminAuthority に通す前提で teamRole を admin/null に振り分ける）。
 const mockGetSessionUserId = vi.fn()
 const mockAssertTeamAdmin = vi.fn()
+const mockIsUserSuspended = vi.fn()
 vi.mock("@/app/_domains/teamSchedules/_server/authz", () => ({
   getSessionUserId: (...args: unknown[]) => mockGetSessionUserId(...args),
-  assertTeamAdmin: (...args: unknown[]) => mockAssertTeamAdmin(...args),
+  getTeamMembershipWithSuspension: async (...args: unknown[]) => ({
+    suspended: await mockIsUserSuspended(...args),
+    teamRole: (await mockAssertTeamAdmin(...args)) ? "admin" : null,
+  }),
 }))
 
 const TEAM_ID = "123e4567-e89b-42d3-a456-426614174000"
@@ -17,6 +24,7 @@ const ctxFor = (teamId: string = TEAM_ID) => ({ params: Promise.resolve({ teamId
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockIsUserSuspended.mockResolvedValue(false)
 })
 
 describe("POST /team-schedules/teams/[teamId]/invite", () => {
@@ -31,6 +39,14 @@ describe("POST /team-schedules/teams/[teamId]/invite", () => {
     mockGetSessionUserId.mockResolvedValue(null)
     const res = await POST(createTestRequest(URL, { method: "POST" }), ctxFor())
     expect(res.status).toBe(401)
+    expect(redisSet).not.toHaveBeenCalled()
+  })
+
+  it("failure: 利用停止中ユーザーは403（招待を発行しない）", async () => {
+    mockGetSessionUserId.mockResolvedValue("user-1")
+    mockIsUserSuspended.mockResolvedValue(true)
+    const res = await POST(createTestRequest(URL, { method: "POST" }), ctxFor())
+    expect(res.status).toBe(403)
     expect(redisSet).not.toHaveBeenCalled()
   })
 

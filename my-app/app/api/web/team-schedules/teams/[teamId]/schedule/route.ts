@@ -2,7 +2,7 @@ import { and, between, eq } from "drizzle-orm"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { schedules, teamDayStatus, teamMembers, teams, users } from "@/app/_domains/teamSchedules/_server/schema"
-import { getSessionUserId, assertTeamMember } from "@/app/_domains/teamSchedules/_server/authz"
+import { getSessionUserId, getTeamMembershipWithSuspension } from "@/app/_domains/teamSchedules/_server/authz"
 import { isDayKey, isScheduleStatus, isUuid, isValidNote } from "@/app/_domains/teamSchedules/_server/validators"
 import type { LolRoleFlags, ScheduleEntry, TeamDayStatusEntry, TeamSchedule, TeamScheduleMember } from "@/app/_domains/teamSchedules/types"
 import { ServerTiming } from "@/app/_server/lib/serverTiming"
@@ -124,6 +124,13 @@ export async function PUT(req: NextRequest, ctx: RouteContext): Promise<NextResp
       return NextResponse.json({ success: false, error: "ログインが必要です" }, { status: 401 })
     }
 
+    // 利用停止判定とメンバーシップ取得を1クエリにまとめる（#166・DB往復削減）。
+    // suspend→403 は body 検証より前、メンバー判定→404 は従来どおり body 検証の後に行う
+    const { suspended, teamRole } = await getTeamMembershipWithSuspension(teamId, userId)
+    if (suspended) {
+      return NextResponse.json({ success: false, error: "アカウントが利用停止中のため、この操作はできません" }, { status: 403 })
+    }
+
     const body = (await req.json().catch(() => null)) as { day?: unknown; status?: unknown; note?: unknown } | null
     if (!body || !isDayKey(body.day) || !isScheduleStatus(body.status) || !isValidNote(body.note)) {
       return NextResponse.json({ success: false, error: "入力が不正です" }, { status: 400 })
@@ -132,8 +139,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext): Promise<NextResp
     const note = body.note ?? null
 
     // 本人がそのチームの所属（team_members に存在）でなければ、存在を隠して 404
-    const isMember = await assertTeamMember(teamId, userId)
-    if (!isMember) {
+    if (teamRole === null) {
       return NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 })
     }
 
@@ -168,14 +174,20 @@ export async function DELETE(req: NextRequest, ctx: RouteContext): Promise<NextR
       return NextResponse.json({ success: false, error: "ログインが必要です" }, { status: 401 })
     }
 
+    // 利用停止判定とメンバーシップ取得を1クエリにまとめる（#166・DB往復削減）。
+    // suspend→403 は body 検証より前、メンバー判定→404 は従来どおり body 検証の後に行う
+    const { suspended, teamRole } = await getTeamMembershipWithSuspension(teamId, userId)
+    if (suspended) {
+      return NextResponse.json({ success: false, error: "アカウントが利用停止中のため、この操作はできません" }, { status: 403 })
+    }
+
     const body = (await req.json().catch(() => null)) as { day?: unknown } | null
     if (!body || !isDayKey(body.day)) {
       return NextResponse.json({ success: false, error: "入力が不正です" }, { status: 400 })
     }
     const { day } = body
 
-    const isMember = await assertTeamMember(teamId, userId)
-    if (!isMember) {
+    if (teamRole === null) {
       return NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 })
     }
 

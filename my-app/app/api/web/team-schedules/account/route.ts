@@ -16,6 +16,10 @@ import { TS_SESSION_COOKIE, deleteUserSession, sessionCookieOptions } from "@/ap
  *
  * master を持つチームがある場合は削除不可（チームに master が必ず1人必要なため孤児化を防ぐ）。
  * 先に別メンバーへ管理者を移譲してから削除する想定 → 403。
+ *
+ * #166: 利用停止中（suspended）でもアカウント削除は許可する（isUserSuspended ガードを意図的に付けない）。
+ *       suspend は新規コンテンツ・参加の遮断が目的で、自己片付け（削除・脱退）は止めない方針
+ *       （membership DELETE と同じ割り切り）。
  */
 export async function DELETE(req: NextRequest): Promise<NextResponse> {
   try {
