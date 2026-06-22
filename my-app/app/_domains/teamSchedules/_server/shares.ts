@@ -25,9 +25,16 @@ export type SharePayload = {
   sourceTeamId: string
 }
 
-/** 2つの teamId を team_low < team_high に正規化する（(A,B)=(B,A) を一意化） */
+/**
+ * 2つの teamId を team_low < team_high に正規化する（(A,B)=(B,A) を一意化）。
+ * Postgres の uuid 比較は正準小文字基準なので、小文字へ揃えてから順序づけする。
+ * これをしないと大小混在の入力で JS の文字列比較と DB がズレ、team_low<team_high の CHECK 違反（=500）になりうる
+ * （実データは gen_random_uuid 由来の小文字なので通常は no-op。手書きリクエスト対策の防御）。
+ */
 export function orderPair(a: string, b: string): { teamLow: string; teamHigh: string } {
-  return a < b ? { teamLow: a, teamHigh: b } : { teamLow: b, teamHigh: a }
+  const x = a.toLowerCase()
+  const y = b.toLowerCase()
+  return x < y ? { teamLow: x, teamHigh: y } : { teamLow: y, teamHigh: x }
 }
 
 /**

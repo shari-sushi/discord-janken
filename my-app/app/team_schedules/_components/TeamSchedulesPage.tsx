@@ -182,7 +182,7 @@ export function TeamSchedulesPage() {
     } catch {
       // sessionStorage が使えない環境ではこの後の受諾処理が走らないだけ
     }
-    // share / from を消す。team= は持たないリンクなので素のパスへ戻る
+    // share を消す。team= は持たないリンクなので素のパスへ戻る
     cleanUrlKeepingTeam()
   }, [shareToken, cleanUrlKeepingTeam])
 

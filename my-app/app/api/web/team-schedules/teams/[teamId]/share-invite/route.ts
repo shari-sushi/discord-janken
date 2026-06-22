@@ -36,8 +36,8 @@ export async function POST(req: NextRequest, ctx: RouteContext): Promise<NextRes
     }
 
     const token = await createShareToken(teamId)
-    // share= で受諾フロー（確認画面）に着地。from= は発行元チーム（確認画面の表示・取り違え検知に使う）
-    const url = `${APP_URL}/team_schedules?share=${token}&from=${encodeURIComponent(teamId)}`
+    // share= で受諾フロー（確認画面）に着地。発行元チームは token から解決するので URL には載せない。
+    const url = `${APP_URL}/team_schedules?share=${token}`
     const expiryDays = Math.round(SHARE_TTL / (60 * 60 * 24))
     return NextResponse.json({ success: true, url, expiryDays })
   } catch (error) {

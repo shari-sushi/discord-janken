@@ -39,6 +39,17 @@ describe("teamSchedules shares helpers", () => {
       const y = "22222222-2222-2222-2222-222222222222"
       expect(orderPair(y, x)).toEqual({ teamLow: x, teamHigh: y })
     })
+
+    it("success: 大小混在の入力は小文字へ正規化してから順序づけする（Postgres uuid 比較との整合・CHECK違反500の防止）", () => {
+      // JS の ASCII 比較では "B..."(0x42) < "a..."(0x61) だが、小文字化すると "b" > "a"。
+      // 正規化しないと team_low に大文字 B が来て DB の team_low<team_high を破る。
+      const upperB = "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB"
+      const lowerA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+      expect(orderPair(upperB, lowerA)).toEqual({
+        teamLow: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        teamHigh: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      })
+    })
   })
 
   describe("getSharePartners", () => {
