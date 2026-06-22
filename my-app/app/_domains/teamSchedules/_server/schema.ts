@@ -187,6 +187,31 @@ export const discordBans = pgTable("discord_bans", {
   bannedAt: timestamp("banned_at", { withTimezone: true }).notNull().defaultNow(),
 })
 
+// team_shares: チーム間のスケジュール相互共有（#175）。1共有=1行（順序づけペア team_low < team_high）。
+// 共有は対称(A↔B)かつ非推移(A-B・B-C があっても A-C は見えない)。neon-http はトランザクション非対応なので
+// 1行=1関係で原子的に扱う（2行案だと片側 INSERT 失敗で片側だけ見える不整合が起こりうる）。
+// 注: team_webhooks.slot='shared'（通知の共有先）とは無関係の別概念で、こちらは閲覧権の相互共有。
+export const teamShares = pgTable(
+  "team_shares",
+  {
+    teamLow: uuid("team_low")
+      .notNull()
+      .references(() => teams.teamId, { onDelete: "cascade" }),
+    teamHigh: uuid("team_high")
+      .notNull()
+      .references(() => teams.teamId, { onDelete: "cascade" }),
+    // 共有を成立させた受諾側の userId（監査用・任意）。発行者アカウント削除時は記録を残して null 化。
+    createdBy: uuid("created_by").references(() => users.userId, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.teamLow, t.teamHigh] }),
+    // 順序づけ（team_low < team_high）＋自己共有禁止を同時に担保。(A,B)=(B,A) の重複も PK で弾く
+    check("team_shares_order_chk", sql`${t.teamLow} < ${t.teamHigh}`),
+    index("idx_team_shares_high").on(t.teamHigh), // team_high 側からの逆引き（team_low は PK 先頭でカバー）
+  ],
+)
+
 // 推論される型（クエリ結果や INSERT 値に効く）
 export type Team = typeof teams.$inferSelect
 export type NewTeam = typeof teams.$inferInsert
@@ -206,3 +231,5 @@ export type ScheduleNotification = typeof scheduleNotifications.$inferSelect
 export type NewScheduleNotification = typeof scheduleNotifications.$inferInsert
 export type DiscordBan = typeof discordBans.$inferSelect
 export type NewDiscordBan = typeof discordBans.$inferInsert
+export type TeamShare = typeof teamShares.$inferSelect
+export type NewTeamShare = typeof teamShares.$inferInsert
