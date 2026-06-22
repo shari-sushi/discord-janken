@@ -146,6 +146,23 @@ export type TeamWebhookSlotPatch = {
   notifyActivityReached?: boolean
 }
 
+/**
+ * 通知設定の取得結果（GET /webhooks）。Webhook 枠（#172）＋送信時刻（#177）。
+ * notifyTime: "HH:MM"(JST) なら指定時刻に通知 / null なら活動可能になり次第すぐ通知。
+ */
+export type TeamWebhookSettings = {
+  webhooks: TeamWebhookView[]
+  notifyTime: string | null
+}
+
+/**
+ * 通知設定の更新内容（PUT /webhooks）。枠ごとの patch（own/shared）に加え、送信時刻を載せられる。
+ * notifyTime: "HH:MM"=時刻指定 / null=即時に戻す / 省略（キー無し）=触らない。
+ */
+export type TeamWebhooksUpdate = Partial<Record<WebhookSlot, TeamWebhookSlotPatch | null>> & {
+  notifyTime?: string | null
+}
+
 /** ログイン中のユーザー（未ログインは null） */
 export type SessionUser = {
   userId: string

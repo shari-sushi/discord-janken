@@ -1,11 +1,11 @@
 import { and, eq } from "drizzle-orm"
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse, after } from "next/server"
 import { db } from "@/app/_server/lib/db"
-import { teamWebhooks } from "@/app/_domains/teamSchedules/_server/schema"
+import { teams, teamWebhooks } from "@/app/_domains/teamSchedules/_server/schema"
 import { getSessionUserId, getTeamRole } from "@/app/_domains/teamSchedules/_server/authz"
 import { hasAdminAuthority, WEBHOOK_SLOTS, type TeamRole, type TeamWebhookSlotPatch, type TeamWebhookView, type WebhookProvider, type WebhookSlot } from "@/app/_domains/teamSchedules/types"
-import { isDiscordWebhookUrl, isUuid, isWebhookProvider } from "@/app/_domains/teamSchedules/_server/validators"
-import { maskWebhookUrl } from "@/app/_domains/teamSchedules/_server/notify"
+import { isDiscordWebhookUrl, isHhmm, isUuid, isWebhookProvider } from "@/app/_domains/teamSchedules/_server/validators"
+import { backfillActivityNotifications, maskWebhookUrl } from "@/app/_domains/teamSchedules/_server/notify"
 
 type RouteContext = { params: Promise<{ teamId: string }> }
 
@@ -63,7 +63,10 @@ export async function GET(req: NextRequest, ctx: RouteContext): Promise<NextResp
       maskedUrl: isMaster ? null : maskWebhookUrl(r.webhookUrl),
     }))
 
-    return NextResponse.json({ success: true, webhooks })
+    // 送信時刻（#177）。null=即時通知 / "HH:MM"=時刻指定。URL のような機密ではないので admin にも返す
+    const [teamRow] = await db.select({ notifyActivityTime: teams.notifyActivityTime }).from(teams).where(eq(teams.teamId, teamId)).limit(1)
+
+    return NextResponse.json({ success: true, webhooks, notifyTime: teamRow?.notifyActivityTime ?? null })
   } catch (error) {
     console.error("team-schedules webhooks GET error:", error)
     return NextResponse.json({ success: false, error: "通知設定の取得に失敗しました" }, { status: 500 })
@@ -126,8 +129,9 @@ async function applySlotPatch(teamId: string, slot: WebhookSlot, value: TeamWebh
 
 /**
  * PUT /api/web/team-schedules/teams/[teamId]/webhooks
- * Webhook 枠を per-slot で更新する（admin 相当以上）。body: { own?, shared? }
- * 各枠: オブジェクト（webhookUrl で上書き / notify のみでトグル更新）/ null（削除）/ 未指定（触らない）。
+ * Webhook 枠と送信時刻を更新する（admin 相当以上）。body: { own?, shared?, notifyTime? }
+ * - 各枠: オブジェクト（webhookUrl で上書き / notify のみでトグル更新）/ null（削除）/ 未指定（触らない）。
+ * - notifyTime（#177）: "HH:MM"=時刻指定 / null=即時に戻す / 未指定（キー無し）=触らない。
  */
 export async function PUT(req: NextRequest, ctx: RouteContext): Promise<NextResponse> {
   try {
@@ -135,16 +139,21 @@ export async function PUT(req: NextRequest, ctx: RouteContext): Promise<NextResp
     const authz = await authorizeWebhookAccess(req, teamId)
     if (!authz.ok) return authz.res
 
-    const body = (await req.json().catch(() => null)) as Partial<Record<WebhookSlot, TeamWebhookSlotPatch | null>> | null
+    const body = (await req.json().catch(() => null)) as (Partial<Record<WebhookSlot, TeamWebhookSlotPatch | null>> & { notifyTime?: unknown }) | null
     if (!body || typeof body !== "object") {
       return NextResponse.json({ success: false, error: "入力が不正です" }, { status: 400 })
     }
 
-    // 先に全枠を検証してから適用する（不正値があれば部分書き込みせず 400 で弾く）
+    // 先に全枠 + notifyTime を検証してから適用する（不正値があれば部分書き込みせず 400 で弾く）
     for (const slot of WEBHOOK_SLOTS) {
       if (!isValidSlotPatch(body[slot])) {
         return NextResponse.json({ success: false, error: "入力が不正です" }, { status: 400 })
       }
+    }
+    // notifyTime はキーが有る時だけ検証（null=解除 / "HH:MM"=設定。それ以外は不正）
+    const hasNotifyTime = "notifyTime" in body
+    if (hasNotifyTime && body.notifyTime !== null && !isHhmm(body.notifyTime)) {
+      return NextResponse.json({ success: false, error: "入力が不正です" }, { status: 400 })
     }
 
     for (const slot of WEBHOOK_SLOTS) {
@@ -153,6 +162,20 @@ export async function PUT(req: NextRequest, ctx: RouteContext): Promise<NextResp
       const applied = await applySlotPatch(teamId, slot, value)
       if (!applied) {
         return NextResponse.json({ success: false, error: "対象の Webhook が未登録です（先に URL を登録してください）" }, { status: 400 })
+      }
+    }
+
+    if (hasNotifyTime) {
+      const notifyTime = body.notifyTime as string | null
+      await db.update(teams).set({ notifyActivityTime: notifyTime }).where(eq(teams.teamId, teamId))
+      // 時刻指定をセット/変更したら、設定前から活動可能だった未来日も拾って予約する（バックフィル）。
+      // レスポンスを遅らせないよう after() で。解除（null）時は不要。
+      // 注（MVP の割り切り・QStash ジョブのキャンセルは行わない）:
+      // - 時刻を変えても既に予約済みの日は旧時刻のまま発火する（新時刻は未予約の日にのみ効く）。
+      // - 即時へ戻して（null）も、既に予約済みの日はその予約時刻に1回発火する（発火側は時刻設定を見ず再判定で送る）。
+      //   いずれも送信は KIND_REACHED latch で1回に収束するため二重送信は起きない。
+      if (notifyTime !== null) {
+        after(() => backfillActivityNotifications(teamId))
       }
     }
 

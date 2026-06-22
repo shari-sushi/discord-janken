@@ -138,3 +138,36 @@ issue #177 の残る固有要件は「**通知時刻を admin 以上が設定**�
 - QStash 単発遅延: [qstash.ts](../../my-app/app/_server/lib/qstash/qstash.ts) `qstashPublishJSON`
 - 発火コールバック雛形: [timer/execute/route.ts](../../my-app/app/api/web/timer/execute/route.ts)
 - JST→UTC 換算: [validators.ts](../../my-app/app/_domains/lol/_server/validators.ts) `parseReminderAt`
+
+---
+
+## 進捗
+
+**最終更新:** 2026-06-22
+
+- [x] schema に `notify_activity_time`(text/nullable) 追加 + マイグレーション `0006_panoramic_cassandra_nova`
+- [x] `isHhmm` バリデータ追加
+- [x] `notify.ts` を即時/時刻指定で分岐へリファクタ（送信本体 `dispatchActivityNotification` 共有）
+- [x] `combineDayAndTimeJst` / `scheduleActivityNotification` / `sendActivityReachedNow` / `findActiveFutureDays` / `backfillActivityNotifications`
+- [x] 発火コールバック `api/web/team-schedules/notify/execute/route.ts`（QStash 署名検証 + payload 検証）
+- [x] webhooks GET/PUT に `notifyTime` 相乗り + 設定時 after() でバックフィル
+- [x] types / API クライアント / `WebhookSettingsSection` UI（即時 or 指定時刻のラジオ + 時刻入力）
+- [x] ユニットテスト追加（notify 分岐 / `combineDayAndTimeJst` / `isHhmm` / webhooks notifyTime）
+- [x] lint / tsc / vitest（249件）全パス
+- [x] fresh-eyes レビュー（must 指摘なし）
+- [ ] ローカル e2e（QStash＋トンネル URL で実通知の確認）— 未実施
+- [ ] 本番マイグレーション適用（Neon）
+
+### メモ・課題（fresh-eyes レビューで確認した MVP の割り切り）
+
+QStash ジョブのキャンセルを行わない方針（計画どおりスコープ外）に起因する既知の挙動。
+いずれも送信は `activity_reached` latch で1回に収束するため**二重送信は起きない**:
+
+- **時刻変更は予約済みの日に効かない**: 旧時刻のまま発火する。新時刻は未予約の日にのみ効く。
+- **即時へ戻しても予約済みの日は予約時刻に1回発火**する（発火側は時刻設定を見ず再判定で送るため）。
+- **Webhook を全削除しても `activity_scheduled` latch は残る**ため、再登録しても次の編集まで再予約されない
+  （発火時は Webhook 無しで no-op になるので誤送信はしない）。
+- **QStash の最大遅延を超える遠い未来日**は publish エラーになり通知されない（latch は消してログ出力する）。
+  カレンダーの入力可能範囲が QStash プランの上限内か要確認。
+
+必要になればフォローアップ issue で「予約のキャンセル/再設定」「Webhook 削除時の latch 掃除」を検討する。

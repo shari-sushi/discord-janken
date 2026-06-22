@@ -1,0 +1,1 @@
+ALTER TABLE "teams" ADD COLUMN "notify_activity_time" text;

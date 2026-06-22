@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { GET, PUT } from "./route"
+import { teams, teamWebhooks } from "@/app/_domains/teamSchedules/_server/schema"
 import { createTestRequest } from "@/__tests__/helpers/api-test-utils"
 
 const mockGetSessionUserId = vi.fn()
@@ -9,11 +10,26 @@ vi.mock("@/app/_domains/teamSchedules/_server/authz", () => ({
   getTeamRole: (...args: unknown[]) => mockGetTeamRole(...args),
 }))
 
-// DB モック。GET の select 結果と、PUT の insert/update/delete 呼び出しを観測する
-let selectResult: Record<string, unknown>[] = []
-const selectWhere = vi.fn(async () => selectResult)
-const selectFrom = vi.fn(() => ({ where: selectWhere }))
-const select = vi.fn((..._a: unknown[]) => ({ from: selectFrom }))
+// after() はリクエストスコープ外で呼ぶと throw するため、テストでは no-op に差し替える
+// （PUT で notifyTime をセットしたときのバックフィル呼び出しが after() 経由で走る）
+vi.mock("next/server", async (importActual) => {
+  const actual = await importActual<typeof import("next/server")>()
+  return { ...actual, after: () => {} }
+})
+
+// DB モック。GET の select はテーブルごとに結果を出し分ける（webhooks 一覧 / teams の notifyTime）。
+// PUT の insert/update/delete 呼び出しを観測する。
+type Row = Record<string, unknown>
+const selectResults = new Map<unknown, Row[]>()
+function makeSelectQuery(rows: Row[]) {
+  const q: Record<string, unknown> = {
+    where: () => q,
+    limit: () => Promise.resolve(rows),
+    then: (resolve: (v: Row[]) => unknown) => resolve(rows),
+  }
+  return q
+}
+const select = vi.fn((..._a: unknown[]) => ({ from: (table: unknown) => makeSelectQuery(selectResults.get(table) ?? []) }))
 
 const onConflictDoUpdate = vi.fn(async () => undefined)
 const insertValues = vi.fn(() => ({ onConflictDoUpdate }))
@@ -44,7 +60,7 @@ const VALID_URL = "https://discord.com/api/webhooks/123/abcDEF"
 
 beforeEach(() => {
   vi.clearAllMocks()
-  selectResult = []
+  selectResults.clear()
   updateReturningResult = [{ slot: "own" }]
 })
 
@@ -65,24 +81,29 @@ describe("GET /team-schedules/teams/[teamId]/webhooks", () => {
   it("success: master は生 URL を含めて返す", async () => {
     mockGetSessionUserId.mockResolvedValue("u1")
     mockGetTeamRole.mockResolvedValue("master")
-    selectResult = [{ slot: "own", provider: "discord", webhookUrl: VALID_URL, notifyActivityReached: true }]
+    selectResults.set(teamWebhooks, [{ slot: "own", provider: "discord", webhookUrl: VALID_URL, notifyActivityReached: true }])
+    selectResults.set(teams, [{ notifyActivityTime: "20:00" }])
     const res = await GET(createTestRequest(URL, { method: "GET" }), ctxFor())
     const json = await res.json()
     expect(res.status).toBe(200)
     expect(json.webhooks[0].webhookUrl).toBe(VALID_URL)
     expect(json.webhooks[0].maskedUrl).toBeNull()
+    // 送信時刻（#177）も返す
+    expect(json.notifyTime).toBe("20:00")
   })
 
   it("success: admin（非master）は生 URL を伏せ、maskedUrl だけ返す", async () => {
     mockGetSessionUserId.mockResolvedValue("u1")
     mockGetTeamRole.mockResolvedValue("admin")
-    selectResult = [{ slot: "own", provider: "discord", webhookUrl: VALID_URL, notifyActivityReached: true }]
+    selectResults.set(teamWebhooks, [{ slot: "own", provider: "discord", webhookUrl: VALID_URL, notifyActivityReached: true }])
     const res = await GET(createTestRequest(URL, { method: "GET" }), ctxFor())
     const json = await res.json()
     expect(res.status).toBe(200)
     expect(json.webhooks[0].webhookUrl).toBeNull()
     expect(json.webhooks[0].maskedUrl).toContain("https://discord.com/")
     expect(json.webhooks[0].configured).toBe(true)
+    // teams 行が無ければ即時通知扱いで null を返す
+    expect(json.notifyTime).toBeNull()
   })
 })
 
@@ -142,5 +163,31 @@ describe("PUT /team-schedules/teams/[teamId]/webhooks", () => {
     mockGetTeamRole.mockResolvedValue("admin")
     const res = await PUT(createTestRequest(URL, { method: "PUT", body: { own: {} } }), ctxFor())
     expect(res.status).toBe(400)
+  })
+
+  it("success: notifyTime に HH:MM を渡すと teams を update する（#177）", async () => {
+    mockGetSessionUserId.mockResolvedValue("u1")
+    mockGetTeamRole.mockResolvedValue("admin")
+    const res = await PUT(createTestRequest(URL, { method: "PUT", body: { notifyTime: "20:30" } }), ctxFor())
+    expect(res.status).toBe(200)
+    expect(update).toHaveBeenCalledTimes(1)
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ notifyActivityTime: "20:30" }))
+    expect(insert).not.toHaveBeenCalled()
+  })
+
+  it("success: notifyTime に null を渡すと即時モードへ戻す（teams を null で update）", async () => {
+    mockGetSessionUserId.mockResolvedValue("u1")
+    mockGetTeamRole.mockResolvedValue("admin")
+    const res = await PUT(createTestRequest(URL, { method: "PUT", body: { notifyTime: null } }), ctxFor())
+    expect(res.status).toBe(200)
+    expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ notifyActivityTime: null }))
+  })
+
+  it("failure: notifyTime が不正な形式（HH:MM でない）は400（書き込みしない）", async () => {
+    mockGetSessionUserId.mockResolvedValue("u1")
+    mockGetTeamRole.mockResolvedValue("admin")
+    const res = await PUT(createTestRequest(URL, { method: "PUT", body: { notifyTime: "25:00" } }), ctxFor())
+    expect(res.status).toBe(400)
+    expect(update).not.toHaveBeenCalled()
   })
 })
