@@ -1,8 +1,9 @@
 import { and, between, eq } from "drizzle-orm"
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse, after } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { schedules, teamDayStatus, teamMembers, teams, users } from "@/app/_domains/teamSchedules/_server/schema"
 import { getSessionUserId, getTeamMembershipWithSuspension } from "@/app/_domains/teamSchedules/_server/authz"
+import { maybeNotifyActivityReached } from "@/app/_domains/teamSchedules/_server/notify"
 import { isDayKey, isScheduleStatus, isUuid, isValidNote } from "@/app/_domains/teamSchedules/_server/validators"
 import type { LolRoleFlags, ScheduleEntry, TeamDayStatusEntry, TeamSchedule, TeamScheduleMember } from "@/app/_domains/teamSchedules/types"
 import { ServerTiming } from "@/app/_server/lib/serverTiming"
@@ -151,6 +152,10 @@ export async function PUT(req: NextRequest, ctx: RouteContext): Promise<NextResp
         set: { status, note, updatedAt: new Date() },
       })
 
+    // 活動可能の立ち上がりエッジなら Webhook 通知（#172）。記入レスポンスを遅らせないよう
+    // レスポンス後に実行し、内部で握るのでここの 200 には影響しない。
+    after(() => maybeNotifyActivityReached(teamId, day))
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("team-schedules schedule PUT error:", error)
@@ -192,6 +197,9 @@ export async function DELETE(req: NextRequest, ctx: RouteContext): Promise<NextR
     }
 
     await db.delete(schedules).where(and(eq(schedules.teamId, teamId), eq(schedules.userId, userId), eq(schedules.day, day)))
+
+    // ok を外して人数が閾値を下回った場合にマーカーを再武装するため、削除後も通知判定を回す（#172）
+    after(() => maybeNotifyActivityReached(teamId, day))
 
     return NextResponse.json({ success: true })
   } catch (error) {

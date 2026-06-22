@@ -17,6 +17,17 @@ vi.mock("@/app/_domains/teamSchedules/_server/authz", () => ({
   }),
 }))
 
+// after() はリクエストスコープ外で呼ぶと throw するため、テストでは no-op に差し替える
+// （通知発火そのものは notify.test.ts で検証する）。NextRequest/NextResponse は実物を保つ。
+vi.mock("next/server", async (importActual) => {
+  const actual = await importActual<typeof import("next/server")>()
+  return { ...actual, after: () => {} }
+})
+// 通知処理は別ユニットで検証。route 単体テストでは呼ばれても何もしない
+vi.mock("@/app/_domains/teamSchedules/_server/notify", () => ({
+  maybeNotifyActivityReached: vi.fn(),
+}))
+
 // DB は実接続しない。書き込みが呼ばれたことだけ確認する
 const onConflictDoUpdate = vi.fn(async () => undefined)
 const insertValues = vi.fn(() => ({ onConflictDoUpdate }))
