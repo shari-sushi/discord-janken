@@ -10,6 +10,7 @@ import {
   type APIMessageComponentInteraction,
   type APIUser,
   type APIActionRowComponent,
+  type APIAllowedMentions,
   type APIComponentInMessageActionRow,
 } from "discord-api-types/v10"
 import { db } from "@/app/_server/lib/db"
@@ -20,19 +21,33 @@ import { inviteKey } from "@/app/_domains/teamSchedules/_server/redisKeys"
 import { createMagicLinkUrl, MAGIC_LINK_TTL } from "@/app/_domains/teamSchedules/_server/magicLink"
 import { redisGet } from "@/app/_server/lib/redis/redis"
 import { editWebhookOriginalMessage, createFollowupMessage } from "@/app/_server/lib/discord/api"
-import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
+import { CLIENT_ACTIONS, COMMANDS } from "@/app/_server/util/commands"
 import { extractInviteToken } from "@/app/api/discord/util/extractCustomIdParam"
+
+/**
+ * メンション解釈を全抑止する設定。本機能のメッセージはチーム名（管理者が任意設定）を
+ * 埋め込むため、`@everyone` 等を入れられても送信先でピングが飛ばないよう常に付ける。
+ */
+const NO_MENTIONS: APIAllowedMentions = { parse: [] }
 
 /**
  * 本人にだけ届く ephemeral 返信に付ける、ログイン用リンクの案内行を作る。
  * 参加直後・参加済みのどちらでもスケジュールを開くにはログインが必要なため、
  * ワンタイムの magic-link（対象チームを自チーム選択した状態で開く）を渡す。
  * URL を知れば誰でもログインできるので、ephemeral 以外で出さないこと。
+ *
+ * リンク発行（Redis 書込）が失敗しても、呼び出し側の「参加しました」等の本文は
+ * 出したいので、ここで握って案内文（再取得方法）に落とす（throw しない）。
  */
 async function loginLinkLines(discordUserId: string, username: string, teamId: string): Promise<string[]> {
-  const url = await createMagicLinkUrl(discordUserId, username, teamId)
-  const expiryMinutes = Math.round(MAGIC_LINK_TTL / 60)
-  return ["", "🔑 スケジュールを見るログイン用リンクです（他の人に教えないでください）。", url, `-# 有効期限: ${expiryMinutes}分・1回のみ有効`]
+  try {
+    const url = await createMagicLinkUrl(discordUserId, username, teamId)
+    const expiryMinutes = Math.round(MAGIC_LINK_TTL / 60)
+    return ["", "🔑 スケジュールを見るログイン用リンクです（他の人に教えないでください）。", url, `-# 有効期限: ${expiryMinutes}分・1回のみ有効`]
+  } catch (e) {
+    console.error("team-schedule invite: createMagicLinkUrl failed:", e)
+    return ["", `🔑 ログイン用リンクの発行に失敗しました。「/${COMMANDS.TEAM_SCHEDULE.LOGIN}」で取得してください。`]
+  }
 }
 
 /** チーム情報（名前表示用の最小限） */
@@ -66,7 +81,7 @@ function deferredEphemeral(): NextResponse {
  */
 async function safeEdit(applicationId: string, token: string, content: string, components?: APIActionRowComponent<APIComponentInMessageActionRow>[]): Promise<void> {
   try {
-    await editWebhookOriginalMessage(applicationId, token, content, components)
+    await editWebhookOriginalMessage(applicationId, token, content, components, NO_MENTIONS)
   } catch (e) {
     console.error("team-schedule invite: editWebhookOriginalMessage failed:", e)
   }
@@ -193,7 +208,7 @@ export function teamScheduleInviteCommand(interaction: APIChatInputApplicationCo
       // 1チーム: ephemeral の元応答は確認文に差し替え、募集メッセージは public followup で投稿
       if (managed.length === 1) {
         const recruit = await buildRecruitContent(managed[0], userId)
-        await createFollowupMessage(application_id, interactionToken, recruit.content, recruit.components)
+        await createFollowupMessage(application_id, interactionToken, recruit.content, recruit.components, false, NO_MENTIONS)
         return safeEdit(application_id, interactionToken, `「${managed[0].name}」の募集メッセージを投稿しました。`)
       }
 
