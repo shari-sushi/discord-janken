@@ -1,4 +1,4 @@
-import type { DayKey, ScheduleStatus, SessionUser, TeamManagementMode, TeamSchedule, TeamSummary, TeamWebhookSlotPatch, TeamWebhookView, WebhookProvider, WebhookSlot } from "@/app/_domains/teamSchedules/types"
+import type { DayKey, ScheduleStatus, SessionUser, SharePreview, TeamManagementMode, TeamSchedule, TeamSummary, TeamWebhookSlotPatch, TeamWebhookView, WebhookProvider, WebhookSlot } from "@/app/_domains/teamSchedules/types"
 
 /**
  * スクリム調整機能の Web API クライアント。
@@ -104,6 +104,42 @@ export async function joinTeam(token: string): Promise<TeamSummary> {
   const json = await parse<{ team?: TeamSummary }>(res, "チームへの参加に失敗しました")
   if (!json.team) throw new Error("チームへの参加に失敗しました")
   return json.team
+}
+
+/**
+ * 他チームとスケジュールを共有するための招待リンクを発行する（要ログイン + admin・#175）。
+ * createInvite と同型。受諾用URL（?share=&from=）を返す。
+ */
+export async function createShareInvite(teamId: string): Promise<{ url: string; expiryDays: number }> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}/share-invite`, { method: "POST" })
+  const json = await parse<{ url?: string; expiryDays?: number }>(res, "共有リンクの発行に失敗しました")
+  if (!json.url) throw new Error("共有リンクの発行に失敗しました")
+  return { url: json.url, expiryDays: json.expiryDays ?? 0 }
+}
+
+/** 共有リンクのトークンから確認画面用の情報を取得する（要ログイン・#175） */
+export async function fetchSharePreview(token: string): Promise<SharePreview> {
+  const params = new URLSearchParams({ token })
+  const res = await fetch(`${API_BASE}/shares/preview?${params}`, { cache: "no-store" })
+  const json = await parse<{ preview?: SharePreview }>(res, "共有リンクの確認に失敗しました")
+  if (!json.preview) throw new Error("共有リンクの確認に失敗しました")
+  return json.preview
+}
+
+/** 共有リンクを受諾して、自分の所属チーム（acceptTeamId）と相手チームを相互共有する（要ログイン + admin・#175） */
+export async function acceptShare(token: string, acceptTeamId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/shares`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, acceptTeamId }),
+  })
+  await parse<Record<string, never>>(res, "スケジュール共有の開始に失敗しました")
+}
+
+/** 相手チームとのスケジュール共有を解除する（要ログイン + admin・両者から見えなくなる・#175） */
+export async function deleteShare(teamId: string, partnerTeamId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}/shares/${encodeURIComponent(partnerTeamId)}`, { method: "DELETE" })
+  await parse<Record<string, never>>(res, "スケジュール共有の解除に失敗しました")
 }
 
 /** ログイン中ユーザー自身がチームを脱退する（要ログイン）。master は脱退不可（サーバーが400を返す） */

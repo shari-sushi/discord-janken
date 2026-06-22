@@ -7,12 +7,16 @@ import { useOverlay } from "@/app/_client/lib/modal/ModalContext"
 import type { ScheduleEntry, ScheduleStatus, SessionUser, TeamSchedule, TeamSummary } from "@/app/_domains/teamSchedules/types"
 import { hasAdminAuthority } from "@/app/_domains/teamSchedules/types"
 import {
+  acceptShare,
   createInvite,
+  createShareInvite,
   deleteAccount,
   deleteSchedule,
+  deleteShare,
   deleteTeamStatus,
   disbandTeam,
   fetchSession,
+  fetchSharePreview,
   fetchTeamSchedule,
   fetchTeams,
   joinTeam,
@@ -39,6 +43,7 @@ import { CreateTeamRestrictedModal } from "./CreateTeamRestrictedModal"
 import { DbHealthButton } from "./DbHealthButton"
 import { InviteModal } from "./InviteModal"
 import { LoginModal } from "./LoginModal"
+import { ShareAcceptModal } from "./ShareAcceptModal"
 import { ScheduleDayCards } from "./ScheduleDayCards"
 import { ScheduleGrid } from "./ScheduleGrid"
 import { ScheduleHelpModal } from "./ScheduleHelpModal"
@@ -52,6 +57,9 @@ const NUM_DAYS = 14
 
 /** 招待リンクからの参加トークンを、ログイン往復をまたいで保持する sessionStorage キー */
 const PENDING_JOIN_KEY = "ts_pending_join"
+
+/** 共有リンクからの共有トークンを、ログイン往復をまたいで保持する sessionStorage キー（#175） */
+const PENDING_SHARE_KEY = "ts_pending_share"
 
 export function TeamSchedulesPage() {
   const { open, close } = useOverlay()
@@ -164,6 +172,20 @@ export function TeamSchedulesPage() {
     cleanUrlKeepingTeam()
   }, [joinToken, cleanUrlKeepingTeam])
 
+  // 共有リンク着地: ?share= があれば共有トークンを sessionStorage に退避し、URLを掃除する（#175）。
+  // join と同型。受諾の確認モーダルはログイン確立後（下の effect）に開く。
+  const shareToken = searchParams.get("share")
+  useEffect(() => {
+    if (!shareToken) return
+    try {
+      window.sessionStorage.setItem(PENDING_SHARE_KEY, shareToken)
+    } catch {
+      // sessionStorage が使えない環境ではこの後の受諾処理が走らないだけ
+    }
+    // share を消す。team= は持たないリンクなので素のパスへ戻る
+    cleanUrlKeepingTeam()
+  }, [shareToken, cleanUrlKeepingTeam])
+
   // 初期ロード: セッション + チーム一覧
   useEffect(() => {
     let cancelled = false
@@ -186,7 +208,7 @@ export function TeamSchedulesPage() {
 
   // 初期ロード直後に1回だけ、復元した選択を整合させる。
   // - 自チーム: 所属チーム（isMember）以外（削除済み・別デバイスで脱退した残り等）は null に倒す。
-  // - 相手チーム: チーム一覧（public read で全チーム返す）に存在しない＝削除済みのみ取り除く。
+  // - 相手チーム: 可視チーム一覧（所属 ∪ 共有相手・#175）に無い ID（削除済み・共有解除済み等）を取り除く。
   // 以降の参加・作成では意図的に有効なチームを選択するため、再実行しない（選択が消されるのを防ぐ）。
   // 例外: magic-link ログイン確立後の再取得時のみ reconciledRef を戻し、もう一度だけ走らせる（上の宣言箇所参照）。
   useEffect(() => {
@@ -359,6 +381,60 @@ export function TeamSchedulesPage() {
     }
   }, [loading, session, openLogin, reloadTeams, setOwnTeamId])
 
+  // 退避済みの共有トークンを処理する（#175）。
+  // - 未ログイン: ログイン案内（ログイン後に再実行される）
+  // - ログイン済み: 確認情報を取得して受諾モーダルを開く。受諾成功で一覧を取り直し相手候補に反映。
+  // モーダルを開く時点で退避を消す（キャンセル時は破棄＝再度リンクを踏めばやり直せる。join とは異なり確認ダイアログのため）。
+  useEffect(() => {
+    if (loading) return
+    let pending: string | null = null
+    try {
+      pending = window.sessionStorage.getItem(PENDING_SHARE_KEY)
+    } catch {
+      pending = null
+    }
+    if (!pending) return
+
+    if (!session) {
+      openLogin()
+      return
+    }
+
+    const token = pending
+    let cancelled = false
+    void fetchSharePreview(token)
+      .then((preview) => {
+        if (cancelled) return
+        try {
+          window.sessionStorage.removeItem(PENDING_SHARE_KEY)
+        } catch {
+          // 失敗しても致命的ではない
+        }
+        open(
+          <ShareAcceptModal
+            preview={preview}
+            onClose={close}
+            onAccept={async (acceptTeamId) => {
+              await acceptShare(token, acceptTeamId)
+              // 共有相手が増えるので一覧を取り直す（sharedTeamIds 更新で相手候補に出る）
+              void reloadTeams()
+            }}
+          />,
+        )
+      })
+      .catch(() => {
+        // 失効・無効トークン等。退避を消して諦める
+        try {
+          window.sessionStorage.removeItem(PENDING_SHARE_KEY)
+        } catch {
+          // noop
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [loading, session, openLogin, open, close, reloadTeams])
+
   // セルの状態トグル
   const handleCycle = useCallback(
     ({ teamId, userId, day, current }: { teamId: string; userId: string; day: string; current: CellStatus }) => {
@@ -497,12 +573,52 @@ export function TeamSchedulesPage() {
     }
   }, [ownTeamId, open, close])
 
+  // 共有リンクを発行して表示する（#175・招待リンクと同型）
+  const handleShareInvite = useCallback(async () => {
+    if (!ownTeamId) return
+    try {
+      const { url, expiryDays } = await createShareInvite(ownTeamId)
+      open(<InviteModal url={url} expiryDays={expiryDays} variant="share" onClose={close} />)
+    } catch {
+      // 発行失敗時は何もしない（権限喪失など）
+    }
+  }, [ownTeamId, open, close])
+
+  // 共有を解除する（#175）。両者から見えなくなる旨を確認してから 1行削除し、一覧を取り直す。
+  const handleUnshare = useCallback(
+    (partnerTeamId: string, partnerName: string) => {
+      if (!ownTeamId) return
+      const teamId = ownTeamId
+      open(
+        <ConfirmModal
+          title="スケジュール共有を解除"
+          description={`「${partnerName}」とのスケジュール共有を解除します。\n解除すると、両チームから互いのスケジュールが見えなくなります。`}
+          confirmLabel="共有を解除する"
+          onConfirm={async () => {
+            await deleteShare(teamId, partnerTeamId)
+            void reloadTeams()
+          }}
+          onClose={close}
+        />,
+      )
+    },
+    [ownTeamId, open, close, reloadTeams],
+  )
+
   // 選択中の自チームのメンバーか（チーム管理画面はメンバーなら開ける）
   const isOwnMember = useMemo(() => {
     if (!session || !ownTeamId) return false
     const ownTeam = schedulesByTeam[ownTeamId]
     return !!ownTeam?.members.some((m) => m.userId === session.userId)
   }, [session, ownTeamId, schedulesByTeam])
+
+  // 選択中の自チームの共有相手（teamId + 名前）。teams 一覧の sharedTeamIds から名前を解決する（#175）
+  const sharePartners = useMemo(() => {
+    if (!ownTeamId) return []
+    const ids = teams.find((t) => t.teamId === ownTeamId)?.sharedTeamIds ?? []
+    const nameById = new Map(teams.map((t) => [t.teamId, t.name]))
+    return ids.map((id) => ({ teamId: id, name: nameById.get(id) ?? "(不明なチーム)" }))
+  }, [ownTeamId, teams])
 
   // 設定モーダルの開閉・タブ選択は URL クエリ（?setting=<tab>）で管理する。
   // open() の命令的呼び出しではなく派生値でインライン描画することで、保存後の再取得で
@@ -691,9 +807,11 @@ export function TeamSchedulesPage() {
     const ownTeam = ownTeamId ? schedulesByTeam[ownTeamId] : undefined
     if (!ownTeam) return null
 
-    // 自チームに選んだチームは相手チームの表示から必ず除外する（同一チームの二重表示を防ぐ）
+    // 相手チームは「自チームと共有しているチーム」だけを表示する（#175）。
+    // 自チーム自身は除外し、別の自チームを選んでいた頃の stale な選択もここで弾く（共有外のグリッド表示を防ぐ）。
+    const sharedSet = new Set(teams.find((t) => t.teamId === ownTeamId)?.sharedTeamIds ?? [])
     const opponents = opponentTeamIds
-      .filter((id) => id !== ownTeamId)
+      .filter((id) => id !== ownTeamId && sharedSet.has(id))
       .map((id) => schedulesByTeam[id])
       .filter((t): t is TeamSchedule => !!t)
     const ownIndexed = indexSchedules(ownTeam.schedules)
@@ -802,7 +920,7 @@ export function TeamSchedulesPage() {
     // team モードは単一状態（ok=活動可能）なので閾値は 1
     const threshold = ownTeam.managementMode === "team" ? 1 : ownTeam.requiredCount
     return { memberColumns, opponentColumns, rows, threshold, managementMode: ownTeam.managementMode, ownTeamName: ownTeam.name }
-  }, [ownTeamId, opponentTeamIds, schedulesByTeam, dates, dayKeys, session])
+  }, [ownTeamId, opponentTeamIds, schedulesByTeam, dates, dayKeys, session, teams])
 
   // 自分が1つでもチームに所属しているか（teams 一覧の isMember 由来）。md以下で「チームを作成」ボタンを隠す判定に使う。
   const belongsToAnyTeam = useMemo(() => teams.some((t) => t.isMember), [teams])
@@ -931,7 +1049,7 @@ export function TeamSchedulesPage() {
         >
           <div className={"min-h-0 " + (chromeOverflowVisible ? "overflow-visible" : "overflow-hidden")}>
             <div className="flex flex-col md:gap-3 gap-1.5">
-              <TeamCompareSelector teams={teams} ownTeamId={ownTeamId} opponentTeamIds={opponentTeamIds} onOwnTeamChange={setOwnTeamId} onOpponentsChange={setOpponentTeamIds} />
+              <TeamCompareSelector teams={teams} ownTeamId={ownTeamId} opponentTeamIds={opponentTeamIds} onOwnTeamChange={setOwnTeamId} onOpponentsChange={setOpponentTeamIds} onOpenShareSetting={openManage} />
               {view && <ControlBar threshold={view.threshold} managementMode={view.managementMode} />}
             </div>
           </div>
@@ -1024,6 +1142,9 @@ export function TeamSchedulesPage() {
                 onUpdated={handleManageUpdated}
                 onCreated={handleTeamCreatedInModal}
                 onInvite={() => void handleInvite()}
+                sharePartners={sharePartners}
+                onShareInvite={() => void handleShareInvite()}
+                onUnshare={handleUnshare}
                 onLeave={handleLeaveRequest}
                 onSucceed={handleSuccessionRequest}
                 onDisband={handleDisbandRequest}

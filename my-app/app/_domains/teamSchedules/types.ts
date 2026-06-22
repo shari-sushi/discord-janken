@@ -64,6 +64,22 @@ export type TeamSummary = {
    * 一覧取得（GET /teams）でのみ付与。master はアカウント削除・脱退の可否判定に使う。
    */
   isMaster?: boolean
+  /**
+   * このチームがスケジュールを相互共有している相手チームの teamId 一覧（#175）。
+   * 一覧取得（GET /teams）でのみ付与。比較セレクタの相手候補と設定の共有解除一覧に使う。
+   * 共有0件のチームでは空配列。作成/参加/更新の単体レスポンスでは未設定（undefined）。
+   */
+  sharedTeamIds?: string[]
+}
+
+/**
+ * 共有リンク着地時の確認画面に出す情報（GET /shares/preview・#175）。
+ * - sourceTeam: リンクを発行した（共有を申し込む）側のチーム
+ * - acceptCandidates: 受諾者が admin 以上で結べる自分の所属チーム（sourceTeam 自身は除外）
+ */
+export type SharePreview = {
+  sourceTeam: { teamId: string; name: string }
+  acceptCandidates: { teamId: string; name: string }[]
 }
 
 /** チームの所属メンバー */
@@ -194,10 +210,20 @@ export type AdminOrphanUser = {
   createdAt: string
 }
 
+/** 管理画面に表示する共有ペア（#175）。team_shares 1行 = 1ペア（team_low < team_high） */
+export type AdminShare = {
+  teamLow: { teamId: string; name: string }
+  teamHigh: { teamId: string; name: string }
+  /** 成立日時（ISO8601 文字列） */
+  createdAt: string
+}
+
 /** GET /admin/overview のレスポンス本体 */
 export type AdminOverview = {
   teams: AdminTeam[]
   orphanUsers: AdminOrphanUser[]
+  /** チーム間スケジュール共有のペア一覧（#175） */
+  shares: AdminShare[]
 }
 
 /** Discord BAN 1件 */

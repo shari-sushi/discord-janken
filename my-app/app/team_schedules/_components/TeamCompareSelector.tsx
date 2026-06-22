@@ -10,6 +10,8 @@ type TeamCompareSelectorProps = {
   opponentTeamIds: string[];
   onOwnTeamChange: (teamId: string | null) => void;
   onOpponentsChange: (teamIds: string[]) => void;
+  /** 共有0件のチームを自チーム選択中に「他チームと共有する」導線を押したとき（設定の共有セクションを開く・#175） */
+  onOpenShareSetting?: () => void;
 };
 
 /** ラベル列の幅（自チーム / 相手チームで揃える。「相手チーム」4文字が収まる幅） */
@@ -22,6 +24,7 @@ export function TeamCompareSelector({
   opponentTeamIds,
   onOwnTeamChange,
   onOpponentsChange,
+  onOpenShareSetting,
 }: TeamCompareSelectorProps) {
   const toggleOpponent = (teamId: string) => {
     if (opponentTeamIds.includes(teamId)) {
@@ -31,11 +34,17 @@ export function TeamCompareSelector({
     }
   }
 
-  // 自チームは「自分が所属しているチーム」だけから選べる（相手チームは全チームが候補）
+  // 自チームは「自分が所属しているチーム」だけから選べる
   const ownTeamCandidates = teams.filter((t) => t.isMember)
 
-  // 自チームに選ばれているチームは相手候補から除外
-  const opponentCandidates = teams.filter((t) => t.teamId !== ownTeamId)
+  // 相手チームは「選択中の自チームがスケジュールを共有している相手」だけが候補（#175）。
+  // 自チーム未選択なら候補なし。共有0件なら候補なし＋共有導線を出す。
+  const ownTeam = teams.find((t) => t.teamId === ownTeamId) ?? null
+  const sharedIds = new Set(ownTeam?.sharedTeamIds ?? [])
+  const opponentCandidates = teams.filter((t) => sharedIds.has(t.teamId))
+
+  // 自チーム選択済みで共有が0件のとき、相手チーム欄に共有導線を出す
+  const showShareCta = ownTeam !== null && opponentCandidates.length === 0 && !!onOpenShareSetting
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm">
@@ -82,12 +91,22 @@ export function TeamCompareSelector({
         >
           相手チーム
         </span>
-        <OpponentDropdown
-          candidates={opponentCandidates}
-          selectedIds={opponentTeamIds}
-          onToggle={toggleOpponent}
-          className="min-w-0 flex-1"
-        />
+        {showShareCta ? (
+          <button
+            type="button"
+            onClick={onOpenShareSetting}
+            className="min-w-0 flex-1 rounded border border-indigo-500 bg-indigo-500/15 px-2 py-1 text-left text-xs font-medium text-indigo-300 transition-colors hover:bg-indigo-500/25"
+          >
+            他チームとスケジュールを共有する
+          </button>
+        ) : (
+          <OpponentDropdown
+            candidates={opponentCandidates}
+            selectedIds={opponentTeamIds}
+            onToggle={toggleOpponent}
+            className="min-w-0 flex-1"
+          />
+        )}
       </div>
 
       {/* md以上: ピル（チップ）一覧（従来表示） */}
@@ -101,7 +120,17 @@ export function TeamCompareSelector({
         </span>
         <div className="flex flex-1 flex-wrap items-center gap-2">
           {opponentCandidates.length === 0 ? (
-            <span className="pt-1 text-xs text-zinc-500">候補がありません</span>
+            showShareCta ? (
+              <button
+                type="button"
+                onClick={onOpenShareSetting}
+                className="rounded-full border border-indigo-500 bg-indigo-500/15 px-2.5 py-1 text-xs font-medium text-indigo-300 transition-colors hover:bg-indigo-500/25"
+              >
+                他チームとスケジュールを共有する
+              </button>
+            ) : (
+              <span className="pt-1 text-xs text-zinc-500">候補がありません</span>
+            )
           ) : (
             opponentCandidates.map((t) => {
               const checked = opponentTeamIds.includes(t.teamId)
