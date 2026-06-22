@@ -16,6 +16,7 @@ import { and, eq } from "drizzle-orm"
 import { db } from "@/app/_server/lib/db"
 import { schedules, scheduleNotifications, teamDayStatus, teams, teamWebhooks, users } from "@/app/_domains/teamSchedules/_server/schema"
 import type { DayKey, WebhookProvider } from "@/app/_domains/teamSchedules/types"
+import { validateDiscordMessageContent } from "@/app/_domains/teamSchedules/discordMessage"
 import { fetchWithRetry } from "@/app/_server/util/fetchWithRetry"
 
 /** 通知の種別。schedule_notifications.kind と一致させる（今はこの1種類のみ） */
@@ -35,19 +36,23 @@ export function formatDayLabel(day: DayKey): string {
 }
 
 /**
- * Webhook URL を部分マスクする（admin に「登録済み」を示すための識別用）。
- * origin（スキーム+ホスト）+ パス先頭の1文字だけ残し、以降を伏せ字にする。秘密のトークン部分は出さない。
- * Discord の URL はパスが "/api/..." で始まるため、見える1文字は通常 "/"。
- * 例: https://discord.com/api/webhooks/123/abcdef → https://discord.com/……
+ * Webhook URL を部分マスクする（admin に「登録済み」を示し、own/shared を見分けるための識別用）。
+ * Discord Webhook は `{origin}/api/webhooks/{id}/{token}` と構造が固定なので、枠どうしで差が出る
+ * {id} の先頭2文字までを見せ、秘密の {token} は伏せる。
+ * 例: https://discord.com/api/webhooks/123/abcdef → https://discord.com/api/webhooks/12……
+ * 注: webhook id は snowflake（時刻ベース）のため、近い時刻に作った2枠は先頭桁が一致しやすい。
  */
 export function maskWebhookUrl(url: string): string {
   try {
     const u = new URL(url)
     const origin = `${u.protocol}//${u.host}`
-    // origin の後ろ（パス先頭）から1文字だけ見せる
-    const rest = url.slice(origin.length)
-    const head = rest.length > 0 ? rest[0] : ""
-    return `${origin}${head}……`
+    // 差が出る {id} の先頭2文字までを見せ、token は伏せる
+    const m = u.pathname.match(/^\/api\/webhooks\/(\d+)\//)
+    if (m) {
+      return `${origin}/api/webhooks/${m[1].slice(0, 2)}……`
+    }
+    // 想定外の形（Discord 以外など）は安全側に倒し、origin だけ見せて以降を伏せる
+    return `${origin}/……`
   } catch {
     // URL として壊れている場合は安全側に倒して全マスク
     return "……"
@@ -59,7 +64,9 @@ async function sendDiscordWebhook(webhookUrl: string, content: string): Promise<
   await fetchWithRetry(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
+    // allowed_mentions.parse=[] で @everyone/@here・ロール・ユーザーの全メンション解釈を抑止する。
+    // 本文にはメンバー名や note（ユーザー入力）が入るため、"@everyone" 等が混ざってもピングさせない。
+    body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
   })
 }
 
@@ -155,6 +162,18 @@ export async function maybeNotifyActivityReached(teamId: string, day: DayKey): P
       .where(and(eq(teamWebhooks.teamId, teamId), eq(teamWebhooks.notifyActivityReached, true)))
     if (hooks.length === 0) return
 
+    const content = buildContent({ teamName: team.name, day, okCount: agg.okCount, names: agg.names, note: agg.note })
+
+    // 文字数だけ送信前に検証する（2000字超は Discord が弾くので、無駄なリトライを避けてここで中止）。
+    // メンションは allowed_mentions:{parse:[]} で無効化済みなので、メンバー名に @everyone 等が含まれても
+    // 通知自体は止めない（everyone/here を許可扱いにしてメンション判定はスキップする）。
+    // 中止時はマーカーを作らないので、本文が縮めば次の編集で再評価される。
+    const validation = validateDiscordMessageContent(content, { everyone: true, here: true })
+    if (!validation.ok) {
+      console.error(`team-schedules notify: 本文が不正なため送信中止 (team=${teamId}, day=${day}): ${validation.reason}`)
+      return
+    }
+
     // マーカーを INSERT。行が返った時だけ「今まさに初めてアームした=送信担当」とみなす。
     // 同時書き込みで複数の after が走っても、勝者1人だけが送る（二重送信防止）。
     const inserted = await db
@@ -163,8 +182,6 @@ export async function maybeNotifyActivityReached(teamId: string, day: DayKey): P
       .onConflictDoNothing()
       .returning({ teamId: scheduleNotifications.teamId })
     if (inserted.length === 0) return // すでに通知済み
-
-    const content = buildContent({ teamName: team.name, day, okCount: agg.okCount, names: agg.names, note: agg.note })
 
     // 各 Webhook へ送信。1つ失敗しても他は送る（送信失敗はログのみ・マーカーは残す＝再送しない）
     for (const h of hooks) {

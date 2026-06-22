@@ -125,7 +125,7 @@ export const WEBHOOK_SLOTS: WebhookSlot[] = ["own", "shared"]
 /**
  * Webhook 設定の取得結果（GET /webhooks）。閲覧権限で中身が変わる:
  * - master: 生の webhookUrl を含む（URL を読めるのは master のみ）。
- * - admin（非 master）: webhookUrl は null、maskedUrl に部分マスク（ドメイン+1文字）だけ入る。
+ * - admin（非 master）: webhookUrl は null、maskedUrl に部分マスク（webhook id の先頭2文字まで）だけ入る。
  */
 export type TeamWebhookView = {
   slot: WebhookSlot
@@ -135,7 +135,7 @@ export type TeamWebhookView = {
   configured: boolean
   /** 生 URL。master のみ。admin/未設定では null */
   webhookUrl?: string | null
-  /** 部分マスク済み URL（origin + パス先頭1文字）。admin の設定済み枠でのみ入る */
+  /** 部分マスク済み URL（origin + /api/webhooks/ + id 先頭2文字）。admin の設定済み枠でのみ入る */
   maskedUrl?: string | null
 }
 

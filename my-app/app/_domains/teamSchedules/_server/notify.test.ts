@@ -62,9 +62,15 @@ function setupMembersTeam(requiredCount: number, okNames: string[]) {
 }
 
 describe("maskWebhookUrl", () => {
-  it("success: ドメイン+1文字（パス先頭）だけ見せて以降を伏せる", () => {
-    // origin の後ろは "/api/..." なので 1文字目は "/"。秘密のトークン部分は出さない
-    expect(maskWebhookUrl("https://discord.com/api/webhooks/123/secrettoken")).toBe("https://discord.com/……")
+  it("success: webhook id の先頭2文字まで見せ、token は伏せる", () => {
+    // 枠どうしで差が出る {id} の先頭2文字までを見せ、秘密の {token} は出さない
+    expect(maskWebhookUrl("https://discord.com/api/webhooks/123456/secrettoken")).toBe("https://discord.com/api/webhooks/12……")
+  })
+  it("success: discordapp.com / サブドメインでも id 先頭2文字まで見せる", () => {
+    expect(maskWebhookUrl("https://canary.discordapp.com/api/webhooks/987654/tok")).toBe("https://canary.discordapp.com/api/webhooks/98……")
+  })
+  it("failure: webhooks 形式でない URL は origin だけ見せて以降を伏せる", () => {
+    expect(maskWebhookUrl("https://example.com/foo/bar")).toBe("https://example.com/……")
   })
   it("failure: URL として壊れていれば全マスク", () => {
     expect(maskWebhookUrl("not-a-url")).toBe("……")
@@ -87,6 +93,8 @@ describe("maybeNotifyActivityReached (members モード)", () => {
     const body = JSON.parse((mockFetchWithRetry.mock.calls[0][1] as RequestInit).body as string)
     expect(body.content).toContain("活動可能になりました")
     expect(body.content).toContain("あ, い, う") // 2行目にメンバー名
+    // メンション解釈は全抑止（@everyone 等が本文に混ざってもピングさせない）
+    expect(body.allowed_mentions).toEqual({ parse: [] })
   })
 
   it("success: 既に通知済み（マーカー INSERT が空）なら送信しない", async () => {
