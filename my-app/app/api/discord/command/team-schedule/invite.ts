@@ -17,15 +17,22 @@ import { teamMembers, teams, discordLinks } from "@/app/_domains/teamSchedules/_
 import { createInviteToken, type InvitePayload } from "@/app/_domains/teamSchedules/_server/invites"
 import { resolveOrCreateUserByDiscordId } from "@/app/_domains/teamSchedules/_server/userResolver"
 import { inviteKey } from "@/app/_domains/teamSchedules/_server/redisKeys"
+import { createMagicLinkUrl, MAGIC_LINK_TTL } from "@/app/_domains/teamSchedules/_server/magicLink"
 import { redisGet } from "@/app/_server/lib/redis/redis"
 import { editWebhookOriginalMessage, createFollowupMessage } from "@/app/_server/lib/discord/api"
 import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
 import { extractInviteToken } from "@/app/api/discord/util/extractCustomIdParam"
-import { APP_URL } from "@/app/_server/lib/env"
 
-/** 対象チームを自チーム選択した状態でチームスケジュール画面を開くURL（クエリは画面側で読み取る） */
-function teamSchedulesUrl(teamId: string): string {
-  return `${APP_URL}/team_schedules?team=${encodeURIComponent(teamId)}`
+/**
+ * 本人にだけ届く ephemeral 返信に付ける、ログイン用リンクの案内行を作る。
+ * 参加直後・参加済みのどちらでもスケジュールを開くにはログインが必要なため、
+ * ワンタイムの magic-link（対象チームを自チーム選択した状態で開く）を渡す。
+ * URL を知れば誰でもログインできるので、ephemeral 以外で出さないこと。
+ */
+async function loginLinkLines(discordUserId: string, username: string, teamId: string): Promise<string[]> {
+  const url = await createMagicLinkUrl(discordUserId, username, teamId)
+  const expiryMinutes = Math.round(MAGIC_LINK_TTL / 60)
+  return ["", "🔑 スケジュールを見るログイン用リンクです（他の人に教えないでください）。", url, `-# 有効期限: ${expiryMinutes}分・1回のみ有効`]
 }
 
 /** チーム情報（名前表示用の最小限） */
@@ -285,11 +292,8 @@ export function handleJoinButton(interaction: APIMessageComponentInteraction): N
         .where(eq(teamMembers.userId, userId))
 
       if (myTeams.some((t) => t.teamId === team.teamId)) {
-        return safeEdit(
-          application_id,
-          interactionToken,
-          `すでに「${team.name}」に参加済みです。\nスケジュールはこちら → ${teamSchedulesUrl(team.teamId)}`,
-        )
+        const lines = [`すでに「${team.name}」に参加済みです。`, ...(await loginLinkLines(discordUserId, username, team.teamId))]
+        return safeEdit(application_id, interactionToken, lines.join("\n"))
       }
 
       // 別チームに所属している場合は追加加入の確認を出す（抜けずに追加）
@@ -305,7 +309,8 @@ export function handleJoinButton(interaction: APIMessageComponentInteraction): N
 
       // どこにも所属していない: そのまま参加
       await joinAsMember(team.teamId, userId, team.invitedBy)
-      return safeEdit(application_id, interactionToken, `「${team.name}」に参加しました！`)
+      const lines = [`「${team.name}」に参加しました！`, ...(await loginLinkLines(discordUserId, username, team.teamId))]
+      return safeEdit(application_id, interactionToken, lines.join("\n"))
     } catch (e) {
       console.error("handleJoinButton after error:", e)
       return safeEdit(application_id, interactionToken, "参加処理に失敗しました。しばらく待ってから再度お試しください。")
@@ -341,7 +346,8 @@ export function handleConfirmJoinButton(interaction: APIMessageComponentInteract
 
       const { userId } = await resolveOrCreateUserByDiscordId(discordUserId, username)
       await joinAsMember(team.teamId, userId, team.invitedBy)
-      return safeEdit(application_id, interactionToken, `「${team.name}」に参加しました！`)
+      const lines = [`「${team.name}」に参加しました！`, ...(await loginLinkLines(discordUserId, username, team.teamId))]
+      return safeEdit(application_id, interactionToken, lines.join("\n"))
     } catch (e) {
       console.error("handleConfirmJoinButton after error:", e)
       return safeEdit(application_id, interactionToken, "参加処理に失敗しました。しばらく待ってから再度お試しください。")
