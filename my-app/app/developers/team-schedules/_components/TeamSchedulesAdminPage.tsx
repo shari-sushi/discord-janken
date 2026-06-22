@@ -15,6 +15,7 @@ import {
 } from "@/app/_client/lib/apiClient/teamSchedulesAdmin"
 import { TeamsSection } from "./TeamsSection"
 import { OrphanUsersSection } from "./OrphanUsersSection"
+import { SharesSection } from "./SharesSection"
 import { DiscordBanSection } from "./DiscordBanSection"
 
 /**
@@ -121,6 +122,7 @@ export function TeamSchedulesAdminPage() {
         <div className="space-y-10">
           <TeamsSection teams={overview.teams} onDeleteTeam={handleDeleteTeam} onRemoveMember={handleRemoveMember} onToggleSuspend={handleToggleSuspend} />
           <OrphanUsersSection users={overview.orphanUsers} onDeleteUser={handleDeleteUser} onToggleSuspend={handleToggleSuspend} />
+          <SharesSection shares={overview.shares} />
           <DiscordBanSection bans={bans} onAddBan={handleAddBan} onRemoveBan={handleRemoveBan} />
         </div>
       ) : null}

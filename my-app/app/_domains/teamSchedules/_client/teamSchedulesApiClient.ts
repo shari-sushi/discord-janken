@@ -1,4 +1,4 @@
-import type { DayKey, ScheduleStatus, SessionUser, TeamManagementMode, TeamSchedule, TeamSummary } from "@/app/_domains/teamSchedules/types"
+import type { DayKey, ScheduleStatus, SessionUser, SharePreview, TeamManagementMode, TeamSchedule, TeamSummary, TeamWebhookSlotPatch, TeamWebhookView, WebhookProvider, WebhookSlot } from "@/app/_domains/teamSchedules/types"
 
 /**
  * スクリム調整機能の Web API クライアント。
@@ -106,6 +106,42 @@ export async function joinTeam(token: string): Promise<TeamSummary> {
   return json.team
 }
 
+/**
+ * 他チームとスケジュールを共有するための招待リンクを発行する（要ログイン + admin・#175）。
+ * createInvite と同型。受諾用URL（?share=&from=）を返す。
+ */
+export async function createShareInvite(teamId: string): Promise<{ url: string; expiryDays: number }> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}/share-invite`, { method: "POST" })
+  const json = await parse<{ url?: string; expiryDays?: number }>(res, "共有リンクの発行に失敗しました")
+  if (!json.url) throw new Error("共有リンクの発行に失敗しました")
+  return { url: json.url, expiryDays: json.expiryDays ?? 0 }
+}
+
+/** 共有リンクのトークンから確認画面用の情報を取得する（要ログイン・#175） */
+export async function fetchSharePreview(token: string): Promise<SharePreview> {
+  const params = new URLSearchParams({ token })
+  const res = await fetch(`${API_BASE}/shares/preview?${params}`, { cache: "no-store" })
+  const json = await parse<{ preview?: SharePreview }>(res, "共有リンクの確認に失敗しました")
+  if (!json.preview) throw new Error("共有リンクの確認に失敗しました")
+  return json.preview
+}
+
+/** 共有リンクを受諾して、自分の所属チーム（acceptTeamId）と相手チームを相互共有する（要ログイン + admin・#175） */
+export async function acceptShare(token: string, acceptTeamId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/shares`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, acceptTeamId }),
+  })
+  await parse<Record<string, never>>(res, "スケジュール共有の開始に失敗しました")
+}
+
+/** 相手チームとのスケジュール共有を解除する（要ログイン + admin・両者から見えなくなる・#175） */
+export async function deleteShare(teamId: string, partnerTeamId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}/shares/${encodeURIComponent(partnerTeamId)}`, { method: "DELETE" })
+  await parse<Record<string, never>>(res, "スケジュール共有の解除に失敗しました")
+}
+
 /** ログイン中ユーザー自身がチームを脱退する（要ログイン）。master は脱退不可（サーバーが400を返す） */
 export async function leaveTeam(teamId: string): Promise<void> {
   const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}/membership`, { method: "DELETE" })
@@ -181,4 +217,38 @@ export async function deleteTeamStatus(input: { teamId: string; day: DayKey }): 
     body: JSON.stringify({ day: input.day }),
   })
   await parse(res, "チーム状態の削除に失敗しました")
+}
+
+/**
+ * チームの通知 Webhook 設定を取得（要ログイン + admin 相当以上）。
+ * master は生 URL（webhookUrl）あり、admin は maskedUrl（部分マスク）のみ。
+ */
+export async function fetchTeamWebhooks(teamId: string): Promise<TeamWebhookView[]> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}/webhooks`, { cache: "no-store" })
+  const json = await parse<{ webhooks?: TeamWebhookView[] }>(res, "通知設定の取得に失敗しました")
+  return json.webhooks ?? []
+}
+
+/**
+ * チームの通知 Webhook 設定を更新（要ログイン + admin 相当以上）。per-slot:
+ * - オブジェクト: webhookUrl で上書き / notifyActivityReached のみでトグル更新
+ * - null: その枠を削除 / 未指定（キー無し）: 触らない
+ */
+export async function updateTeamWebhooks(teamId: string, patch: Partial<Record<WebhookSlot, TeamWebhookSlotPatch | null>>): Promise<void> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}/webhooks`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  })
+  await parse(res, "通知設定の保存に失敗しました")
+}
+
+/** 入力中の Webhook URL へテスト通知を送る（要ログイン + admin 相当以上）。保存前の動作確認用 */
+export async function sendWebhookTest(teamId: string, input: { provider?: WebhookProvider; webhookUrl: string }): Promise<void> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}/webhooks/test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  })
+  await parse(res, "テスト通知の送信に失敗しました")
 }

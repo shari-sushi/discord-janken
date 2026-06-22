@@ -64,6 +64,22 @@ export type TeamSummary = {
    * 一覧取得（GET /teams）でのみ付与。master はアカウント削除・脱退の可否判定に使う。
    */
   isMaster?: boolean
+  /**
+   * このチームがスケジュールを相互共有している相手チームの teamId 一覧（#175）。
+   * 一覧取得（GET /teams）でのみ付与。比較セレクタの相手候補と設定の共有解除一覧に使う。
+   * 共有0件のチームでは空配列。作成/参加/更新の単体レスポンスでは未設定（undefined）。
+   */
+  sharedTeamIds?: string[]
+}
+
+/**
+ * 共有リンク着地時の確認画面に出す情報（GET /shares/preview・#175）。
+ * - sourceTeam: リンクを発行した（共有を申し込む）側のチーム
+ * - acceptCandidates: 受諾者が admin 以上で結べる自分の所属チーム（sourceTeam 自身は除外）
+ */
+export type SharePreview = {
+  sourceTeam: { teamId: string; name: string }
+  acceptCandidates: { teamId: string; name: string }[]
 }
 
 /** チームの所属メンバー */
@@ -101,6 +117,49 @@ export type TeamSchedule = {
   schedules: ScheduleEntry[]
   /** team モードのチーム単位日別状態（members モードでは空配列） */
   teamStatus: TeamDayStatusEntry[]
+}
+
+/**
+ * 通知 Webhook の枠（#172）。
+ * - own:    自分たち用サーバー
+ * - shared: 相手も見る共有サーバー
+ */
+export type WebhookSlot = "own" | "shared"
+
+/** Webhook の送信先サービス種別。今は Discord のみ（将来 "slack" 等を加算）。 */
+export type WebhookProvider = "discord"
+
+/** Webhook 枠の表示ラベル（この用語で統一する） */
+export const WEBHOOK_SLOT_LABEL: Record<WebhookSlot, string> = {
+  own: "自分たち用",
+  shared: "相手も見るサーバー用",
+}
+
+/** 表示順を固定するための枠一覧 */
+export const WEBHOOK_SLOTS: WebhookSlot[] = ["own", "shared"]
+
+/**
+ * Webhook 設定の取得結果（GET /webhooks）。閲覧権限で中身が変わる:
+ * - master: 生の webhookUrl を含む（URL を読めるのは master のみ）。
+ * - admin（非 master）: webhookUrl は null、maskedUrl に部分マスク（webhook id の先頭2文字まで）だけ入る。
+ */
+export type TeamWebhookView = {
+  slot: WebhookSlot
+  provider: WebhookProvider
+  notifyActivityReached: boolean
+  /** 設定済みか（URL を伏せても登録の有無は admin に見せる） */
+  configured: boolean
+  /** 生 URL。master のみ。admin/未設定では null */
+  webhookUrl?: string | null
+  /** 部分マスク済み URL（origin + /api/webhooks/ + id 先頭2文字）。admin の設定済み枠でのみ入る */
+  maskedUrl?: string | null
+}
+
+/** Webhook 1枠ぶんの更新内容（PUT /webhooks）。webhookUrl は変更時のみ・トグルのみ更新も可 */
+export type TeamWebhookSlotPatch = {
+  provider?: WebhookProvider
+  webhookUrl?: string
+  notifyActivityReached?: boolean
 }
 
 /** ログイン中のユーザー（未ログインは null） */
@@ -151,10 +210,20 @@ export type AdminOrphanUser = {
   createdAt: string
 }
 
+/** 管理画面に表示する共有ペア（#175）。team_shares 1行 = 1ペア（team_low < team_high） */
+export type AdminShare = {
+  teamLow: { teamId: string; name: string }
+  teamHigh: { teamId: string; name: string }
+  /** 成立日時（ISO8601 文字列） */
+  createdAt: string
+}
+
 /** GET /admin/overview のレスポンス本体 */
 export type AdminOverview = {
   teams: AdminTeam[]
   orphanUsers: AdminOrphanUser[]
+  /** チーム間スケジュール共有のペア一覧（#175） */
+  shares: AdminShare[]
 }
 
 /** Discord BAN 1件 */

@@ -1,4 +1,3 @@
-import { randomBytes } from "crypto"
 import { NextResponse } from "next/server"
 import {
   InteractionResponseType,
@@ -9,18 +8,8 @@ import {
   type APIMessageComponentInteraction,
   type APIUser,
 } from "discord-api-types/v10"
-import { redisSet } from "@/app/_server/lib/redis/redis"
-import { magicLinkKey } from "@/app/_domains/teamSchedules/_server/redisKeys"
+import { createMagicLinkUrl, MAGIC_LINK_TTL } from "@/app/_domains/teamSchedules/_server/magicLink"
 import { CLIENT_ACTIONS } from "@/app/_server/util/commands"
-import { APP_URL } from "@/app/_server/lib/env"
-
-const MAGIC_LINK_TTL = 600 // 10分
-
-/** Redis に保存する magic-link の中身（auth/verify で利用） */
-export type MagicLinkPayload = {
-  discordUserId: string
-  username: string
-}
 
 /** コマンド／ボタン共通でユーザー情報を取り出す（DM・サーバーどちらからでも呼べる） */
 function extractUser(user: APIUser | undefined): { discordUserId?: string; username: string } {
@@ -46,11 +35,7 @@ async function buildLoginLinkResponse(user: APIUser | undefined): Promise<NextRe
     })
   }
 
-  const token = randomBytes(32).toString("hex")
-  const payload: MagicLinkPayload = { discordUserId, username }
-  await redisSet(magicLinkKey(token), payload, MAGIC_LINK_TTL)
-
-  const url = `${APP_URL}/team_schedules?token=${token}`
+  const url = await createMagicLinkUrl(discordUserId, username)
   const expiryMinutes = Math.round(MAGIC_LINK_TTL / 60)
 
   return NextResponse.json({

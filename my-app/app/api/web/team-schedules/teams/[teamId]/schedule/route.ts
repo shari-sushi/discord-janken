@@ -1,8 +1,10 @@
 import { and, between, eq } from "drizzle-orm"
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse, after } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { schedules, teamDayStatus, teamMembers, teams, users } from "@/app/_domains/teamSchedules/_server/schema"
 import { getSessionUserId, getTeamMembershipWithSuspension } from "@/app/_domains/teamSchedules/_server/authz"
+import { isTeamVisibleTo } from "@/app/_domains/teamSchedules/_server/shares"
+import { maybeNotifyActivityReached } from "@/app/_domains/teamSchedules/_server/notify"
 import { isDayKey, isScheduleStatus, isUuid, isValidNote } from "@/app/_domains/teamSchedules/_server/validators"
 import type { LolRoleFlags, ScheduleEntry, TeamDayStatusEntry, TeamSchedule, TeamScheduleMember } from "@/app/_domains/teamSchedules/types"
 import { ServerTiming } from "@/app/_server/lib/serverTiming"
@@ -11,7 +13,8 @@ type RouteContext = { params: Promise<{ teamId: string }> }
 
 /**
  * GET /api/web/team-schedules/teams/[teamId]/schedule?from=&to=
- * 期間内の schedules + members（グリッド描画用・public read）。
+ * 期間内の schedules + members（グリッド描画用）。
+ * 閲覧できるのは所属チーム ∪ 共有相手チームのみ（#175・可視性ガードは下記）。
  */
 export async function GET(req: NextRequest, ctx: RouteContext): Promise<NextResponse> {
   const t = new ServerTiming()
@@ -26,6 +29,21 @@ export async function GET(req: NextRequest, ctx: RouteContext): Promise<NextResp
     const to = req.nextUrl.searchParams.get("to")
     if (!isDayKey(from) || !isDayKey(to)) {
       return NextResponse.json({ success: false, error: "期間の指定が不正です" }, { status: 400 })
+    }
+
+    // 可視性ガード（#175・public read を廃止）: 未ログイン / 所属でも共有でもないチームは存在を隠して 404。
+    // 読み取りなので suspend とは独立（suspend 中でも閲覧は透過）。
+    const userId = await t.measure("session", () => getSessionUserId(req))
+    if (!userId) {
+      const res = NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 })
+      t.applyTo(res)
+      return res
+    }
+    const visible = await t.measure("db_visible", () => isTeamVisibleTo(teamId, userId))
+    if (!visible) {
+      const res = NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 })
+      t.applyTo(res)
+      return res
     }
 
     const teamRows = await t.measure("db_team", () =>
@@ -151,6 +169,10 @@ export async function PUT(req: NextRequest, ctx: RouteContext): Promise<NextResp
         set: { status, note, updatedAt: new Date() },
       })
 
+    // 活動可能の立ち上がりエッジなら Webhook 通知（#172）。記入レスポンスを遅らせないよう
+    // レスポンス後に実行し、内部で握るのでここの 200 には影響しない。
+    after(() => maybeNotifyActivityReached(teamId, day))
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("team-schedules schedule PUT error:", error)
@@ -192,6 +214,9 @@ export async function DELETE(req: NextRequest, ctx: RouteContext): Promise<NextR
     }
 
     await db.delete(schedules).where(and(eq(schedules.teamId, teamId), eq(schedules.userId, userId), eq(schedules.day, day)))
+
+    // ok を外して人数が閾値を下回った場合にマーカーを再武装するため、削除後も通知判定を回す（#172）
+    after(() => maybeNotifyActivityReached(teamId, day))
 
     return NextResponse.json({ success: true })
   } catch (error) {

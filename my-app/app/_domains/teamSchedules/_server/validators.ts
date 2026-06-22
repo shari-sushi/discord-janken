@@ -4,7 +4,7 @@
  * クライアントからの入力（status / day / note）を信用せず、ここで検証する。
  */
 
-import { MIN_REQUIRED_COUNT, type DayKey, type ScheduleStatus, type TeamManagementMode } from "@/app/_domains/teamSchedules/types"
+import { MIN_REQUIRED_COUNT, type DayKey, type ScheduleStatus, type TeamManagementMode, type WebhookProvider, type WebhookSlot } from "@/app/_domains/teamSchedules/types"
 
 /** status が ok / maybe / ng の3値のいずれかか */
 export function isScheduleStatus(value: unknown): value is ScheduleStatus {
@@ -54,4 +54,27 @@ export function isUuid(value: unknown): value is string {
   if (typeof value !== "string") return false
   // version=4（3ブロック目先頭が 4）・variant=8/9/a/b（4ブロック目先頭）を厳密に見る
   return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+}
+
+/** Webhook 枠が own / shared のいずれかか（#172） */
+export function isWebhookSlot(value: unknown): value is WebhookSlot {
+  return value === "own" || value === "shared"
+}
+
+/** Webhook の送信先サービスが対応済みか（今は discord のみ・DB の CHECK と一致） */
+export function isWebhookProvider(value: unknown): value is WebhookProvider {
+  return value === "discord"
+}
+
+/**
+ * Discord の受信 Webhook URL として妥当か。
+ * `https://discord.com/api/webhooks/` または `https://discordapp.com/api/webhooks/`
+ * （canary/ptb サブドメインも許容）で始まる https URL。長すぎる入力は弾く。
+ * DiscordWebhookOverlay（クライアント側の判定）と揃える。
+ */
+const WEBHOOK_URL_MAX_LENGTH = 300
+export function isDiscordWebhookUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false
+  if (value.length > WEBHOOK_URL_MAX_LENGTH) return false
+  return /^https:\/\/(?:canary\.|ptb\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(value)
 }

@@ -123,6 +123,49 @@ export const teamDayStatus = pgTable(
   (t) => [primaryKey({ columns: [t.teamId, t.day] }), check("team_day_status_status_chk", sql`${t.status} in ('ok', 'maybe', 'ng')`)],
 )
 
+// team_webhooks: チームの通知先 Webhook（1枠1行）。#172 活動可能通知の送信先。
+// - slot: own=自分たち用 / shared=相手も見るサーバー用。1チーム1枠1行（行が存在=設定済み）。
+// - provider: その URL が何のサービス向けか。いまは Discord 専用だが、テーブル名を汎用に保ち
+//   将来 Slack 等を加算的に足せるよう discriminator 列を最初から持つ。CHECK は 'discord' のみに絞り、
+//   未対応のものを許可しない（拡張時に CHECK 値・ペイロード整形・検証・UI を加算する）。
+// - notifyActivityReached: 「活動可能になった」通知の ON/OFF（今はこの1イベントのみ）。
+export const teamWebhooks = pgTable(
+  "team_webhooks",
+  {
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.teamId, { onDelete: "cascade" }),
+    slot: text("slot", { enum: ["own", "shared"] }).notNull(),
+    provider: text("provider", { enum: ["discord"] }).notNull().default("discord"),
+    webhookUrl: text("webhook_url").notNull(),
+    notifyActivityReached: boolean("notify_activity_reached").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.teamId, t.slot] }),
+    check("team_webhooks_slot_chk", sql`${t.slot} in ('own', 'shared')`),
+    check("team_webhooks_provider_chk", sql`${t.provider} in ('discord')`),
+  ],
+)
+
+// schedule_notifications: 活動可能通知の重複送信防止マーカー（エッジトリガの latch）。
+// 行の存在/不在が「その日の通知を送ったか」の状態。notified_at は送信時刻のメモ。
+// 達成の立ち上がりで INSERT（送信）、谷に落ちたら DELETE（再武装）。詳細は notify.ts。
+export const scheduleNotifications = pgTable(
+  "schedule_notifications",
+  {
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.teamId, { onDelete: "cascade" }),
+    day: date("day").notNull(),
+    // 将来イベント種別が増えたときの判別。今は activity_reached のみ
+    kind: text("kind").notNull().default("activity_reached"),
+    notifiedAt: timestamp("notified_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.teamId, t.day, t.kind] })],
+)
+
 // discord_links: 1アプリアカウント : N Discordアカウント（認証の背骨）
 export const discordLinks = pgTable(
   "discord_links",
@@ -144,6 +187,31 @@ export const discordBans = pgTable("discord_bans", {
   bannedAt: timestamp("banned_at", { withTimezone: true }).notNull().defaultNow(),
 })
 
+// team_shares: チーム間のスケジュール相互共有（#175）。1共有=1行（順序づけペア team_low < team_high）。
+// 共有は対称(A↔B)かつ非推移(A-B・B-C があっても A-C は見えない)。neon-http はトランザクション非対応なので
+// 1行=1関係で原子的に扱う（2行案だと片側 INSERT 失敗で片側だけ見える不整合が起こりうる）。
+// 注: team_webhooks.slot='shared'（通知の共有先）とは無関係の別概念で、こちらは閲覧権の相互共有。
+export const teamShares = pgTable(
+  "team_shares",
+  {
+    teamLow: uuid("team_low")
+      .notNull()
+      .references(() => teams.teamId, { onDelete: "cascade" }),
+    teamHigh: uuid("team_high")
+      .notNull()
+      .references(() => teams.teamId, { onDelete: "cascade" }),
+    // 共有を成立させた受諾側の userId（監査用・任意）。発行者アカウント削除時は記録を残して null 化。
+    createdBy: uuid("created_by").references(() => users.userId, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.teamLow, t.teamHigh] }),
+    // 順序づけ（team_low < team_high）＋自己共有禁止を同時に担保。(A,B)=(B,A) の重複も PK で弾く
+    check("team_shares_order_chk", sql`${t.teamLow} < ${t.teamHigh}`),
+    index("idx_team_shares_high").on(t.teamHigh), // team_high 側からの逆引き（team_low は PK 先頭でカバー）
+  ],
+)
+
 // 推論される型（クエリ結果や INSERT 値に効く）
 export type Team = typeof teams.$inferSelect
 export type NewTeam = typeof teams.$inferInsert
@@ -157,5 +225,11 @@ export type TeamDayStatus = typeof teamDayStatus.$inferSelect
 export type NewTeamDayStatus = typeof teamDayStatus.$inferInsert
 export type DiscordLink = typeof discordLinks.$inferSelect
 export type NewDiscordLink = typeof discordLinks.$inferInsert
+export type TeamWebhook = typeof teamWebhooks.$inferSelect
+export type NewTeamWebhook = typeof teamWebhooks.$inferInsert
+export type ScheduleNotification = typeof scheduleNotifications.$inferSelect
+export type NewScheduleNotification = typeof scheduleNotifications.$inferInsert
 export type DiscordBan = typeof discordBans.$inferSelect
 export type NewDiscordBan = typeof discordBans.$inferInsert
+export type TeamShare = typeof teamShares.$inferSelect
+export type NewTeamShare = typeof teamShares.$inferInsert

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { isScheduleStatus, isDayKey, isValidNote, isUuid } from "./validators"
+import { isScheduleStatus, isDayKey, isValidNote, isUuid, isWebhookSlot, isWebhookProvider, isDiscordWebhookUrl } from "./validators"
 
 describe("teamSchedules validators", () => {
   describe("isScheduleStatus", () => {
@@ -62,6 +62,45 @@ describe("teamSchedules validators", () => {
       expect(isUuid("123e4567e89b42d3a456426614174000")).toBe(false)
       expect(isUuid("")).toBe(false)
       expect(isUuid(null)).toBe(false)
+    })
+  })
+
+  describe("isWebhookSlot", () => {
+    it("success: own / shared を受理する", () => {
+      expect(isWebhookSlot("own")).toBe(true)
+      expect(isWebhookSlot("shared")).toBe(true)
+    })
+    it("failure: 未知の値は拒否する", () => {
+      expect(isWebhookSlot("both")).toBe(false)
+      expect(isWebhookSlot("")).toBe(false)
+      expect(isWebhookSlot(null)).toBe(false)
+    })
+  })
+
+  describe("isWebhookProvider", () => {
+    it("success: discord を受理する", () => {
+      expect(isWebhookProvider("discord")).toBe(true)
+    })
+    it("failure: 未対応の provider は拒否する", () => {
+      expect(isWebhookProvider("slack")).toBe(false)
+      expect(isWebhookProvider("")).toBe(false)
+      expect(isWebhookProvider(null)).toBe(false)
+    })
+  })
+
+  describe("isDiscordWebhookUrl", () => {
+    it("success: Discord 受信 Webhook URL を受理する", () => {
+      expect(isDiscordWebhookUrl("https://discord.com/api/webhooks/123456789/abcDEF-_123")).toBe(true)
+      expect(isDiscordWebhookUrl("https://discordapp.com/api/webhooks/123/tok_en")).toBe(true)
+      expect(isDiscordWebhookUrl("https://ptb.discord.com/api/webhooks/123/token")).toBe(true)
+    })
+    it("failure: 別ホスト・http・形式違い・長すぎ・非文字列は拒否する", () => {
+      expect(isDiscordWebhookUrl("https://example.com/api/webhooks/123/token")).toBe(false)
+      expect(isDiscordWebhookUrl("http://discord.com/api/webhooks/123/token")).toBe(false)
+      expect(isDiscordWebhookUrl("https://discord.com/api/webhooks/")).toBe(false)
+      expect(isDiscordWebhookUrl("https://discord.com/api/webhooks/123")).toBe(false)
+      expect(isDiscordWebhookUrl("https://discord.com/api/webhooks/123/" + "a".repeat(300))).toBe(false)
+      expect(isDiscordWebhookUrl(null)).toBe(false)
     })
   })
 })

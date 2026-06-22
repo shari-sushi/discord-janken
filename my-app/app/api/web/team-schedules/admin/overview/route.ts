@@ -1,8 +1,8 @@
 import { desc, eq, notInArray } from "drizzle-orm"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/app/_server/lib/db"
-import { discordLinks, teamMembers, teams, users } from "@/app/_domains/teamSchedules/_server/schema"
-import type { AdminOrphanUser, AdminOverview, AdminTeam, AdminTeamMember, LolRoleFlags } from "@/app/_domains/teamSchedules/types"
+import { discordLinks, teamMembers, teams, teamShares, users } from "@/app/_domains/teamSchedules/_server/schema"
+import type { AdminOrphanUser, AdminOverview, AdminShare, AdminTeam, AdminTeamMember, LolRoleFlags } from "@/app/_domains/teamSchedules/types"
 import { requireAdmin } from "../_auth"
 
 /**
@@ -100,7 +100,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       createdAt: u.createdAt.toISOString(),
     }))
 
-    const result: AdminOverview = { teams: teamList, orphanUsers }
+    // チーム間スケジュール共有のペア一覧（#175）。チーム名は teamRows から解決する
+    const nameByTeam = new Map(teamRows.map((t) => [t.teamId, t.name]))
+    const shareRows = await db
+      .select({ teamLow: teamShares.teamLow, teamHigh: teamShares.teamHigh, createdAt: teamShares.createdAt })
+      .from(teamShares)
+      .orderBy(desc(teamShares.createdAt))
+    const shares: AdminShare[] = shareRows.map((s) => ({
+      teamLow: { teamId: s.teamLow, name: nameByTeam.get(s.teamLow) ?? "(不明なチーム)" },
+      teamHigh: { teamId: s.teamHigh, name: nameByTeam.get(s.teamHigh) ?? "(不明なチーム)" },
+      createdAt: s.createdAt.toISOString(),
+    }))
+
+    const result: AdminOverview = { teams: teamList, orphanUsers, shares }
     return NextResponse.json({ success: true, ...result })
   } catch (error) {
     console.error("team-schedules admin overview GET error:", error)
