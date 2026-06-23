@@ -56,6 +56,16 @@ export function isUuid(value: unknown): value is string {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 }
 
+/**
+ * 活動可能通知の送信時刻として妥当か（#177）。
+ * "HH:MM" 24時間表記（00:00〜23:59・先頭0必須）。`<input type="time">` の出力形式に合わせる。
+ * 解除（即時モードへ戻す）は null を使うため、ここでは null を妥当としない（null は呼び出し側で別扱い）。
+ */
+export function isHhmm(value: unknown): value is string {
+  if (typeof value !== "string") return false
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value)
+}
+
 /** Webhook 枠が own / shared のいずれかか（#172） */
 export function isWebhookSlot(value: unknown): value is WebhookSlot {
   return value === "own" || value === "shared"
