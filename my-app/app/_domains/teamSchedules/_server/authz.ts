@@ -12,8 +12,9 @@ import { and, eq } from "drizzle-orm"
 import type { NextRequest } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { discordLinks, teamMembers, users } from "./schema"
-import { hasAdminAuthority, type TeamRole } from "@/app/_domains/teamSchedules/types"
+import { hasAdminAuthority, MAX_TEAMS_PER_USER, type TeamRole } from "@/app/_domains/teamSchedules/types"
 import { getUserIdFromSession } from "./session"
+import { getUserTeamIds } from "./shares"
 import { TEAM_SCHEDULE_CREATOR_DISCORD_IDS } from "@/app/_server/lib/env"
 
 /** ENV の許可 Discord ID（カンマ区切り）を Set 化（空要素は除外） */
@@ -90,13 +91,37 @@ export async function assertTeamMember(teamId: string, userId: string): Promise<
 }
 
 /**
- * このユーザーがチームを作成できるか。
+ * このユーザーが「チーム数の上限を無視できる」許可ユーザーか（運用保険／開発者用）。
  * 紐づく Discord ID のいずれかが ENV の許可リストに含まれていれば true。
+ * 通常ユーザーは全員 false で、MAX_TEAMS_PER_USER の上限内でのみ作成・参加できる。
  */
-export async function canCreateTeam(userId: string): Promise<boolean> {
+export async function isAllowlistedCreator(userId: string): Promise<boolean> {
   if (creatorDiscordIds.size === 0) return false
   const rows = await db.select({ discordUserId: discordLinks.discordUserId }).from(discordLinks).where(eq(discordLinks.userId, userId))
   return rows.some((r) => creatorDiscordIds.has(r.discordUserId))
+}
+
+/**
+ * このユーザーが新しくチームを作成できるか。
+ * 所属チーム数（master + member 合算）が上限未満なら誰でも可。
+ * 上限に達していても、許可リストのユーザーは作成できる（抜け道）。
+ */
+export async function canCreateTeam(userId: string): Promise<boolean> {
+  const teamIds = await getUserTeamIds(userId)
+  if (teamIds.length < MAX_TEAMS_PER_USER) return true
+  return isAllowlistedCreator(userId) // 上限到達でも許可ユーザーは通す
+}
+
+/**
+ * このユーザーが teamId のチームに参加できるか。
+ * 既に当該チームに所属していれば冪等で常に許可（再参加 OK）。
+ * 未所属なら所属チーム数が上限未満で可。上限到達でも許可ユーザーは通す。
+ */
+export async function canJoinTeam(userId: string, teamId: string): Promise<boolean> {
+  const teamIds = await getUserTeamIds(userId)
+  if (teamIds.includes(teamId)) return true // 既に所属＝冪等再参加 OK
+  if (teamIds.length < MAX_TEAMS_PER_USER) return true
+  return isAllowlistedCreator(userId)
 }
 
 /**

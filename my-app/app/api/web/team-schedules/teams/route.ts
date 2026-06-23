@@ -6,6 +6,7 @@ import { canCreateTeam, getSessionUserId, isUserSuspended } from "@/app/_domains
 import { getSharePartnersForTeams } from "@/app/_domains/teamSchedules/_server/shares"
 import { isManagementMode, isValidRequiredCount, isValidTeamDescription, isValidTeamName } from "@/app/_domains/teamSchedules/_server/validators"
 import type { TeamSummary } from "@/app/_domains/teamSchedules/types"
+import { teamLimitMessage } from "@/app/_domains/teamSchedules/types"
 import { ServerTiming } from "@/app/_server/lib/serverTiming"
 
 /**
@@ -78,7 +79,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
 /**
  * POST /api/web/team-schedules/teams
- * チームを新規作成する（要ログイン + 作成権限）。
+ * チームを新規作成する（要ログイン + 参加上限内 もしくは許可ユーザー）。
  * 作成者をそのチームの master メンバーとして登録する（チームに必ず1人の master）。
  * body: { name, description, managementMode, requiredCount }
  */
@@ -94,10 +95,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, error: "アカウントが利用停止中のため、この操作はできません" }, { status: 403 })
     }
 
-    // 作成権限（許可された Discord ID を持つユーザーのみ）
+    // 作成権限（所属チーム数が上限未満、または許可ユーザー）
     const allowed = await canCreateTeam(userId)
     if (!allowed) {
-      return NextResponse.json({ success: false, error: "チームを作成する権限がありません" }, { status: 403 })
+      return NextResponse.json({ success: false, error: teamLimitMessage("create") }, { status: 403 })
     }
 
     const body = (await req.json().catch(() => null)) as { name?: unknown; description?: unknown; managementMode?: unknown; requiredCount?: unknown } | null
