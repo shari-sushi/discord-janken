@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import LolHeader from "@/app/lol/_components/LolHeader"
 import { useOverlay } from "@/app/_client/lib/modal/ModalContext"
 import type { ScheduleEntry, ScheduleStatus, SessionUser, TeamSchedule, TeamSummary } from "@/app/_domains/teamSchedules/types"
-import { hasAdminAuthority } from "@/app/_domains/teamSchedules/types"
+import { hasAdminAuthority, MAX_TEAMS_PER_USER } from "@/app/_domains/teamSchedules/types"
 import {
   acceptShare,
   createInvite,
@@ -42,6 +42,7 @@ import { CreateTeamModal } from "./CreateTeamModal"
 import { CreateTeamRestrictedModal } from "./CreateTeamRestrictedModal"
 import { DbHealthButton } from "./DbHealthButton"
 import { InviteModal } from "./InviteModal"
+import { JoinFailedModal } from "./JoinFailedModal"
 import { LoginModal } from "./LoginModal"
 import { ShareAcceptModal } from "./ShareAcceptModal"
 import { ScheduleDayCards } from "./ScheduleDayCards"
@@ -426,18 +427,22 @@ export function TeamSchedulesPage() {
         setOwnTeamId(team.teamId)
         // 自チーム未選択なら参加チームを自チームに、選択済みなら相手候補として扱えるよう一覧更新のみ
       })
-      .catch(() => {
-        // 失効・無効トークン等。退避を消して諦める
+      .catch((e) => {
+        // 失効・無効トークン／参加上限到達（403）等。退避を消し、理由をモーダルで知らせる
+        // （上限到達時はバックエンドの上限＋アップセル文言がそのまま表示される）。
         try {
           window.sessionStorage.removeItem(PENDING_JOIN_KEY)
         } catch {
           // noop
         }
+        if (cancelled) return
+        const message = e instanceof Error ? e.message : "チームへの参加に失敗しました"
+        open(<JoinFailedModal message={message} onClose={close} />)
       })
     return () => {
       cancelled = true
     }
-  }, [loading, session, openLogin, reloadTeams, setOwnTeamId])
+  }, [loading, session, openLogin, reloadTeams, setOwnTeamId, open, close])
 
   // 退避済みの共有トークンを処理する（#175）。
   // - 未ログイン: ログイン案内（ログイン後に再実行される）
@@ -587,10 +592,18 @@ export function TeamSchedulesPage() {
     [session, schedulesByTeam, applyLocalTeamEdit, persistTeam, openLogin],
   )
 
+  // 自分の所属チーム数（master + member 合算 = isMember な行数）。上限判定に使う。
+  const membershipCount = useMemo(() => teams.filter((t) => t.isMember).length, [teams])
+  // 上限内でまだチームを増やせるか（所属数 < 上限、または上限を無視できる許可ユーザー）。
+  // 用途は「チーム作成」UI の出し分け（作成ボタン押下時の案内・設定モーダルの作成タブ）に限る。
+  // 招待リンクからの参加はこの値で事前ゲートしない（既所属チームの冪等再参加を常に通すため）。
+  // 参加の上限判定はバックエンド（canJoinTeam）が真の enforce ポイントで、失敗は JoinFailedModal で可視化する。
+  const canCreateOrJoin = !!session && (session.bypassTeamLimit || membershipCount < MAX_TEAMS_PER_USER)
+
   // チーム作成モーダルを開く（作成後は一覧を更新して自チームに選択）
   const openCreate = useCallback(() => {
-    // ログインは通っていてもチーム作成権限が無い場合は、作成フォームではなくプレリリース案内モーダルを出す
-    if (!session?.canCreateTeam) {
+    // ログイン済みでも参加上限に達している場合は、作成フォームではなく上限案内（アップセル）モーダルを出す
+    if (!canCreateOrJoin) {
       open(<CreateTeamRestrictedModal onClose={close} />)
       return
     }
@@ -604,7 +617,7 @@ export function TeamSchedulesPage() {
         }}
       />,
     )
-  }, [session, open, close, reloadTeams, setOwnTeamId])
+  }, [canCreateOrJoin, open, close, reloadTeams, setOwnTeamId])
 
   // 選択中の自チームで、ログインユーザーが admin 相当以上（master/admin）か
   const isOwnAdmin = useMemo(() => {
@@ -1054,7 +1067,7 @@ export function TeamSchedulesPage() {
             )}
             */}
               {/* 招待リンク発行はチーム管理モーダルの「今のチーム」タブに移設した */}
-              {/* チームを作成: ログイン中なら全員に表示する（作成権限が無い場合は押下時にプレリリース案内モーダルを出す）。
+              {/* チームを作成: ログイン中なら全員に表示する（参加上限に達している場合は押下時に上限案内（アップセル）モーダルを出す）。
                   md以下では既に所属チームがあるなら隠す（縦スペース確保。md以上は常に表示） */}
               {session && (
                 <button
@@ -1200,7 +1213,7 @@ export function TeamSchedulesPage() {
                 isAdmin={isOwnAdmin}
                 isMember={isOwnMember}
                 isMaster={isOwnMaster}
-                canCreate={!!session?.canCreateTeam}
+                canCreate={canCreateOrJoin}
                 tab={settingTab}
                 onTabChange={changeSettingTab}
                 onClose={closeManage}

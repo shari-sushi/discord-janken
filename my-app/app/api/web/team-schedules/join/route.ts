@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { teamMembers, teams } from "@/app/_domains/teamSchedules/_server/schema"
-import { getSessionUserId, isUserSuspended } from "@/app/_domains/teamSchedules/_server/authz"
+import { canJoinTeam, getSessionUserId, isUserSuspended } from "@/app/_domains/teamSchedules/_server/authz"
 import { inviteKey } from "@/app/_domains/teamSchedules/_server/redisKeys"
 import type { InvitePayload } from "@/app/_domains/teamSchedules/_server/invites"
 import { redisGet } from "@/app/_server/lib/redis/redis"
@@ -55,6 +55,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (!team) {
       // チームが削除済み等。招待が指す先が無い
       return NextResponse.json({ success: false, error: "参加先のチームが見つかりません" }, { status: 404 })
+    }
+
+    // 参加上限の判定（既所属なら冪等で通る。未所属は所属数 < 上限 もしくは許可ユーザーのみ）。
+    // 存在確認（404）の後に置く: 招待トークン保持者は teamId を既知のため存在の秘匿は不要で、
+    // 「存在するチームに対する上限超過」を 403 で正確に伝えるほうが UX 上わかりやすい。
+    if (!(await canJoinTeam(userId, teamId))) {
+      return NextResponse.json(
+        { success: false, error: "参加できるチームは2つまでです。上限に達しているため新しいチームに参加できません。今後、有料プランでの上限解放を予定しています。" },
+        { status: 403 },
+      )
     }
 
     // 既に所属していれば何もしない（冪等）。新規なら member で参加。

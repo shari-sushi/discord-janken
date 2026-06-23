@@ -8,7 +8,7 @@ type CreateTeamModalProps = {
   onCreated: (team: TeamSummary) => void
 }
 
-/** チームを新規作成するフォームモーダル（作成権限を持つユーザーのみ開ける） */
+/** チームを新規作成するフォームモーダル（参加上限内のユーザーのみ開ける） */
 export function CreateTeamModal({ onClose, onCreated }: CreateTeamModalProps) {
   return (
     <div className="w-[min(92vw,440px)] rounded-xl border border-zinc-700 bg-zinc-900 p-6 text-zinc-100 shadow-xl">

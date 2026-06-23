@@ -57,7 +57,7 @@ export async function fetchTeamSchedule(teamId: string, from: DayKey, to: DayKey
   return json.team
 }
 
-/** チームを新規作成する（要ログイン + 作成権限）。作成者は admin になる */
+/** チームを新規作成する（要ログイン + 参加上限内 もしくは許可ユーザー）。作成者は master になる */
 export async function createTeam(input: { name: string; description: string | null; managementMode: TeamManagementMode; requiredCount: number }): Promise<TeamSummary> {
   const res = await fetch(`${API_BASE}/teams`, {
     method: "POST",

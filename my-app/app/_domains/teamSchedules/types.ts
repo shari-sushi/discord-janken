@@ -26,6 +26,13 @@ export const hasAdminAuthority = (role: TeamRole): boolean => role === "master" 
  */
 export type TeamManagementMode = "members" | "team"
 
+/**
+ * 1ユーザーが参加できるチーム数の上限（master として作成したチームも1つとして数える）。
+ * 上限に達したユーザーは作成・参加ともに不可。ENV 許可リストのユーザーのみこの上限を無視できる。
+ * 今後、有料プランで解放予定。サーバー（enforce）／クライアント（UX の出し分け）の両方で使う。
+ */
+export const MAX_TEAMS_PER_USER = 2
+
 /** requiredCount（活動可能と判定するのに必要な ok の人数）のデフォルト値 */
 export const DEFAULT_REQUIRED_COUNT = 5
 /** requiredCount の最小値（1人未満は不可。サーバー側 check 制約と一致） */
@@ -183,8 +190,11 @@ export type TeamWebhooksUpdate = Partial<Record<WebhookSlot, TeamWebhookSlotPatc
 export type SessionUser = {
   userId: string
   displayName: string
-  /** チーム作成権限を持つか（ENV の許可 Discord ID） */
-  canCreateTeam: boolean
+  /**
+   * チーム数の上限（MAX_TEAMS_PER_USER）を無視できる許可ユーザーか（ENV の許可 Discord ID）。
+   * 通常ユーザーは false。フロントは所属チーム数と組み合わせて作成・参加の可否をリアクティブに算出する。
+   */
+  bypassTeamLimit: boolean
 }
 
 // ───────────────────────────────────────────────────────────
