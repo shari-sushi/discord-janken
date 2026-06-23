@@ -33,6 +33,16 @@ export type TeamManagementMode = "members" | "team"
  */
 export const MAX_TEAMS_PER_USER = 2
 
+/**
+ * 参加上限に達したときの案内文言（アップセル含む）。上限数は MAX_TEAMS_PER_USER から差し込むため、
+ * 定数を変えれば文言の数値も自動で追従する（表示と実挙動の食い違いを防ぐ）。
+ * 作成 API は "create"、参加 API は "join" を渡す（末尾の助詞が変わる）。フロント/サーバー共通。
+ */
+export const teamLimitMessage = (action: "create" | "join"): string => {
+  const tail = action === "create" ? "新しいチームを作成できません" : "新しいチームに参加できません"
+  return `参加できるチームは${MAX_TEAMS_PER_USER}つまでです。上限に達しているため${tail}。今後、有料プランでの上限解放を予定しています。`
+}
+
 /** requiredCount（活動可能と判定するのに必要な ok の人数）のデフォルト値 */
 export const DEFAULT_REQUIRED_COUNT = 5
 /** requiredCount の最小値（1人未満は不可。サーバー側 check 制約と一致） */

@@ -6,6 +6,7 @@ import { canCreateTeam, getSessionUserId, isUserSuspended } from "@/app/_domains
 import { getSharePartnersForTeams } from "@/app/_domains/teamSchedules/_server/shares"
 import { isManagementMode, isValidRequiredCount, isValidTeamDescription, isValidTeamName } from "@/app/_domains/teamSchedules/_server/validators"
 import type { TeamSummary } from "@/app/_domains/teamSchedules/types"
+import { teamLimitMessage } from "@/app/_domains/teamSchedules/types"
 import { ServerTiming } from "@/app/_server/lib/serverTiming"
 
 /**
@@ -97,10 +98,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // 作成権限（所属チーム数が上限未満、または許可ユーザー）
     const allowed = await canCreateTeam(userId)
     if (!allowed) {
-      return NextResponse.json(
-        { success: false, error: "参加できるチームは2つまでです。上限に達しているため新しいチームを作成できません。今後、有料プランでの上限解放を予定しています。" },
-        { status: 403 },
-      )
+      return NextResponse.json({ success: false, error: teamLimitMessage("create") }, { status: 403 })
     }
 
     const body = (await req.json().catch(() => null)) as { name?: unknown; description?: unknown; managementMode?: unknown; requiredCount?: unknown } | null

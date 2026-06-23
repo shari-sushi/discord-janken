@@ -1,10 +1,13 @@
 "use client"
 
+import { MAX_TEAMS_PER_USER } from "@/app/_domains/teamSchedules/types"
+
 /**
  * チーム参加数の上限に達したユーザー向けの案内文（アップセル含む）。
  * モーダル（ボタン押下時）と設定モーダルの「新規作成」タブで同じ文言を使うため共有する。
+ * 上限数は MAX_TEAMS_PER_USER から差し込むため、定数を変えれば文言も追従する。
  */
-export const CREATE_TEAM_RESTRICTED_MESSAGE = "1人が参加できるチームは2つまでです。\n上限に達しているため、新しいチームの作成・参加はできません。\n※今後、有料プランでの上限解放を予定しています。"
+export const CREATE_TEAM_RESTRICTED_MESSAGE = `1人が参加できるチームは${MAX_TEAMS_PER_USER}つまでです。\n上限に達しているため、新しいチームの作成・参加はできません。\n※今後、有料プランでの上限解放を予定しています。`
 
 type CreateTeamRestrictedModalProps = {
   onClose: () => void

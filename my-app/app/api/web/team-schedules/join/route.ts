@@ -7,6 +7,7 @@ import { inviteKey } from "@/app/_domains/teamSchedules/_server/redisKeys"
 import type { InvitePayload } from "@/app/_domains/teamSchedules/_server/invites"
 import { redisGet } from "@/app/_server/lib/redis/redis"
 import type { TeamSummary } from "@/app/_domains/teamSchedules/types"
+import { teamLimitMessage } from "@/app/_domains/teamSchedules/types"
 
 /**
  * POST /api/web/team-schedules/join
@@ -61,10 +62,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // 存在確認（404）の後に置く: 招待トークン保持者は teamId を既知のため存在の秘匿は不要で、
     // 「存在するチームに対する上限超過」を 403 で正確に伝えるほうが UX 上わかりやすい。
     if (!(await canJoinTeam(userId, teamId))) {
-      return NextResponse.json(
-        { success: false, error: "参加できるチームは2つまでです。上限に達しているため新しいチームに参加できません。今後、有料プランでの上限解放を予定しています。" },
-        { status: 403 },
-      )
+      return NextResponse.json({ success: false, error: teamLimitMessage("join") }, { status: 403 })
     }
 
     // 既に所属していれば何もしない（冪等）。新規なら member で参加。
