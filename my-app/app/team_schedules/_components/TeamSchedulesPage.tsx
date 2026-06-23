@@ -283,41 +283,44 @@ export function TeamSchedulesPage() {
   //    これで「もっと見る」再取得が保存往復中の編集セルを丸ごと潰すのを防ぐ（#189 指摘1）。
   //    後着の狭い／同一レスポンスで広い結果を潰さないよう、より広い終端のときだけ適用する。
   //  - "replace": 全期間を取り直して丸ごと差し替える（管理モード変更後など、全セルを取り直したいとき）。
-  const loadSchedule = useCallback((id: string, to: string, mode: "extend" | "replace") => {
-    const from = dayKeys[0]
-    requestedToRef.current.set(id, to)
-    return fetchTeamSchedule(id, from, to)
-      .then((team) => {
-        const appliedTo = fetchedToRef.current.get(id)
-        // extend は後着の狭い／同一レスポンスを弾く（連打＋遅延での逆転を防ぐ）。replace は常に最新で上書き。
-        if (mode === "extend" && appliedTo !== undefined && appliedTo >= to) return
-        fetchedToRef.current.set(id, to)
-        setSchedulesByTeam((prev) => {
-          const existing = prev[id]
-          // 全置換・初回取得・既存なしは丸ごと格納
-          if (mode === "replace" || !existing || appliedTo === undefined) return { ...prev, [id]: team }
-          // 延長: 表示済みの日（<= appliedTo）は既存を保持して楽観編集を潰さず、新規日（> appliedTo）だけサーバー値を採用
-          return {
-            ...prev,
-            [id]: {
-              ...team, // name/members/managementMode 等のメタは最新を採用
-              schedules: [...existing.schedules.filter((s) => s.day <= appliedTo), ...team.schedules.filter((s) => s.day > appliedTo)],
-              teamStatus: [...existing.teamStatus.filter((s) => s.day <= appliedTo), ...team.teamStatus.filter((s) => s.day > appliedTo)],
-            },
-          }
+  const loadSchedule = useCallback(
+    (id: string, to: string, mode: "extend" | "replace") => {
+      const from = dayKeys[0]
+      requestedToRef.current.set(id, to)
+      return fetchTeamSchedule(id, from, to)
+        .then((team) => {
+          const appliedTo = fetchedToRef.current.get(id)
+          // extend は後着の狭い／同一レスポンスを弾く（連打＋遅延での逆転を防ぐ）。replace は常に最新で上書き。
+          if (mode === "extend" && appliedTo !== undefined && appliedTo >= to) return
+          fetchedToRef.current.set(id, to)
+          setSchedulesByTeam((prev) => {
+            const existing = prev[id]
+            // 全置換・初回取得・既存なしは丸ごと格納
+            if (mode === "replace" || !existing || appliedTo === undefined) return { ...prev, [id]: team }
+            // 延長: 表示済みの日（<= appliedTo）は既存を保持して楽観編集を潰さず、新規日（> appliedTo）だけサーバー値を採用
+            return {
+              ...prev,
+              [id]: {
+                ...team, // name/members/managementMode 等のメタは最新を採用
+                schedules: [...existing.schedules.filter((s) => s.day <= appliedTo), ...team.schedules.filter((s) => s.day > appliedTo)],
+                teamStatus: [...existing.teamStatus.filter((s) => s.day <= appliedTo), ...team.teamStatus.filter((s) => s.day > appliedTo)],
+              },
+            }
+          })
         })
-      })
-      .catch(() => {
-        // 失敗時はリクエスト記録を取り消す。ただし effect の deps は安定参照のため自発再実行はせず、
-        // 自動再取得はされない（回復にはユーザーの再操作＝「もっと見る」再押下や選択変更が要る）。
-        // 延長失敗時に新規日が空セルのまま黙って出る件の恒久対策（可視化/自動リトライ）は #158 と束ねてフォローアップ（#189 指摘2）。
-        if (requestedToRef.current.get(id) === to) requestedToRef.current.delete(id)
-      })
-  }, [dayKeys])
+        .catch(() => {
+          // 失敗時はリクエスト記録を取り消す。ただし effect の deps は安定参照のため自発再実行はせず、
+          // 自動再取得はされない（回復にはユーザーの再操作＝「もっと見る」再押下や選択変更が要る）。
+          // 延長失敗時に新規日が空セルのまま黙って出る件の恒久対策（可視化/自動リトライ）は #158 と束ねてフォローアップ（#189 指摘2）。
+          if (requestedToRef.current.get(id) === to) requestedToRef.current.delete(id)
+        })
+    },
+    [dayKeys],
+  )
 
-  // 予定取得: 選択中チーム + 参加チーム全てを先読みする（#165）。
-  // 自チームに選べるのは参加チームだけなので、開いた時点で全参加チームを取得しておけば
-  // 自チーム切替時のスピナーを無くせる。相手チームは選択時に取得し、以降はキャッシュを使う。
+  // 初マウント時に選択中チーム + 参加チーム全てを先読みする（#165）
+  // 開いた時点で全参加チームを取得し自チーム選択/切替時の通信をなくす
+  // 相手チームは選択時に取得しキャッシュする。
   // loading でガードしないのは意図的: 初期ロード中（teams が空）は memberIds が空になり ids=選択中チームだけになる。
   // localStorage 復元済みの選択中チームの予定を初期ロードと並行で取得し、view を loading 完了前に出すため
   // （下部カレンダーの「loading を待たず view 準備でき次第表示」コメント参照）。loading 完了で teams が入ると
@@ -327,9 +330,9 @@ export function TeamSchedulesPage() {
   // （セル編集の楽観更新のたびにこの effect が走るのを避ける）。
   useEffect(() => {
     const to = dayKeys[dayKeys.length - 1]
-    const memberIds = teams.filter((t) => t.isMember).map((t) => t.teamId)
-    const selectedIds = [ownTeamId, ...opponentTeamIds].filter((id): id is string => !!id)
-    const ids = Array.from(new Set([...selectedIds, ...memberIds]))
+    const joinedTeamIds = teams.filter((t) => t.isMember).map((t) => t.teamId)
+    const selectedTeamIds = [ownTeamId, ...opponentTeamIds].filter((id): id is string => !!id)
+    const ids = Array.from(new Set([...selectedTeamIds, ...joinedTeamIds]))
     ids.forEach((id) => {
       // 同一終端を取得リクエスト済み（in-flight 含む）ならスキップ。より広い to は別リクエストとして通す。
       if (requestedToRef.current.get(id) === to) return
@@ -893,7 +896,7 @@ export function TeamSchedulesPage() {
     }
 
     // 自チーム列: members モードはメンバーごと、team モードはチーム1列
-    const memberColumns: ScheduleColumn[] =
+    const ownColumns: ScheduleColumn[] =
       ownTeam.managementMode === "team"
         ? [buildTeamColumn(ownTeam, "ownteam")]
         : ownTeam.members.map((m) => {
@@ -972,7 +975,7 @@ export function TeamSchedulesPage() {
 
     // team モードは単一状態（ok=活動可能）なので閾値は 1
     const threshold = ownTeam.managementMode === "team" ? 1 : ownTeam.requiredCount
-    return { memberColumns, opponentColumns, rows, threshold, managementMode: ownTeam.managementMode, ownTeamName: ownTeam.name }
+    return { ownColumns, opponentColumns, rows, threshold, managementMode: ownTeam.managementMode, ownTeamName: ownTeam.name }
   }, [ownTeamId, opponentTeamIds, schedulesByTeam, dates, dayKeys, session, teams])
 
   // 自分が1つでもチームに所属しているか（teams 一覧の isMember 由来）。md以下で「チームを作成」ボタンを隠す判定に使う。
@@ -1102,7 +1105,14 @@ export function TeamSchedulesPage() {
         >
           <div className={"min-h-0 " + (chromeOverflowVisible ? "overflow-visible" : "overflow-hidden")}>
             <div className="flex flex-col md:gap-3 gap-1.5">
-              <TeamCompareSelector teams={teams} ownTeamId={ownTeamId} opponentTeamIds={opponentTeamIds} onOwnTeamChange={setOwnTeamId} onOpponentsChange={setOpponentTeamIds} onOpenShareSetting={openManage} />
+              <TeamCompareSelector
+                teams={teams}
+                ownTeamId={ownTeamId}
+                opponentTeamIds={opponentTeamIds}
+                onOwnTeamChange={setOwnTeamId}
+                onOpponentsChange={setOpponentTeamIds}
+                onOpenShareSetting={openManage}
+              />
               {view && <ControlBar threshold={view.threshold} managementMode={view.managementMode} />}
             </div>
           </div>
@@ -1118,7 +1128,7 @@ export function TeamSchedulesPage() {
                 rows={view.rows}
                 threshold={view.threshold}
                 opponentColumns={view.opponentColumns}
-                memberColumns={view.memberColumns}
+                ownColumns={view.ownColumns}
                 onCycle={handleCycle}
                 onNoteChange={handleNoteChange}
                 onTeamCycle={handleTeamCycle}
@@ -1129,7 +1139,7 @@ export function TeamSchedulesPage() {
                 rows={view.rows}
                 threshold={view.threshold}
                 opponentColumns={view.opponentColumns}
-                memberColumns={view.memberColumns}
+                ownColumns={view.ownColumns}
                 ownTeamName={view.ownTeamName}
                 onCycle={handleCycle}
                 onNoteChange={handleNoteChange}
