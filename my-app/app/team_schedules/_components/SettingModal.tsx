@@ -157,8 +157,10 @@ export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, isM
         </button>
       </div>
 
-      {/* タブ切替 */}
-      <div className="mt-4 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-zinc-800">
+      {/* タブ切替。shrink-0 必須: ルートは高さ固定(モバイル h-full / PC max-h-[90vh])の縦flex＋自身スクロール。
+          このバーは overflow-y-hidden を持つため min-height:auto が 0 と解釈され、中身の長いタブ（チーム管理）で
+          モーダル高さを超えると flex がここだけ高さ0に潰し、ボタンが切り取られて消える。shrink-0 で潰れを止める。 */}
+      <div className="mt-4 flex shrink-0 gap-1 overflow-x-auto overflow-y-hidden border-b border-zinc-800">
         {TABS.map((t) => (
           <button
             key={t.key}
