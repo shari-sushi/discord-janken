@@ -23,7 +23,9 @@ import { TS_SESSION_COOKIE, deleteUserSession, sessionCookieOptions } from "@/ap
  */
 export async function DELETE(req: NextRequest): Promise<NextResponse> {
   try {
-    const userId = await getSessionUserId(req)
+    // このレスポンスで Cookie を失効させる（L52）ため、スライディング延長を抑止する。
+    // extend を付けないと延長 Cookie と失効 Cookie が同じ ts_session に二重で載る。
+    const userId = await getSessionUserId(req, { extend: false })
     if (!userId) {
       return NextResponse.json({ success: false, error: "ログインが必要です" }, { status: 401 })
     }
