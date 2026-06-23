@@ -1,4 +1,4 @@
-import type { DayKey, ScheduleStatus, SessionUser, SharePreview, TeamManagementMode, TeamSchedule, TeamSummary, TeamWebhookSlotPatch, TeamWebhookView, WebhookProvider, WebhookSlot } from "@/app/_domains/teamSchedules/types"
+import type { DayKey, ScheduleStatus, SessionUser, SharePreview, TeamManagementMode, TeamSchedule, TeamSummary, TeamWebhookSettings, TeamWebhooksUpdate, WebhookProvider } from "@/app/_domains/teamSchedules/types"
 
 /**
  * スクリム調整機能の Web API クライアント。
@@ -220,21 +220,22 @@ export async function deleteTeamStatus(input: { teamId: string; day: DayKey }): 
 }
 
 /**
- * チームの通知 Webhook 設定を取得（要ログイン + admin 相当以上）。
+ * チームの通知設定（Webhook 枠 + 送信時刻）を取得（要ログイン + admin 相当以上）。
  * master は生 URL（webhookUrl）あり、admin は maskedUrl（部分マスク）のみ。
+ * notifyTime は "HH:MM"(JST)=時刻指定 / null=即時通知（#177）。
  */
-export async function fetchTeamWebhooks(teamId: string): Promise<TeamWebhookView[]> {
+export async function fetchTeamWebhooks(teamId: string): Promise<TeamWebhookSettings> {
   const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}/webhooks`, { cache: "no-store" })
-  const json = await parse<{ webhooks?: TeamWebhookView[] }>(res, "通知設定の取得に失敗しました")
-  return json.webhooks ?? []
+  const json = await parse<{ webhooks?: TeamWebhookSettings["webhooks"]; notifyTime?: string | null }>(res, "通知設定の取得に失敗しました")
+  return { webhooks: json.webhooks ?? [], notifyTime: json.notifyTime ?? null }
 }
 
 /**
- * チームの通知 Webhook 設定を更新（要ログイン + admin 相当以上）。per-slot:
- * - オブジェクト: webhookUrl で上書き / notifyActivityReached のみでトグル更新
- * - null: その枠を削除 / 未指定（キー無し）: 触らない
+ * チームの通知設定を更新（要ログイン + admin 相当以上）。
+ * - 枠（own/shared）: オブジェクト=webhookUrl で上書き / notifyActivityReached のみでトグル更新、null=削除、未指定=触らない
+ * - notifyTime: "HH:MM"=時刻指定 / null=即時に戻す / 省略=触らない（#177）
  */
-export async function updateTeamWebhooks(teamId: string, patch: Partial<Record<WebhookSlot, TeamWebhookSlotPatch | null>>): Promise<void> {
+export async function updateTeamWebhooks(teamId: string, patch: TeamWebhooksUpdate): Promise<void> {
   const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}/webhooks`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },

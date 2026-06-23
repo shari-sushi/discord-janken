@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { fetchTeamWebhooks, sendWebhookTest, updateTeamWebhooks } from "@/app/_domains/teamSchedules/_client/teamSchedulesApiClient"
-import { WEBHOOK_SLOTS, WEBHOOK_SLOT_LABEL, type TeamWebhookSlotPatch, type WebhookSlot } from "@/app/_domains/teamSchedules/types"
+import { WEBHOOK_SLOTS, WEBHOOK_SLOT_LABEL, type TeamWebhookSlotPatch, type TeamWebhooksUpdate, type WebhookSlot } from "@/app/_domains/teamSchedules/types"
+
+/** 時刻指定モードへ切り替えたときのデフォルト送信時刻（JST） */
+const DEFAULT_NOTIFY_TIME = "20:00"
 
 /**
  * 活動可能の通知（Discord Webhook）設定セクション（#172・admin 相当以上）。
@@ -48,6 +51,11 @@ const initialSlots = (): SlotsState => ({ own: emptySlot(), shared: emptySlot() 
 
 export function WebhookSettingsSection({ teamId, isMaster }: { teamId: string; isMaster: boolean }) {
   const [slots, setSlots] = useState<SlotsState>(initialSlots)
+  // 送信タイミング（#177）。モード（即時/指定時刻）と時刻値を分離して持つ。
+  // 1つの文字列に両方載せると、時刻欄を空にした瞬間に即時モードへ落ちて設定が消える事故になるため。
+  const [scheduled, setScheduled] = useState(false) // true = 指定時刻モード
+  const [timeValue, setTimeValue] = useState(DEFAULT_NOTIFY_TIME) // "HH:MM"
+  const [initialNotifyTime, setInitialNotifyTime] = useState<string | null>(null) // サーバー値（dirty判定用。null=即時）
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   // 枠ごとのテスト状態（送信中 / エラー）
@@ -61,7 +69,10 @@ export function WebhookSettingsSection({ teamId, isMaster }: { teamId: string; i
     setLoading(true)
     setLoadError(null)
     try {
-      const webhooks = await fetchTeamWebhooks(teamId)
+      const { webhooks, notifyTime: loadedTime } = await fetchTeamWebhooks(teamId)
+      setScheduled(loadedTime !== null)
+      setTimeValue(loadedTime ?? DEFAULT_NOTIFY_TIME)
+      setInitialNotifyTime(loadedTime)
       const next = initialSlots()
       for (const w of webhooks) {
         // master は生 URL を初期表示、admin は空のまま（maskedUrl だけ見せる）
@@ -90,6 +101,16 @@ export function WebhookSettingsSection({ teamId, isMaster }: { teamId: string; i
 
   const updateSlot = (slot: WebhookSlot, patch: Partial<SlotState>) => {
     setSlots((prev) => ({ ...prev, [slot]: { ...prev[slot], ...patch } }))
+    setSaved(false)
+  }
+
+  const updateScheduled = (next: boolean) => {
+    setScheduled(next)
+    setSaved(false)
+  }
+
+  const updateTimeValue = (next: string) => {
+    setTimeValue(next)
     setSaved(false)
   }
 
@@ -141,19 +162,26 @@ export function WebhookSettingsSection({ teamId, isMaster }: { teamId: string; i
 
   const ownPatch = buildPatch("own")
   const sharedPatch = buildPatch("shared")
-  const dirty = ownPatch !== undefined || sharedPatch !== undefined
+  // 指定時刻モードでの実効値。即時モードなら null
+  const effectiveNotifyTime = scheduled ? timeValue : null
+  const notifyTimeDirty = effectiveNotifyTime !== initialNotifyTime
+  // 指定時刻モードなのに時刻が空/不正なら保存させない（空クリアで即時へ落とさない）
+  const notifyTimeInvalid = scheduled && !/^([01]\d|2[0-3]):[0-5]\d$/.test(timeValue)
+  const dirty = ownPatch !== undefined || sharedPatch !== undefined || notifyTimeDirty
   // 変更した URL がテスト未了なら保存不可
   const blockedByUntested = WEBHOOK_SLOTS.some((slot) => isUrlUntested(slots[slot]))
-  const canSave = dirty && !blockedByUntested && !saving
+  const canSave = dirty && !blockedByUntested && !notifyTimeInvalid && !saving
 
   const handleSave = async () => {
     if (!canSave) return
     setSaving(true)
     setSaveError(null)
     try {
-      const patch: Partial<Record<WebhookSlot, TeamWebhookSlotPatch | null>> = {}
+      const patch: TeamWebhooksUpdate = {}
       if (ownPatch) patch.own = ownPatch
       if (sharedPatch) patch.shared = sharedPatch
+      // 即時=null / 指定="HH:MM"。未変更なら送らない（キーを付けない）
+      if (notifyTimeDirty) patch.notifyTime = effectiveNotifyTime
       await updateTeamWebhooks(teamId, patch)
       await load()
       setSaved(true)
@@ -177,6 +205,30 @@ export function WebhookSettingsSection({ teamId, isMaster }: { teamId: string; i
         <p className="mt-3 text-xs text-rose-400">{loadError}</p>
       ) : (
         <div className="mt-3 flex flex-col gap-5">
+          {/* 送信タイミング（#177）。即時 or 指定時刻 */}
+          <div className="rounded-lg border border-zinc-800 p-3">
+            <span className="text-sm font-medium text-zinc-200">通知タイミング</span>
+            <div className="mt-2 flex flex-col gap-2">
+              <label className="flex items-center gap-2 text-sm text-zinc-300">
+                <input type="radio" name="notify-timing" checked={!scheduled} onChange={() => updateScheduled(false)} disabled={saving} className="h-4 w-4 accent-indigo-500" />
+                活動可能になり次第すぐに通知
+              </label>
+              <label className="flex flex-wrap items-center gap-2 text-sm text-zinc-300">
+                <input type="radio" name="notify-timing" checked={scheduled} onChange={() => updateScheduled(true)} disabled={saving} className="h-4 w-4 accent-indigo-500" />
+                指定した時刻に通知
+                <input
+                  type="time"
+                  value={timeValue}
+                  onChange={(e) => updateTimeValue(e.target.value)}
+                  disabled={saving || !scheduled}
+                  className="rounded border border-zinc-600 bg-zinc-800 px-2 py-1 text-sm text-zinc-100 focus:border-indigo-400 focus:outline-none disabled:opacity-50"
+                />
+                <span className="text-xs text-zinc-500">（その日の時刻・日本時間）</span>
+              </label>
+              {notifyTimeInvalid && <p className="text-xs text-rose-400">時刻を入力してください（即時に戻すには上を選択）。</p>}
+            </div>
+          </div>
+
           {WEBHOOK_SLOTS.map((slot) => {
             const s = slots[slot]
             const valid = looksLikeDiscordWebhook(s.url)
