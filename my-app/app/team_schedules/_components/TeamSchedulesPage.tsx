@@ -791,16 +791,17 @@ export function TeamSchedulesPage() {
   // チーム管理タブで表示する自チーム（未選択・未取得なら undefined → モーダル側で案内表示）。
   const ownTeamForManage = ownTeamId ? schedulesByTeam[ownTeamId] : undefined
   const settingParam = searchParams.get("setting")
-  // 有効なタブ値のときだけ開く。不正値は初期タブにフォールバック（描画用）し、URL は自己修復で正す。
+  // 有効なタブ値のときだけ開く。未設定・不正値は初期タブにフォールバック（描画用）し、URL は team-management へリダイレクト。
   const settingTab: SettingTab = isSettingTab(settingParam) ? settingParam : DEFAULT_SETTING_TAB
   const showManage = isSettingTab(settingParam)
 
-  // ?setting= の値が不正なケースは、宙に浮いた param を自己修復で掃除する（未ログインでも開けるので session は条件に含めない）。
+  // setting param が未設定・不正値のときは team-management タブへリダイレクト（未ログインでも動作）。
   // deps には文字列 settingParam を使う（教訓#134）。
   useEffect(() => {
-    if (settingParam === null) return
-    if (!isSettingTab(settingParam)) closeManage()
-  }, [settingParam, closeManage])
+    if (settingParam === null || !isSettingTab(settingParam)) {
+      changeSettingTab(DEFAULT_SETTING_TAB)
+    }
+  }, [settingParam, changeSettingTab])
 
   // ビューモデル構築
   const view = useMemo(() => {
