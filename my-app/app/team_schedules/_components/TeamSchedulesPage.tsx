@@ -276,6 +276,45 @@ export function TeamSchedulesPage() {
     router.replace(qs ? `/team_schedules?${qs}` : "/team_schedules")
   }, [teamParam, loading, teams, setOwnTeamId, router])
 
+  // 予定を取得して schedulesByTeam に格納する共通処理（先読み/延長と handleManageUpdated で共用。#189 指摘3）。
+  // mode:
+  //  - "extend": 表示期間の延長／初回取得。既に一部取得済み（appliedTo）なら、表示済みの日（<= appliedTo）は
+  //    既存（＝未永続の楽観編集を含む）を保持し、新規日（> appliedTo）だけサーバー値を採用してマージする。
+  //    これで「もっと見る」再取得が保存往復中の編集セルを丸ごと潰すのを防ぐ（#189 指摘1）。
+  //    後着の狭い／同一レスポンスで広い結果を潰さないよう、より広い終端のときだけ適用する。
+  //  - "replace": 全期間を取り直して丸ごと差し替える（管理モード変更後など、全セルを取り直したいとき）。
+  const loadSchedule = useCallback((id: string, to: string, mode: "extend" | "replace") => {
+    const from = dayKeys[0]
+    requestedToRef.current.set(id, to)
+    return fetchTeamSchedule(id, from, to)
+      .then((team) => {
+        const appliedTo = fetchedToRef.current.get(id)
+        // extend は後着の狭い／同一レスポンスを弾く（連打＋遅延での逆転を防ぐ）。replace は常に最新で上書き。
+        if (mode === "extend" && appliedTo !== undefined && appliedTo >= to) return
+        fetchedToRef.current.set(id, to)
+        setSchedulesByTeam((prev) => {
+          const existing = prev[id]
+          // 全置換・初回取得・既存なしは丸ごと格納
+          if (mode === "replace" || !existing || appliedTo === undefined) return { ...prev, [id]: team }
+          // 延長: 表示済みの日（<= appliedTo）は既存を保持して楽観編集を潰さず、新規日（> appliedTo）だけサーバー値を採用
+          return {
+            ...prev,
+            [id]: {
+              ...team, // name/members/managementMode 等のメタは最新を採用
+              schedules: [...existing.schedules.filter((s) => s.day <= appliedTo), ...team.schedules.filter((s) => s.day > appliedTo)],
+              teamStatus: [...existing.teamStatus.filter((s) => s.day <= appliedTo), ...team.teamStatus.filter((s) => s.day > appliedTo)],
+            },
+          }
+        })
+      })
+      .catch(() => {
+        // 失敗時はリクエスト記録を取り消す。ただし effect の deps は安定参照のため自発再実行はせず、
+        // 自動再取得はされない（回復にはユーザーの再操作＝「もっと見る」再押下や選択変更が要る）。
+        // 延長失敗時に新規日が空セルのまま黙って出る件の恒久対策（可視化/自動リトライ）は #158 と束ねてフォローアップ（#189 指摘2）。
+        if (requestedToRef.current.get(id) === to) requestedToRef.current.delete(id)
+      })
+  }, [dayKeys])
+
   // 予定取得: 選択中チーム + 参加チーム全てを先読みする（#165）。
   // 自チームに選べるのは参加チームだけなので、開いた時点で全参加チームを取得しておけば
   // 自チーム切替時のスピナーを無くせる。相手チームは選択時に取得し、以降はキャッシュを使う。
@@ -287,7 +326,6 @@ export function TeamSchedulesPage() {
   // 取得状況は ref（requestedToRef/fetchedToRef）で判定するため schedulesByTeam は deps に入れない
   // （セル編集の楽観更新のたびにこの effect が走るのを避ける）。
   useEffect(() => {
-    const from = dayKeys[0]
     const to = dayKeys[dayKeys.length - 1]
     const memberIds = teams.filter((t) => t.isMember).map((t) => t.teamId)
     const selectedIds = [ownTeamId, ...opponentTeamIds].filter((id): id is string => !!id)
@@ -295,24 +333,9 @@ export function TeamSchedulesPage() {
     ids.forEach((id) => {
       // 同一終端を取得リクエスト済み（in-flight 含む）ならスキップ。より広い to は別リクエストとして通す。
       if (requestedToRef.current.get(id) === to) return
-      requestedToRef.current.set(id, to)
-      void fetchTeamSchedule(id, from, to)
-        .then((team) => {
-          // from は今日固定で to は単調に伸びるだけなので、丸ごと置き換えてよい。
-          // ただし狭い範囲の取得が広い範囲より後に解決し得る（連打＋遅延）。
-          // 古い（狭い）レスポンスで新しい（広い）データを潰さないよう、より広い終端のときだけ適用する。
-          const appliedTo = fetchedToRef.current.get(id)
-          if (appliedTo === undefined || appliedTo < to) {
-            fetchedToRef.current.set(id, to)
-            setSchedulesByTeam((prev) => ({ ...prev, [id]: team }))
-          }
-        })
-        .catch(() => {
-          // 失敗時はリクエスト記録を取り消し、次の effect 実行で同じ終端を再取得できるようにする
-          if (requestedToRef.current.get(id) === to) requestedToRef.current.delete(id)
-        })
+      void loadSchedule(id, to, "extend")
     })
-  }, [teams, ownTeamId, opponentTeamIds, dayKeys])
+  }, [teams, ownTeamId, opponentTeamIds, dayKeys, loadSchedule])
 
   // ローカルの予定を更新（楽観的更新）
   const applyLocalEdit = useCallback((teamId: string, userId: string, day: string, status: CellStatus, note: string) => {
@@ -682,18 +705,11 @@ export function TeamSchedulesPage() {
   // 全セル未記入で表示されてしまうため、必ず再取得して丸ごと差し替える。
   const handleManageUpdated = useCallback(() => {
     if (!ownTeamId) return
-    const from = dayKeys[0]
+    // モード変更後は全セルを取り直す必要があるため "replace" で丸ごと差し替える（取得＋ref記録は loadSchedule に集約・#189 指摘3）
     const to = dayKeys[dayKeys.length - 1]
-    void fetchTeamSchedule(ownTeamId, from, to)
-      .then((team) => {
-        // 先読み effect の取得記録と整合させる（この終端まで取得・適用済みとして記録）
-        fetchedToRef.current.set(ownTeamId, to)
-        requestedToRef.current.set(ownTeamId, to)
-        setSchedulesByTeam((prev) => ({ ...prev, [ownTeamId]: team }))
-      })
-      .catch(() => {})
+    void loadSchedule(ownTeamId, to, "replace")
     void reloadTeams()
-  }, [ownTeamId, dayKeys, reloadTeams])
+  }, [ownTeamId, dayKeys, loadSchedule, reloadTeams])
 
   // 管理モーダルの「新規チーム作成」タブでチームを作成したとき: 一覧再取得＆作成チームを自チーム選択＆モーダルを閉じる
   const handleTeamCreatedInModal = useCallback(
