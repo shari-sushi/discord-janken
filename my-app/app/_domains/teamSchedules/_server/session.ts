@@ -56,15 +56,24 @@ export async function createUserSession(userId: string): Promise<string> {
  *
  * 注意: cookies() は動的リクエストコンテキスト（route handler / server action）でのみ呼べる。
  * この関数は route handler からのみ使うこと（Server Component / middleware からは呼ばない）。
+ *
+ * extend=false: スライディング延長（Redis TTL 更新 + Cookie 再発行）を抑止する。
+ * セッションを同一レスポンスで失効させるルート（アカウント削除など）から呼ぶ用。
+ * これを付けないと「延長 Cookie（maxAge=10日）」と「ルート側の失効 Cookie（maxAge=0）」が
+ * 同じ ts_session に二重で載り、どちらが勝つか曖昧になる（純粋 read のつもりの getter が
+ * Cookie を書く副作用と、ルートの明示失効の衝突）。失効が目的のルートでは延長しない。
  */
-export async function getUserIdFromSession(request: NextRequest): Promise<string | null> {
+export async function getUserIdFromSession(
+  request: NextRequest,
+  { extend = true }: { extend?: boolean } = {},
+): Promise<string | null> {
   const token = request.cookies.get(TS_SESSION_COOKIE)?.value
   if (!token) return null
   const data = await redisGet<UserSessionData>(userSessionKey(token))
   if (!data) return null
 
   const now = Date.now()
-  if (data.expiresAt == null || data.expiresAt - now < SESSION_REFRESH_THRESHOLD_MS) {
+  if (extend && (data.expiresAt == null || data.expiresAt - now < SESSION_REFRESH_THRESHOLD_MS)) {
     const renewed: UserSessionData = { ...data, expiresAt: now + SESSION_EXPIRY * 1000 }
     await redisSet(userSessionKey(token), renewed, SESSION_EXPIRY)
     const store = await cookies()

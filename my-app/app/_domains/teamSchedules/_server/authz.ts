@@ -23,9 +23,17 @@ const creatorDiscordIds = new Set(
     .filter(Boolean),
 )
 
-/** ログイン中ユーザーID（未認証は null） */
-export async function getSessionUserId(request: NextRequest): Promise<string | null> {
-  return getUserIdFromSession(request)
+/**
+ * ログイン中ユーザーID（未認証は null）。
+ * extend=false でスライディング延長（Cookie 再発行）を抑止する。
+ * セッションを失効させるルート（アカウント削除など）は延長 Cookie とルートの
+ * 失効 Cookie が衝突しないよう extend:false で呼ぶこと。
+ */
+export async function getSessionUserId(
+  request: NextRequest,
+  opts?: { extend?: boolean },
+): Promise<string | null> {
+  return getUserIdFromSession(request, opts)
 }
 
 /**
