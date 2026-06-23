@@ -321,10 +321,12 @@ async function findActiveFutureDays(teamId: string, managementMode: TeamManageme
       .where(and(eq(teamDayStatus.teamId, teamId), eq(teamDayStatus.status, "ok"), gte(teamDayStatus.day, fromDay)))
     return rows.map((r) => r.day)
   }
-  // members モード: 日ごとに ok 数を数え、requiredCount 以上の日だけ返す
+  // members モード: ok メンバー数を日ごとに数え、requiredCount 以上の日を返す。
+  // ok の定義（users と結合できる行）は正典 aggregateDay と揃える（孤児行を同様に除外し、判定を一本化）
   const rows = await db
-    .select({ day: schedules.day, status: schedules.status })
+    .select({ day: schedules.day })
     .from(schedules)
+    .innerJoin(users, eq(users.userId, schedules.userId))
     .where(and(eq(schedules.teamId, teamId), eq(schedules.status, "ok"), gte(schedules.day, fromDay)))
   const okCountByDay = new Map<DayKey, number>()
   for (const r of rows) okCountByDay.set(r.day, (okCountByDay.get(r.day) ?? 0) + 1)

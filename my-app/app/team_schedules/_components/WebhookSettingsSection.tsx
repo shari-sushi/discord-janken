@@ -51,9 +51,11 @@ const initialSlots = (): SlotsState => ({ own: emptySlot(), shared: emptySlot() 
 
 export function WebhookSettingsSection({ teamId, isMaster }: { teamId: string; isMaster: boolean }) {
   const [slots, setSlots] = useState<SlotsState>(initialSlots)
-  // 送信時刻（#177）。"" = 即時通知 / "HH:MM" = 時刻指定。initial は dirty 判定用
-  const [notifyTime, setNotifyTime] = useState<string>("")
-  const [initialNotifyTime, setInitialNotifyTime] = useState<string>("")
+  // 送信タイミング（#177）。モード（即時/指定時刻）と時刻値を分離して持つ。
+  // 1つの文字列に両方載せると、時刻欄を空にした瞬間に即時モードへ落ちて設定が消える事故になるため。
+  const [scheduled, setScheduled] = useState(false) // true = 指定時刻モード
+  const [timeValue, setTimeValue] = useState(DEFAULT_NOTIFY_TIME) // "HH:MM"
+  const [initialNotifyTime, setInitialNotifyTime] = useState<string | null>(null) // サーバー値（dirty判定用。null=即時）
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   // 枠ごとのテスト状態（送信中 / エラー）
@@ -68,8 +70,9 @@ export function WebhookSettingsSection({ teamId, isMaster }: { teamId: string; i
     setLoadError(null)
     try {
       const { webhooks, notifyTime: loadedTime } = await fetchTeamWebhooks(teamId)
-      setNotifyTime(loadedTime ?? "")
-      setInitialNotifyTime(loadedTime ?? "")
+      setScheduled(loadedTime !== null)
+      setTimeValue(loadedTime ?? DEFAULT_NOTIFY_TIME)
+      setInitialNotifyTime(loadedTime)
       const next = initialSlots()
       for (const w of webhooks) {
         // master は生 URL を初期表示、admin は空のまま（maskedUrl だけ見せる）
@@ -101,8 +104,13 @@ export function WebhookSettingsSection({ teamId, isMaster }: { teamId: string; i
     setSaved(false)
   }
 
-  const updateNotifyTime = (next: string) => {
-    setNotifyTime(next)
+  const updateScheduled = (next: boolean) => {
+    setScheduled(next)
+    setSaved(false)
+  }
+
+  const updateTimeValue = (next: string) => {
+    setTimeValue(next)
     setSaved(false)
   }
 
@@ -154,11 +162,15 @@ export function WebhookSettingsSection({ teamId, isMaster }: { teamId: string; i
 
   const ownPatch = buildPatch("own")
   const sharedPatch = buildPatch("shared")
-  const notifyTimeDirty = notifyTime !== initialNotifyTime
+  // 指定時刻モードでの実効値。即時モードなら null
+  const effectiveNotifyTime = scheduled ? timeValue : null
+  const notifyTimeDirty = effectiveNotifyTime !== initialNotifyTime
+  // 指定時刻モードなのに時刻が空/不正なら保存させない（空クリアで即時へ落とさない）
+  const notifyTimeInvalid = scheduled && !/^([01]\d|2[0-3]):[0-5]\d$/.test(timeValue)
   const dirty = ownPatch !== undefined || sharedPatch !== undefined || notifyTimeDirty
   // 変更した URL がテスト未了なら保存不可
   const blockedByUntested = WEBHOOK_SLOTS.some((slot) => isUrlUntested(slots[slot]))
-  const canSave = dirty && !blockedByUntested && !saving
+  const canSave = dirty && !blockedByUntested && !notifyTimeInvalid && !saving
 
   const handleSave = async () => {
     if (!canSave) return
@@ -168,8 +180,8 @@ export function WebhookSettingsSection({ teamId, isMaster }: { teamId: string; i
       const patch: TeamWebhooksUpdate = {}
       if (ownPatch) patch.own = ownPatch
       if (sharedPatch) patch.shared = sharedPatch
-      // "" は即時モード（null）に変換して送る。未変更なら送らない（キーを付けない）
-      if (notifyTimeDirty) patch.notifyTime = notifyTime === "" ? null : notifyTime
+      // 即時=null / 指定="HH:MM"。未変更なら送らない（キーを付けない）
+      if (notifyTimeDirty) patch.notifyTime = effectiveNotifyTime
       await updateTeamWebhooks(teamId, patch)
       await load()
       setSaved(true)
@@ -198,28 +210,22 @@ export function WebhookSettingsSection({ teamId, isMaster }: { teamId: string; i
             <span className="text-sm font-medium text-zinc-200">通知タイミング</span>
             <div className="mt-2 flex flex-col gap-2">
               <label className="flex items-center gap-2 text-sm text-zinc-300">
-                <input type="radio" name="notify-timing" checked={notifyTime === ""} onChange={() => updateNotifyTime("")} disabled={saving} className="h-4 w-4 accent-indigo-500" />
+                <input type="radio" name="notify-timing" checked={!scheduled} onChange={() => updateScheduled(false)} disabled={saving} className="h-4 w-4 accent-indigo-500" />
                 活動可能になり次第すぐに通知
               </label>
               <label className="flex flex-wrap items-center gap-2 text-sm text-zinc-300">
-                <input
-                  type="radio"
-                  name="notify-timing"
-                  checked={notifyTime !== ""}
-                  onChange={() => updateNotifyTime(notifyTime === "" ? DEFAULT_NOTIFY_TIME : notifyTime)}
-                  disabled={saving}
-                  className="h-4 w-4 accent-indigo-500"
-                />
+                <input type="radio" name="notify-timing" checked={scheduled} onChange={() => updateScheduled(true)} disabled={saving} className="h-4 w-4 accent-indigo-500" />
                 指定した時刻に通知
                 <input
                   type="time"
-                  value={notifyTime === "" ? DEFAULT_NOTIFY_TIME : notifyTime}
-                  onChange={(e) => updateNotifyTime(e.target.value)}
-                  disabled={saving || notifyTime === ""}
+                  value={timeValue}
+                  onChange={(e) => updateTimeValue(e.target.value)}
+                  disabled={saving || !scheduled}
                   className="rounded border border-zinc-600 bg-zinc-800 px-2 py-1 text-sm text-zinc-100 focus:border-indigo-400 focus:outline-none disabled:opacity-50"
                 />
                 <span className="text-xs text-zinc-500">（その日の時刻・日本時間）</span>
               </label>
+              {notifyTimeInvalid && <p className="text-xs text-rose-400">時刻を入力してください（即時に戻すには上を選択）。</p>}
             </div>
           </div>
 
