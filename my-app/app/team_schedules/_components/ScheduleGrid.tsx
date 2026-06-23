@@ -233,7 +233,11 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
                   チーム名テキストだけが相手列の右に常に残る。左インデントは padding でなく left に織り込み、
                   スクロールしても余白ごと固定する。
                 */}
-                <span title={ownTeamName} className="inline-block whitespace-nowrap text-[10px] font-medium leading-none text-indigo-300" style={{ position: "sticky", left: ownSectionLeft + OWN_NAME_INDENT }}>
+                <span
+                  title={ownTeamName}
+                  className="inline-block whitespace-nowrap text-[10px] font-medium leading-none text-indigo-300"
+                  style={{ position: "sticky", left: ownSectionLeft + OWN_NAME_INDENT }}
+                >
                   {ownTeamName}
                 </span>
               </th>
@@ -305,17 +309,16 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
       </table>
       {/* もっと見る: スクロール領域の中・テーブル直下に置く。
           モバイルではこの div 自体が内部スクロールするため、外側に固定するとテーブルの下に出ない（#171）。 */}
-      {canLoadMore && (
-        <div className="flex justify-center border-t border-zinc-800 p-2">
-          <button
-            type="button"
-            onClick={onLoadMore}
-            className="rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-1.5 text-sm font-medium text-zinc-200 hover:bg-zinc-800"
-          >
-            もっと見る（+2週間）
-          </button>
-        </div>
-      )}
+      <div className="flex justify-center border-t border-zinc-800 p-2">
+        <button
+          disabled={!canLoadMore}
+          type="button"
+          onClick={onLoadMore}
+          className="rounded-lg border border-zinc-600 bg-zinc-900 disabled:opacity-50 px-4 py-1.5 text-sm font-medium text-zinc-200 hover:bg-zinc-800 disabled:hover:bg-zinc-900"
+        >
+          もっと見る
+        </button>
+      </div>
     </div>
   )
 }
