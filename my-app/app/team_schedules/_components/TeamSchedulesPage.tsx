@@ -53,7 +53,13 @@ import { SettingModal, DEFAULT_SETTING_TAB, isSettingTab, type SettingTab } from
 import { SettingsIcon } from "../_icons/SettingsIcon"
 import { CollapseIcon } from "../_icons/CollapseIcon"
 
-const NUM_DAYS = 14
+/** 初期表示日数 */
+const INITIAL_DAYS = 14
+/** 「もっと見る」1回の増分（日） */
+const STEP_DAYS = 14
+/** 表示日数の上限。これ以上は増やせない（クエリ範囲の暴走防止）。
+ *  STEP_DAYS の倍数（14×7）にして、最後の一押しも必ず +STEP_DAYS ぶん＝ボタン表記と一致させる。 */
+const MAX_DAYS = 98
 
 /** 招待リンクからの参加トークンを、ログイン往復をまたいで保持する sessionStorage キー */
 const PENDING_JOIN_KEY = "ts_pending_join"
@@ -71,8 +77,14 @@ export function TeamSchedulesPage() {
     d.setHours(0, 0, 0, 0)
     return d
   })
-  const dates = useMemo(() => buildDateRange(start, NUM_DAYS), [start])
+  // 表示日数。「もっと見る」で STEP_DAYS ずつ MAX_DAYS まで伸ばす（#171）
+  const [visibleDays, setVisibleDays] = useState(INITIAL_DAYS)
+  const dates = useMemo(() => buildDateRange(start, visibleDays), [start, visibleDays])
   const dayKeys = useMemo(() => dates.map((d) => d.key), [dates])
+  const handleLoadMore = useCallback(() => {
+    setVisibleDays((d) => Math.min(d + STEP_DAYS, MAX_DAYS))
+  }, [])
+  const canLoadMore = visibleDays < MAX_DAYS
 
   const [session, setSession] = useState<SessionUser | null>(null)
   const [teams, setTeams] = useState<TeamSummary[]>([])
@@ -105,8 +117,13 @@ export function TeamSchedulesPage() {
   // 選択の整合（後段の reconcile 効果で参照）。magic-link ログイン確立後の再取得で
   // false に戻し、正しい isMember を反映した teams でもう一度だけ走らせる。
   const reconciledRef = useRef(false)
-  // 同一チームの取得が複数 effect 発火で二重に走らないようにする（#165: 先読みと選択取得の重複防止）
-  const fetchingRef = useRef<Set<string>>(new Set())
+  // チームごとに「どの終端（to）まで取得・適用済みか」を覚える。「もっと見る」で期間を伸ばした際の
+  // 再取得判定と、古い（狭い）レスポンスが後着して新しい（広い）データを上書きしないための比較に使う（#171）。
+  const fetchedToRef = useRef<Map<string, string>>(new Map())
+  // チームごとに「どの終端（to）で取得をリクエスト済みか」を覚える。同一範囲の二重取得
+  // （#165 の先読みと選択取得の重複、StrictMode の二重実行や再レンダリング）は防ぎつつ、
+  // より広い to の要求は別リクエストとして通すために使う（#171）。
+  const requestedToRef = useRef<Map<string, string>>(new Map())
 
   // token / join を URL から消す際、対象チーム選択用の team= だけは残して掃除する。
   // 招待リンク（?join=...&team=...）は join を消費しても team を後段の効果で読み取る必要があるため、
@@ -266,6 +283,9 @@ export function TeamSchedulesPage() {
   // localStorage 復元済みの選択中チームの予定を初期ロードと並行で取得し、view を loading 完了前に出すため
   // （下部カレンダーの「loading を待たず view 準備でき次第表示」コメント参照）。loading 完了で teams が入ると
   // deps 経由で再実行され、参加チーム全件を先読みする。
+  // 「もっと見る」で dayKeys が伸びると to が変わり、その終端をまだ取得リクエストしていないチームだけ再取得する（#171）。
+  // 取得状況は ref（requestedToRef/fetchedToRef）で判定するため schedulesByTeam は deps に入れない
+  // （セル編集の楽観更新のたびにこの effect が走るのを避ける）。
   useEffect(() => {
     const from = dayKeys[0]
     const to = dayKeys[dayKeys.length - 1]
@@ -273,14 +293,26 @@ export function TeamSchedulesPage() {
     const selectedIds = [ownTeamId, ...opponentTeamIds].filter((id): id is string => !!id)
     const ids = Array.from(new Set([...selectedIds, ...memberIds]))
     ids.forEach((id) => {
-      if (schedulesByTeam[id] || fetchingRef.current.has(id)) return
-      fetchingRef.current.add(id)
+      // 同一終端を取得リクエスト済み（in-flight 含む）ならスキップ。より広い to は別リクエストとして通す。
+      if (requestedToRef.current.get(id) === to) return
+      requestedToRef.current.set(id, to)
       void fetchTeamSchedule(id, from, to)
-        .then((team) => setSchedulesByTeam((prev) => ({ ...prev, [id]: team })))
-        .catch(() => {})
-        .finally(() => fetchingRef.current.delete(id))
+        .then((team) => {
+          // from は今日固定で to は単調に伸びるだけなので、丸ごと置き換えてよい。
+          // ただし狭い範囲の取得が広い範囲より後に解決し得る（連打＋遅延）。
+          // 古い（狭い）レスポンスで新しい（広い）データを潰さないよう、より広い終端のときだけ適用する。
+          const appliedTo = fetchedToRef.current.get(id)
+          if (appliedTo === undefined || appliedTo < to) {
+            fetchedToRef.current.set(id, to)
+            setSchedulesByTeam((prev) => ({ ...prev, [id]: team }))
+          }
+        })
+        .catch(() => {
+          // 失敗時はリクエスト記録を取り消し、次の effect 実行で同じ終端を再取得できるようにする
+          if (requestedToRef.current.get(id) === to) requestedToRef.current.delete(id)
+        })
     })
-  }, [teams, ownTeamId, opponentTeamIds, dayKeys, schedulesByTeam])
+  }, [teams, ownTeamId, opponentTeamIds, dayKeys])
 
   // ローカルの予定を更新（楽観的更新）
   const applyLocalEdit = useCallback((teamId: string, userId: string, day: string, status: CellStatus, note: string) => {
@@ -653,7 +685,12 @@ export function TeamSchedulesPage() {
     const from = dayKeys[0]
     const to = dayKeys[dayKeys.length - 1]
     void fetchTeamSchedule(ownTeamId, from, to)
-      .then((team) => setSchedulesByTeam((prev) => ({ ...prev, [ownTeamId]: team })))
+      .then((team) => {
+        // 先読み effect の取得記録と整合させる（この終端まで取得・適用済みとして記録）
+        fetchedToRef.current.set(ownTeamId, to)
+        requestedToRef.current.set(ownTeamId, to)
+        setSchedulesByTeam((prev) => ({ ...prev, [ownTeamId]: team }))
+      })
       .catch(() => {})
     void reloadTeams()
   }, [ownTeamId, dayKeys, reloadTeams])
@@ -1082,6 +1119,8 @@ export function TeamSchedulesPage() {
                 onNoteChange={handleNoteChange}
                 onTeamCycle={handleTeamCycle}
                 onTeamNoteChange={handleTeamNoteChange}
+                onLoadMore={handleLoadMore}
+                canLoadMore={canLoadMore}
               />
             )
           ) : ownTeamId || loading ? (

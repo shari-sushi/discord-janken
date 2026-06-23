@@ -22,6 +22,10 @@ type ScheduleGridProps = {
   /** チーム単位モード列の状態トグル（userId を持たない） */
   onTeamCycle: (payload: TeamEditPayload & { current: CellStatus }) => void
   onTeamNoteChange: (payload: TeamEditPayload & { value: string }) => void
+  /** 「もっと見る」押下で表示期間を延ばす（#171） */
+  onLoadMore?: () => void
+  /** 上限未満で「もっと見る」を表示するか（#171） */
+  canLoadMore?: boolean
 }
 
 const SIZE = { date: 64, count: 64, opponent: 70, member: 78 }
@@ -66,7 +70,7 @@ function pinnedStyle(column: Column<GridRow>, isHeader: boolean): React.CSSPrope
   }
 }
 
-export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, ownTeamName, onCycle, onNoteChange, onTeamCycle, onTeamNoteChange }: ScheduleGridProps) {
+export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, ownTeamName, onCycle, onNoteChange, onTeamCycle, onTeamNoteChange, onLoadMore, canLoadMore }: ScheduleGridProps) {
   const columns = useMemo<ColumnDef<GridRow>[]>(() => {
     // 列の種別に応じた編集ハンドラ（表・カード共通の makeCellHandlers に委譲）
     const cellHandlers = (col: ScheduleColumn, day: string, current: CellStatus) => makeCellHandlers(col, day, current, { onCycle, onNoteChange, onTeamCycle, onTeamNoteChange })
@@ -299,6 +303,19 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
           })}
         </tbody>
       </table>
+      {/* もっと見る: スクロール領域の中・テーブル直下に置く。
+          モバイルではこの div 自体が内部スクロールするため、外側に固定するとテーブルの下に出ない（#171）。 */}
+      {canLoadMore && (
+        <div className="flex justify-center border-t border-zinc-800 p-2">
+          <button
+            type="button"
+            onClick={onLoadMore}
+            className="rounded-lg border border-zinc-600 bg-zinc-900 px-4 py-1.5 text-sm font-medium text-zinc-200 hover:bg-zinc-800"
+          >
+            もっと見る（+2週間）
+          </button>
+        </div>
+      )}
     </div>
   )
 }
