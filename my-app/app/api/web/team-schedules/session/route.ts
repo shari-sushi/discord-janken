@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { users } from "@/app/_domains/teamSchedules/_server/schema"
-import { canCreateTeam, getSessionUserId } from "@/app/_domains/teamSchedules/_server/authz"
+import { getSessionUserId, isAllowlistedCreator } from "@/app/_domains/teamSchedules/_server/authz"
 import { ServerTiming } from "@/app/_server/lib/serverTiming"
 
 /**
@@ -27,8 +27,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       return res
     }
 
-    const allowed = await t.measure("db_can_create", () => canCreateTeam(userId))
-    const res = NextResponse.json({ success: true, user: { userId, displayName: rows[0].displayName, canCreateTeam: allowed } })
+    // 上限を無視できる許可ユーザーか（フロントは所属チーム数と組み合わせて作成・参加可否を算出する）
+    const bypassTeamLimit = await t.measure("db_bypass_team_limit", () => isAllowlistedCreator(userId))
+    const res = NextResponse.json({ success: true, user: { userId, displayName: rows[0].displayName, bypassTeamLimit } })
     t.applyTo(res)
     return res
   } catch (error) {

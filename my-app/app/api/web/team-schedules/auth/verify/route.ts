@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { magicLinkKey } from "@/app/_domains/teamSchedules/_server/redisKeys"
 import { createUserSession, sessionCookieOptions, TS_SESSION_COOKIE } from "@/app/_domains/teamSchedules/_server/session"
-import { canCreateTeam } from "@/app/_domains/teamSchedules/_server/authz"
+import { isAllowlistedCreator } from "@/app/_domains/teamSchedules/_server/authz"
 import { isDiscordBanned } from "@/app/_domains/teamSchedules/_server/bans"
 import { resolveOrCreateUserByDiscordId } from "@/app/_domains/teamSchedules/_server/userResolver"
 import { redisGet, redisDelete } from "@/app/_server/lib/redis/redis"
@@ -50,9 +50,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const sessionToken = await createUserSession(userId)
 
-    const allowed = await canCreateTeam(userId)
-    console.log(`team-schedules auth/verify: session created token=${tokenPrefix}… canCreateTeam=${allowed}`)
-    const res = NextResponse.json({ success: true, user: { userId, displayName, canCreateTeam: allowed } })
+    // 上限を無視できる許可ユーザーか（フロントは所属チーム数と組み合わせて作成・参加可否を算出する）
+    const bypassTeamLimit = await isAllowlistedCreator(userId)
+    console.log(`team-schedules auth/verify: session created token=${tokenPrefix}… bypassTeamLimit=${bypassTeamLimit}`)
+    const res = NextResponse.json({ success: true, user: { userId, displayName, bypassTeamLimit } })
     res.cookies.set(TS_SESSION_COOKIE, sessionToken, sessionCookieOptions())
     return res
   } catch (error) {

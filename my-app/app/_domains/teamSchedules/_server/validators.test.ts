@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { isScheduleStatus, isDayKey, isValidNote, isUuid, isWebhookSlot, isWebhookProvider, isDiscordWebhookUrl } from "./validators"
+import { isScheduleStatus, isDayKey, isValidNote, isUuid, isWebhookSlot, isWebhookProvider, isDiscordWebhookUrl, isHhmm } from "./validators"
 
 describe("teamSchedules validators", () => {
   describe("isScheduleStatus", () => {
@@ -101,6 +101,24 @@ describe("teamSchedules validators", () => {
       expect(isDiscordWebhookUrl("https://discord.com/api/webhooks/123")).toBe(false)
       expect(isDiscordWebhookUrl("https://discord.com/api/webhooks/123/" + "a".repeat(300))).toBe(false)
       expect(isDiscordWebhookUrl(null)).toBe(false)
+    })
+  })
+
+  describe("isHhmm", () => {
+    it("success: 00:00〜23:59 の HH:MM を受理する", () => {
+      expect(isHhmm("00:00")).toBe(true)
+      expect(isHhmm("09:05")).toBe(true)
+      expect(isHhmm("20:30")).toBe(true)
+      expect(isHhmm("23:59")).toBe(true)
+    })
+    it("failure: 範囲外・桁不足・形式違い・null は拒否する", () => {
+      expect(isHhmm("24:00")).toBe(false)
+      expect(isHhmm("23:60")).toBe(false)
+      expect(isHhmm("9:05")).toBe(false) // 先頭0必須
+      expect(isHhmm("20:5")).toBe(false)
+      expect(isHhmm("2030")).toBe(false)
+      expect(isHhmm("")).toBe(false)
+      expect(isHhmm(null)).toBe(false)
     })
   })
 })

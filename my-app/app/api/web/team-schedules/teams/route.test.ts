@@ -106,7 +106,7 @@ describe("POST /team-schedules/teams", () => {
     expect(insert).not.toHaveBeenCalled()
   })
 
-  it("failure: 作成権限が無ければ403（作成しない）", async () => {
+  it("failure: 参加上限に達していれば403（作成しない）", async () => {
     mockGetSessionUserId.mockResolvedValue("user-1")
     mockCanCreateTeam.mockResolvedValue(false)
     const res = await POST(createTestRequest(URL, { method: "POST", body: validBody }))

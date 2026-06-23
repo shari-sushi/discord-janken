@@ -14,7 +14,7 @@ type ScheduleGridProps = {
   rows: GridRow[]
   threshold: number
   opponentColumns: ScheduleColumn[]
-  memberColumns: ScheduleColumn[]
+  ownColumns: ScheduleColumn[]
   /** ○数列ヘッダーの上に表示する自チーム名 */
   ownTeamName: string
   onCycle: (payload: EditPayload & { current: CellStatus }) => void
@@ -22,6 +22,10 @@ type ScheduleGridProps = {
   /** チーム単位モード列の状態トグル（userId を持たない） */
   onTeamCycle: (payload: TeamEditPayload & { current: CellStatus }) => void
   onTeamNoteChange: (payload: TeamEditPayload & { value: string }) => void
+  /** 「もっと見る」押下で表示期間を延ばす（#171） */
+  onLoadMore?: () => void
+  /** 上限未満で「もっと見る」を表示するか（#171） */
+  canLoadMore?: boolean
 }
 
 const SIZE = { date: 64, count: 64, opponent: 70, member: 78 }
@@ -66,7 +70,7 @@ function pinnedStyle(column: Column<GridRow>, isHeader: boolean): React.CSSPrope
   }
 }
 
-export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, ownTeamName, onCycle, onNoteChange, onTeamCycle, onTeamNoteChange }: ScheduleGridProps) {
+export function ScheduleGrid({ rows, threshold, opponentColumns, ownColumns, ownTeamName, onCycle, onNoteChange, onTeamCycle, onTeamNoteChange, onLoadMore, canLoadMore }: ScheduleGridProps) {
   const columns = useMemo<ColumnDef<GridRow>[]>(() => {
     // 列の種別に応じた編集ハンドラ（表・カード共通の makeCellHandlers に委譲）
     const cellHandlers = (col: ScheduleColumn, day: string, current: CellStatus) => makeCellHandlers(col, day, current, { onCycle, onNoteChange, onTeamCycle, onTeamNoteChange })
@@ -137,7 +141,7 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
       },
     }))
 
-    const memberCols: ColumnDef<GridRow>[] = memberColumns.map((col) => ({
+    const ownCols: ColumnDef<GridRow>[] = ownColumns.map((col) => ({
       id: col.id,
       header: col.label,
       size: SIZE.member,
@@ -150,10 +154,10 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
     }))
 
     // チーム単位モードの自チームは1列でその日の○△×を直接表示するため、○数（集計）列は不要
-    const ownIsTeamMode = memberColumns[0]?.kind === "team"
+    const ownIsTeamMode = ownColumns[0]?.kind === "team"
     // 日付を一番左に。続けて 相手チーム → ○数（自チーム集計・members モードのみ）→ 各メンバー
-    return [dateCol, ...opponentCols, ...(ownIsTeamMode ? [] : [countCol]), ...memberCols]
-  }, [opponentColumns, memberColumns, threshold, onCycle, onNoteChange, onTeamCycle, onTeamNoteChange])
+    return [dateCol, ...opponentCols, ...(ownIsTeamMode ? [] : [countCol]), ...ownCols]
+  }, [opponentColumns, ownColumns, threshold, onCycle, onNoteChange, onTeamCycle, onTeamNoteChange])
 
   // ピン留め（sticky-left）は日付＋相手チームのみ。○数〜各メンバー（自チーム区画）は
   // 上段の自チーム名ヘッダーと一体でスクロールさせたいので、○数のピン留めはしない。
@@ -165,9 +169,9 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
   // opponent/member いずれも ScheduleColumn.id がテーブル列IDと一致する（opp:teamId / own:userId など）。
   const columnById = useMemo(() => {
     const m = new Map<string, ScheduleColumn>()
-    for (const c of [...opponentColumns, ...memberColumns]) m.set(c.id, c)
+    for (const c of [...opponentColumns, ...ownColumns]) m.set(c.id, c)
     return m
-  }, [opponentColumns, memberColumns])
+  }, [opponentColumns, ownColumns])
 
   // TanStack Table の useReactTable は関数を返すため React Compiler でメモ化されない
   // （既知のライブラリ制約。動作には影響しないため抑制する）
@@ -180,10 +184,10 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
   })
 
   // 自チーム区画の下段ヘッダー（○数＋各メンバー）。members モードは ○数＋メンバー、team モードはチーム1列。
-  const ownIsTeamMode = memberColumns[0]?.kind === "team"
+  const ownIsTeamMode = ownColumns[0]?.kind === "team"
   const ownLeaves: { key: string; node: React.ReactNode; bg: string; size: number }[] = [
     ...(ownIsTeamMode ? [] : [{ key: "count", node: "○数", bg: "bg-zinc-800 text-zinc-300", size: SIZE.count }]),
-    ...memberColumns.map((c) => ({ key: c.id, node: c.label, bg: c.editable ? "bg-indigo-600 text-white" : "bg-zinc-800 text-zinc-300", size: SIZE.member })),
+    ...ownColumns.map((c) => ({ key: c.id, node: c.label, bg: c.editable ? "bg-indigo-600 text-white" : "bg-zinc-800 text-zinc-300", size: SIZE.member })),
   ]
   // 2列以上のときだけ上段にチーム名をまたがせる（1列＝team モードはその列ヘッダーを2段ぶち抜きにする）
   const ownGrouped = ownLeaves.length >= 2
@@ -229,7 +233,11 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
                   チーム名テキストだけが相手列の右に常に残る。左インデントは padding でなく left に織り込み、
                   スクロールしても余白ごと固定する。
                 */}
-                <span title={ownTeamName} className="inline-block whitespace-nowrap text-[10px] font-medium leading-none text-indigo-300" style={{ position: "sticky", left: ownSectionLeft + OWN_NAME_INDENT }}>
+                <span
+                  title={ownTeamName}
+                  className="inline-block whitespace-nowrap text-[10px] font-medium leading-none text-indigo-300"
+                  style={{ position: "sticky", left: ownSectionLeft + OWN_NAME_INDENT }}
+                >
                   {ownTeamName}
                 </span>
               </th>
@@ -268,10 +276,10 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
                   const pinned = col.getIsPinned() === "left"
                   const schedCol = columnById.get(col.id)
                   const isTeamCol = schedCol?.kind === "team"
-                  const editableMember = memberColumns.find((c) => c.id === col.id)?.editable
+                  const editableOwn = ownColumns.find((c) => c.id === col.id)?.editable
                   // ピン留め列（日付・相手）と ○数 は行背景を敷く（○数はピン留めしないが集計列なので行背景を維持）。
                   // 自メンバー列は編集中のみハイライト。team 列は bg を状態強調に使うため indigo bg は敷かない（編集可は下の ring で表現）
-                  let cellBg = pinned || col.id === "count" ? bg : editableMember && !isTeamCol ? "bg-indigo-950/40" : ""
+                  let cellBg = pinned || col.id === "count" ? bg : editableOwn && !isTeamCol ? "bg-indigo-950/40" : ""
                   // チーム単位モード列は、その日のセル状態に応じてセル全体を強調する（○=bg を上書き / ×=中身を薄く）。
                   // ○の強調 bg は成立行の背景に近い不透明の emerald 系（#112e28）。ピン留め相手team列でも視認性優先で行背景より優先する。
                   const emphasis = isTeamCol ? teamCellEmphasis(schedCol!.cells.get(r.date.key)?.status ?? "none") : null
@@ -299,6 +307,18 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, memberColumns, 
           })}
         </tbody>
       </table>
+      {/* もっと見る: スクロール領域の中・テーブル直下に置く。
+          モバイルではこの div 自体が内部スクロールするため、外側に固定するとテーブルの下に出ない（#171）。 */}
+      <div className="flex justify-center border-t border-zinc-800 p-2">
+        <button
+          disabled={!canLoadMore}
+          type="button"
+          onClick={onLoadMore}
+          className="rounded-lg border border-zinc-600 bg-zinc-900 disabled:opacity-50 px-4 py-1.5 text-sm font-medium text-zinc-200 hover:bg-zinc-800 disabled:hover:bg-zinc-900"
+        >
+          もっと見る
+        </button>
+      </div>
     </div>
   )
 }
