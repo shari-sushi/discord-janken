@@ -1,6 +1,6 @@
 {
-  "id": "b5ad6131-b50e-4989-921e-700d245f2734",
-  "prevId": "24f0306d-7f39-426a-942a-1dddc3fedb5a",
+  "id": "f2005ca9-5b52-46ee-b38b-eaa5510af01b",
+  "prevId": "b5ad6131-b50e-4989-921e-700d245f2734",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -731,6 +731,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'members'"
+        },
+        "notify_activity_time": {
+          "name": "notify_activity_time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",

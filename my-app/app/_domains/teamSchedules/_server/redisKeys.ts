@@ -19,3 +19,8 @@ export function userSessionKey(token: string): string {
 export function inviteKey(token: string): string {
   return `ts:invite:${token}`
 }
+
+/** スケジュール共有トークン（TTL付き・受諾されても削除せず TTL で失効・#175）。値は { sourceTeamId } */
+export function shareKey(token: string): string {
+  return `ts:share:${token}`
+}

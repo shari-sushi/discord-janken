@@ -2,7 +2,7 @@
  * Discord REST API 通信用のヘルパー関数
  */
 
-import { APIActionRowComponent, APIComponentInMessageActionRow, MessageFlags } from "discord-api-types/v10"
+import { APIActionRowComponent, APIAllowedMentions, APIComponentInMessageActionRow, MessageFlags } from "discord-api-types/v10"
 import { DISCORD_API_BASE_URL, DISCORD_BOT_TOKEN } from "@/app/_server/lib/env"
 
 export interface DiscordMessageResponse {
@@ -42,6 +42,7 @@ export class DiscordApiError extends Error {
 interface DiscordMessageBody {
   content: string
   components?: APIActionRowComponent<APIComponentInMessageActionRow>[]
+  allowed_mentions?: APIAllowedMentions
 }
 
 /**
@@ -303,13 +304,23 @@ export async function getWebhookOriginalMessage(applicationId: string, token: st
  * @param token - インタラクショントークン
  * @param content - メッセージ本文
  * @param components - コンポーネント配列
+ * @param allowedMentions - メンション解釈の制御（例: `{ parse: [] }` で @everyone 等のピングを全抑止）
  */
-export async function editWebhookOriginalMessage(applicationId: string, token: string, content: string, components?: APIActionRowComponent<APIComponentInMessageActionRow>[]): Promise<void> {
+export async function editWebhookOriginalMessage(
+  applicationId: string,
+  token: string,
+  content: string,
+  components?: APIActionRowComponent<APIComponentInMessageActionRow>[],
+  allowedMentions?: APIAllowedMentions,
+): Promise<void> {
   const url = `${DISCORD_API_BASE_URL}/webhooks/${applicationId}/${token}/messages/@original`
 
   const body: DiscordMessageBody = { content }
   if (components && components.length > 0) {
     body.components = components
+  }
+  if (allowedMentions) {
+    body.allowed_mentions = allowedMentions
   }
 
   const response = await fetch(url, {
@@ -335,6 +346,7 @@ export async function editWebhookOriginalMessage(applicationId: string, token: s
  * @param content - メッセージ本文
  * @param components - コンポーネント配列
  * @param ephemeral - true で本人にのみ表示（既定: false = public）
+ * @param allowedMentions - メンション解釈の制御（例: `{ parse: [] }` で @everyone 等のピングを全抑止）
  */
 export async function createFollowupMessage(
   applicationId: string,
@@ -342,6 +354,7 @@ export async function createFollowupMessage(
   content: string,
   components?: APIActionRowComponent<APIComponentInMessageActionRow>[],
   ephemeral = false,
+  allowedMentions?: APIAllowedMentions,
 ): Promise<void> {
   const url = `${DISCORD_API_BASE_URL}/webhooks/${applicationId}/${token}`
 
@@ -351,6 +364,9 @@ export async function createFollowupMessage(
   }
   if (ephemeral) {
     body.flags = MessageFlags.Ephemeral
+  }
+  if (allowedMentions) {
+    body.allowed_mentions = allowedMentions
   }
 
   const response = await fetch(url, {

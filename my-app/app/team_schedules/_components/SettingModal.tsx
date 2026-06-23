@@ -50,6 +50,12 @@ type SettingModalProps = {
   onCreated: (team: TeamSummary) => void
   /** 招待リンク発行（親が createInvite → 招待モーダル表示まで担当） */
   onInvite: () => void
+  /** このチームがスケジュールを共有している相手チーム（teamId + 名前・#175） */
+  sharePartners: { teamId: string; name: string }[]
+  /** 共有リンク発行（親が createShareInvite → 共有モーダル表示まで担当・#175） */
+  onShareInvite: () => void
+  /** 共有解除の確認モーダルを開く（親が overlay で確認 → deleteShare を叩く・#175） */
+  onUnshare: (partnerTeamId: string, partnerName: string) => void
   /** 現在のタブ（URL クエリ `?setting=<tab>` 由来。親が単一の真実として持つ） */
   tab: SettingTab
   /** タブ切替（親が URL クエリを書き換える） */
@@ -94,7 +100,7 @@ function ComingSoonSection({ title }: { title: string }) {
  * タブ構成: 今のチーム（設定変更・招待リンク発行）/ 新規チーム作成 / 全体設定（準備中）。
  * md 以下は body 全体を覆う実質ページ、lg 以上は中央カード。
  */
-export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, isMaster, canCreate, onClose, onUpdated, onCreated, onInvite, onLeave, onSucceed, onDisband, onLogout, onDeleteAccount, tab, onTabChange }: SettingModalProps) {
+export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, isMaster, canCreate, onClose, onUpdated, onCreated, onInvite, sharePartners, onShareInvite, onUnshare, onLeave, onSucceed, onDisband, onLogout, onDeleteAccount, tab, onTabChange }: SettingModalProps) {
   // タブの選択状態は URL クエリ（?setting=<tab>）を単一の真実とし、親から tab/onTabChange で受け取る
   // 編集項目はモーダル末尾の「保存する」1つでまとめて保存する（変更のあった項目だけ1回の PATCH で送る）
   // team 未選択（null）でもフックは固定数呼ぶ必要があるため、初期値はフォールバックで持つ（チーム管理タブは team が無ければ案内のみ）
@@ -244,6 +250,40 @@ export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, isM
               <button type="button" onClick={onInvite} className="mt-2 rounded-lg border border-indigo-500 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-indigo-300 hover:bg-zinc-800">
                 招待リンクを発行
               </button>
+            </section>
+          )}
+
+          {/* スケジュール共有（admin のみ・#175）。相手チームと互いの活動可能日を共有する。発行・解除の確認は親に委譲 */}
+          {isAdmin && (
+            <section className="border-t border-zinc-800 pt-4">
+              <h3 className="text-sm font-bold text-zinc-300">スケジュール共有</h3>
+              <p className="mt-1 text-xs text-zinc-500">他チームと互いの活動可能日を共有します。共有リンクを相手チームの管理者に渡し、承認されると相手のスケジュールを比較できます。</p>
+              <button type="button" onClick={onShareInvite} className="mt-2 rounded-lg border border-indigo-500 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-indigo-300 hover:bg-zinc-800">
+                スケジュールを共有する
+              </button>
+
+              {/* 共有中のチーム一覧（0件でも見出しは出す）。各行に解除ボタン */}
+              <div className="mt-3">
+                <h4 className="text-xs font-bold text-zinc-400">共有中のチーム</h4>
+                {sharePartners.length === 0 ? (
+                  <p className="mt-1 text-xs text-zinc-500">まだ共有しているチームはありません。</p>
+                ) : (
+                  <ul className="mt-1.5 flex flex-col gap-1.5">
+                    {sharePartners.map((p) => (
+                      <li key={p.teamId} className="flex items-center justify-between gap-2 rounded border border-zinc-700 bg-zinc-800/50 px-2.5 py-1.5">
+                        <span className="min-w-0 flex-1 truncate text-sm text-zinc-200">{p.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => onUnshare(p.teamId, p.name)}
+                          className="shrink-0 rounded border border-rose-700 bg-rose-950/40 px-2 py-1 text-xs font-medium text-rose-300 hover:bg-rose-900/40"
+                        >
+                          共有を解除する
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </section>
           )}
 

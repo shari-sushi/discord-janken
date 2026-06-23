@@ -5,7 +5,7 @@ import { canCreateTeam } from "@/app/_domains/teamSchedules/_server/authz"
 import { isDiscordBanned } from "@/app/_domains/teamSchedules/_server/bans"
 import { resolveOrCreateUserByDiscordId } from "@/app/_domains/teamSchedules/_server/userResolver"
 import { redisGet, redisDelete } from "@/app/_server/lib/redis/redis"
-import type { MagicLinkPayload } from "@/app/api/discord/command/team-schedule/login"
+import type { MagicLinkPayload } from "@/app/_domains/teamSchedules/_server/magicLink"
 
 /**
  * magic-link 検証エンドポイント。

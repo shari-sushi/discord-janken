@@ -39,7 +39,7 @@ async function request<T>(endpoint: string, init: { method: string; body?: objec
 /** 全チーム＋設定＋メンバー＋無所属ユーザーを取得 */
 export async function fetchAdminOverview(): Promise<AdminOverview> {
   const json = await request<AdminOverview>("/overview", { method: "GET" }, "管理データの取得に失敗しました")
-  return { teams: json.teams ?? [], orphanUsers: json.orphanUsers ?? [] }
+  return { teams: json.teams ?? [], orphanUsers: json.orphanUsers ?? [], shares: json.shares ?? [] }
 }
 
 /** チームを強制解散する（取り消し不可） */

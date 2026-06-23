@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { PUT, DELETE } from "./route"
+import { GET, PUT, DELETE } from "./route"
 import { createTestRequest } from "@/__tests__/helpers/api-test-utils"
+
+// 可視性ガード（#175）をモック。GET は未ログイン・非可視を 404 で存在隠蔽する
+const mockIsTeamVisibleTo = vi.fn()
+vi.mock("@/app/_domains/teamSchedules/_server/shares", () => ({
+  isTeamVisibleTo: (...args: unknown[]) => mockIsTeamVisibleTo(...args),
+}))
 
 // 認可ヘルパーをモック（本人列のみ編集可・非メンバー404 のロジックを route 単体で検証する）。
 // route は suspend 判定とメンバーシップ取得を getTeamMembershipWithSuspension の1クエリに畳んでいるため、
@@ -48,6 +54,26 @@ const ctxFor = () => ({ params: Promise.resolve({ teamId: TEAM_ID }) })
 beforeEach(() => {
   vi.clearAllMocks()
   mockIsUserSuspended.mockResolvedValue(false)
+})
+
+describe("GET /team-schedules/teams/[teamId]/schedule", () => {
+  const getUrl = `${URL}?from=2026-06-14&to=2026-06-27`
+
+  it("failure: 未ログインは404（存在隠蔽・public read 廃止・#175）", async () => {
+    mockGetSessionUserId.mockResolvedValue(null)
+    const res = await GET(createTestRequest(getUrl), ctxFor())
+    expect(res.status).toBe(404)
+    // 可視性判定にも到達しない
+    expect(mockIsTeamVisibleTo).not.toHaveBeenCalled()
+  })
+
+  it("failure: 所属でも共有でもないチームは404（存在隠蔽・#175）", async () => {
+    mockGetSessionUserId.mockResolvedValue("user-1")
+    mockIsTeamVisibleTo.mockResolvedValue(false)
+    const res = await GET(createTestRequest(getUrl), ctxFor())
+    expect(res.status).toBe(404)
+    expect(mockIsTeamVisibleTo).toHaveBeenCalledWith(TEAM_ID, "user-1")
+  })
 })
 
 describe("PUT /team-schedules/teams/[teamId]/schedule", () => {

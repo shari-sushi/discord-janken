@@ -1,20 +1,48 @@
-import { eq } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { teamMembers, teams } from "@/app/_domains/teamSchedules/_server/schema"
 import { canCreateTeam, getSessionUserId, isUserSuspended } from "@/app/_domains/teamSchedules/_server/authz"
+import { getSharePartnersForTeams } from "@/app/_domains/teamSchedules/_server/shares"
 import { isManagementMode, isValidRequiredCount, isValidTeamDescription, isValidTeamName } from "@/app/_domains/teamSchedules/_server/validators"
 import type { TeamSummary } from "@/app/_domains/teamSchedules/types"
 import { ServerTiming } from "@/app/_server/lib/serverTiming"
 
 /**
  * GET /api/web/team-schedules/teams
- * チーム一覧（比較セレクタ用・public read）。
- * ログイン中なら、各チームに「自分が所属しているか」(isMember) を付与する（未ログインは全て false）。
+ * 比較セレクタ用のチーム一覧。閲覧できるのは「所属チーム ∪ それと共有しているチーム」だけ（#175）。
+ * 未ログインは何も返さない（teams: []）。各チームに isMember / isMaster / sharedTeamIds を付与する。
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const t = new ServerTiming()
   try {
+    // 未ログインは可視チーム 0 件（public read を廃止・#175）
+    const userId = await t.measure("session", () => getSessionUserId(req))
+    if (!userId) {
+      const res = NextResponse.json({ success: true, teams: [] })
+      t.applyTo(res)
+      return res
+    }
+
+    // 所属チームとロール
+    const memberRows = await t.measure("db_member_teams", () =>
+      db.select({ teamId: teamMembers.teamId, teamRole: teamMembers.teamRole }).from(teamMembers).where(eq(teamMembers.userId, userId)),
+    )
+    const roleByTeam = new Map<string, string>()
+    for (const r of memberRows) roleByTeam.set(r.teamId, r.teamRole)
+    const ownTeamIds = [...roleByTeam.keys()]
+
+    // 所属チームごとの共有相手（1往復）。可視チーム = 所属 ∪ 共有相手
+    const partnersByTeam = await t.measure("db_share_partners", () => getSharePartnersForTeams(ownTeamIds))
+    const visibleIds = new Set(ownTeamIds)
+    for (const partners of partnersByTeam.values()) for (const p of partners) visibleIds.add(p)
+
+    if (visibleIds.size === 0) {
+      const res = NextResponse.json({ success: true, teams: [] })
+      t.applyTo(res)
+      return res
+    }
+
     const rows = await t.measure("db_teams", () =>
       db
         .select({
@@ -24,20 +52,18 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           requiredCount: teams.requiredCount,
           managementMode: teams.managementMode,
         })
-        .from(teams),
+        .from(teams)
+        .where(inArray(teams.teamId, [...visibleIds])),
     )
 
-    // ログイン中ユーザーの所属チームとロールを引く（未ログインなら空＝全て isMember/isMaster:false）
-    const userId = await t.measure("session", () => getSessionUserId(req))
-    const roleByTeam = new Map<string, string>()
-    if (userId) {
-      const memberRows = await t.measure("db_member_teams", () =>
-        db.select({ teamId: teamMembers.teamId, teamRole: teamMembers.teamRole }).from(teamMembers).where(eq(teamMembers.userId, userId)),
-      )
-      for (const r of memberRows) roleByTeam.set(r.teamId, r.teamRole)
-    }
-
-    const list: TeamSummary[] = rows.map((r) => ({ ...r, isMember: roleByTeam.has(r.teamId), isMaster: roleByTeam.get(r.teamId) === "master" }))
+    const list: TeamSummary[] = rows.map((r) => ({
+      ...r,
+      isMember: roleByTeam.has(r.teamId),
+      isMaster: roleByTeam.get(r.teamId) === "master",
+      // sharedTeamIds は所属チームにのみ実体が入る（partnersByTeam は ownTeamIds で引いたため）。
+      // 共有相手として可視なだけのチームは空配列（その共有相手は呼び出し元には関係ない）。
+      sharedTeamIds: partnersByTeam.get(r.teamId) ?? [],
+    }))
     const res = NextResponse.json({ success: true, teams: list })
     t.applyTo(res)
     return res
