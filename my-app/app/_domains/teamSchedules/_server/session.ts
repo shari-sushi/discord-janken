@@ -29,8 +29,9 @@ const SESSION_REFRESH_THRESHOLD_MS = 60 * 60 * 24 * 3 * 1000 // 3 days in ms
 export interface UserSessionData {
   userId: string
   createdAt: number
-  /** 有効期限（ms epoch）。スライディング更新の残り時間判定に使う */
-  expiresAt: number
+  /** 有効期限（ms epoch）。スライディング更新の残り時間判定に使う。
+   *  本変更より前に発行された旧セッションには無い（次回アクセスで補填）ため optional。 */
+  expiresAt?: number
 }
 
 function generateSessionToken(): string {
