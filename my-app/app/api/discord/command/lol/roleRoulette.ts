@@ -91,7 +91,9 @@ export const handleRoleRouletteStart = (interaction: APIMessageComponentInteract
   after(async () => {
     try {
       const intervalMs = 300
-      // 各ロール絵文字のリアクションユーザーを順番に取得（並列だとrate limitに引っかかるため）
+      // 各ロール絵文字のリアクションユーザーを順番に取得（並列だとrate limitに引っかかるため）。
+      // getReactionUsers は内部で ?after= ページネーション（100件超も全件）と 429 リトライを行うので、
+      // ここでは絵文字間にだけ intervalMs を挟む。集計（reactorsByRole）はこのコマンド層に残す。
       const topUsers = await getReactionUsers(channelId, messageId, ROLE_EMOJIS.TOP)
       await new Promise((resolve) => setTimeout(resolve, intervalMs))
       const jgUsers = await getReactionUsers(channelId, messageId, ROLE_EMOJIS.JG)

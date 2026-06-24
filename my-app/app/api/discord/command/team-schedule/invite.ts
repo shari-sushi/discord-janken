@@ -81,7 +81,7 @@ function deferredEphemeral(): NextResponse {
  */
 async function safeEdit(applicationId: string, token: string, content: string, components?: APIActionRowComponent<APIComponentInMessageActionRow>[]): Promise<void> {
   try {
-    await editWebhookOriginalMessage(applicationId, token, content, components, NO_MENTIONS)
+    await editWebhookOriginalMessage(applicationId, token, content, components, undefined, NO_MENTIONS)
   } catch (e) {
     console.error("team-schedule invite: editWebhookOriginalMessage failed:", e)
   }
