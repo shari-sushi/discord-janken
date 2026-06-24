@@ -68,15 +68,13 @@ describe("createReactionEmbed", () => {
     expect(result.description!.length).toBeLessThanOrEqual("元メッセージ: ".length + 200 + "...".length)
   })
 
-  it("success: メンション文字列が1024文字を超える場合、省略される", () => {
-    // 100ユーザー分のID（各ユーザーのメンションは約22文字 = `<@user_123456789012345678>`）
-    const userIds = Array.from({ length: 100 }, (_, i) => `user_${i.toString().padStart(18, "0")}`)
-
+  it("success: count が表示数を超える場合、embed の field に「…ほか N 人」が出る", () => {
+    // userIds は取得上限で 3 件、count（真の総数）は 100 → 表示しきれなかったのは 97 人
     const reactionFields: ReactionFieldData[] = [
       {
         emojiName: "🔥",
         count: 100,
-        userIds,
+        userIds: ["user1", "user2", "user3"],
       },
     ]
 
@@ -86,8 +84,9 @@ describe("createReactionEmbed", () => {
       executor: "TestUser",
     })
 
-    expect(result.fields![0].value).toContain("...")
-    expect(result.fields![0].value.length).toBeLessThanOrEqual(1024)
+    expect(result.fields![0].value).toContain("<@user1>")
+    expect(result.fields![0].value).toContain("…ほか 97 人（多すぎるため一部のみ表示）")
+    expect(result.fields![0].value).not.toContain("...")
   })
 
   it("success: ユーザーIDが空の場合、「なし」が表示される", () => {

@@ -77,6 +77,17 @@ describe("getReactionUsers", () => {
     await expect(getReactionUsers("c", "m", "👍", { intervalMs: 0 })).rejects.toBeInstanceOf(DiscordApiError)
     expect(mockFetch).toHaveBeenCalledTimes(1)
   })
+
+  it("success: maxUsers を指定すると上限で取得を打ち切る（ページングしない）", async () => {
+    // 1ページ目に 100 件返るが、maxUsers=40 なので 1 リクエストで打ち切り 40 件に切り揃える
+    mockFetch.mockResolvedValueOnce(okResponse(makeReactors(100)))
+
+    const users = await getReactionUsers("c", "m", "👍", { intervalMs: 0, maxUsers: 40 })
+
+    expect(users).toHaveLength(40)
+    // 上限到達で次ページを辿らない＝fetch は 1 回のみ
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe("getAllReactionFields", () => {
@@ -114,5 +125,19 @@ describe("getAllReactionFields", () => {
 
     expect(fields[0].emojiName).toBe("myEmoji")
     expect(decodeURIComponent(mockFetch.mock.calls[0][0])).toContain("myEmoji:custom123")
+  })
+
+  it("success: maxUsers を渡すと各 field の userIds は上限以下になる", async () => {
+    // 1ページ目に 100 件返るが maxUsers=40 で打ち切る
+    mockFetch.mockResolvedValue(okResponse(makeReactors(100)))
+
+    const reactions: DiscordReaction[] = [{ emoji: { id: null, name: "👍" }, count: 100, me: false }]
+
+    const fields = await getAllReactionFields("c", "m", reactions, { intervalMs: 0, maxUsers: 40 })
+
+    // count はリアクションの真の総数（100）、userIds は上限で切り詰めた 40 件（非対称）
+    expect(fields[0].count).toBe(100)
+    expect(fields[0].userIds).toHaveLength(40)
+    expect(fields[0].userIds.length).toBeLessThanOrEqual(40)
   })
 })

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest"
 import { createMentionReactorsCommandPayload } from "../../../mocks/discord-payloads"
 import { createDiscordRequest, parseJsonResponse } from "../../../helpers/api-test-utils"
 import * as discordApi from "@/app/_server/lib/discord/api"
+import { MAX_REACTION_USERS } from "@/app/_domains/user/mentionByReaction/_server/constants"
 import { InteractionResponseType, MessageFlags } from "discord-api-types/v10"
 
 // next/server: NextResponse は本物を使い、after は実行されるコールバックを捕捉して手動で走らせる
@@ -26,6 +27,7 @@ vi.mock("@/app/_server/lib/discord/api", async () => {
     getDiscordMessage: vi.fn(),
     getAllReactionFields: vi.fn(),
     editWebhookOriginalMessage: vi.fn(async () => undefined),
+    createFollowupMessage: vi.fn(async () => undefined),
   }
 })
 
@@ -52,7 +54,7 @@ describe("Discord API - /user-mention-reactors Command Integration Test", () => 
     mockAfter.fn = null
   })
 
-  it("success: 正常系は初回応答が deferred で返り、after() で embed を editWebhookOriginalMessage に渡す", async () => {
+  it("success: 初回応答は ephemeral deferred で返り、成功 embed は public followup で投稿する", async () => {
     const messageLink = "https://discord.com/channels/123456789/987654321/111222333"
 
     vi.mocked(discordApi.getDiscordMessage).mockResolvedValue({
@@ -66,26 +68,32 @@ describe("Discord API - /user-mention-reactors Command Integration Test", () => 
 
     const { response, data } = await dispatchAndFlush(messageLink)
 
-    // 初回応答は deferred（3秒制限回避）
+    // 初回応答は ephemeral deferred（3秒制限回避＋「考え中」表示は実行者のみ）
     expect(response.status).toBe(200)
     expect(data.type).toBe(InteractionResponseType.DeferredChannelMessageWithSource)
+    expect(data.data.flags).toBe(MessageFlags.Ephemeral)
 
-    // after() で取得関数が呼ばれている
+    // after() で取得関数が呼ばれている。取得は MAX_REACTION_USERS で打ち切る
     expect(discordApi.getDiscordMessage).toHaveBeenCalledWith("987654321", "111222333")
-    expect(discordApi.getAllReactionFields).toHaveBeenCalledWith("987654321", "111222333", [{ count: 2, me: false, emoji: { id: null, name: "👍" } }])
+    expect(discordApi.getAllReactionFields).toHaveBeenCalledWith("987654321", "111222333", [{ count: 2, me: false, emoji: { id: null, name: "👍" } }], { maxUsers: MAX_REACTION_USERS })
 
-    // 結果は embed で editWebhookOriginalMessage に差し替えられる。content は空・allowed_mentions は全抑止
-    expect(discordApi.editWebhookOriginalMessage).toHaveBeenCalledTimes(1)
-    const editCall = vi.mocked(discordApi.editWebhookOriginalMessage).mock.calls[0]
-    // 引数: (applicationId, token, content, components, embeds, allowedMentions)
-    expect(editCall[2]).toBe("")
-    expect(editCall[4]).toHaveLength(1)
-    const embed = editCall[4]?.[0]
+    // 成功 embed は public followup で投稿される。
+    // 引数: (applicationId, token, content, components, ephemeral, allowedMentions, embeds)
+    expect(discordApi.createFollowupMessage).toHaveBeenCalledTimes(1)
+    const followupCall = vi.mocked(discordApi.createFollowupMessage).mock.calls[0]
+    expect(followupCall[2]).toBe("") // content は空（ユーザー由来文字列を流さない）
+    expect(followupCall[4]).toBe(false) // ephemeral=false ＝ public
+    expect(followupCall[5]).toEqual({ parse: [] }) // public 投稿なのでピング全抑止
+    expect(followupCall[6]).toHaveLength(1)
+    const embed = followupCall[6]?.[0]
     expect(embed?.title).toBe("リアクションメンバー")
     expect(embed?.description).toContain("これはテストメッセージです")
     expect(embed?.fields?.[0].name).toBe("👍 (2)")
     expect(embed?.fields?.[0].value).toBe("<@user1> <@user2>")
-    expect(editCall[5]).toEqual({ parse: [] })
+
+    // ephemeral な original は完了通知に差し替えて締める（実行者のみ）
+    expect(discordApi.editWebhookOriginalMessage).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(discordApi.editWebhookOriginalMessage).mock.calls[0][2]).toContain("投稿しました")
   })
 
   it("failure: 不正なメッセージリンクは defer せず ephemeral で即返す", async () => {
@@ -111,11 +119,15 @@ describe("Discord API - /user-mention-reactors Command Integration Test", () => 
 
     const { data } = await dispatchAndFlush(messageLink)
 
+    // deferred は ephemeral（空メッセージは実行者にのみ表示し公開しない）
     expect(data.type).toBe(InteractionResponseType.DeferredChannelMessageWithSource)
+    expect(data.data.flags).toBe(MessageFlags.Ephemeral)
     expect(discordApi.editWebhookOriginalMessage).toHaveBeenCalledTimes(1)
     expect(vi.mocked(discordApi.editWebhookOriginalMessage).mock.calls[0][2]).toContain("リアクションがありません")
     // embed は渡さない（content のみの差し替え）
     expect(vi.mocked(discordApi.editWebhookOriginalMessage).mock.calls[0][4]).toBeUndefined()
+    // 公開 followup は投稿しない
+    expect(discordApi.createFollowupMessage).not.toHaveBeenCalled()
   })
 
   it("failure: 取得失敗時は after() 内でエラー文言を editWebhookOriginalMessage に差し替える", async () => {
@@ -126,8 +138,11 @@ describe("Discord API - /user-mention-reactors Command Integration Test", () => 
     const { data } = await dispatchAndFlush(messageLink)
 
     expect(data.type).toBe(InteractionResponseType.DeferredChannelMessageWithSource)
+    expect(data.data.flags).toBe(MessageFlags.Ephemeral)
     expect(discordApi.editWebhookOriginalMessage).toHaveBeenCalledTimes(1)
     expect(vi.mocked(discordApi.editWebhookOriginalMessage).mock.calls[0][2]).toContain("取得に失敗しました")
+    // エラー文言は ephemeral original の編集で完結し、公開 followup は投稿しない
+    expect(discordApi.createFollowupMessage).not.toHaveBeenCalled()
   })
 
   it("failure: 429（レートリミット）時は専用のエラー文言を差し替える", async () => {
@@ -145,6 +160,9 @@ describe("Discord API - /user-mention-reactors Command Integration Test", () => 
     const { data } = await dispatchAndFlush(messageLink)
 
     expect(data.type).toBe(InteractionResponseType.DeferredChannelMessageWithSource)
+    expect(data.data.flags).toBe(MessageFlags.Ephemeral)
     expect(vi.mocked(discordApi.editWebhookOriginalMessage).mock.calls[0][2]).toContain("レートリミット")
+    // 429 文言も ephemeral original の編集で完結し、公開 followup は投稿しない
+    expect(discordApi.createFollowupMessage).not.toHaveBeenCalled()
   })
 })

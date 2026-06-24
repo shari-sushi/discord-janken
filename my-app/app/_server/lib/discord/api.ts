@@ -219,24 +219,34 @@ function encodeEmoji(reaction: DiscordReaction): string {
 }
 
 /**
- * 特定のリアクションをつけたユーザーを「全件」取得する。
+ * 特定のリアクションをつけたユーザーを取得する。
  * Discord は 1 リクエスト最大 100 件なので、100 件ちょうどなら ?after= で次ページを辿り、
- * 100 件未満が返った時点を終端とみなす。取りこぼし（抽選母集団の欠落・メンション漏れ）を防ぐため打ち切らない。
+ * 100 件未満が返った時点を終端とみなす。maxUsers 未指定なら全件取得し、取りこぼし
+ * （抽選母集団の欠落・メンション漏れ）を防ぐため打ち切らない（role-roulette の用途）。
+ * maxUsers を指定すると取得件数がそこに達した時点で打ち切る。上限が 100 以下なら 1 リクエストで完結し、
+ * ページングが発生しない＝レートリミット露出を減らせる（mention-reactors の用途）。
  * ページ間には addReactions と同じ既定 intervalMs だけ sleep して 429 を避ける（最終ページ後は待たない）。
  * @param channelId - チャンネルID
  * @param messageId - メッセージID
  * @param emoji - 絵文字
  * @param options.intervalMs - ページ間の待機時間（ミリ秒、既定 300 = addReactions と同値）
- * @returns リアクションをつけたユーザーの配列（全件）
+ * @param options.maxUsers - 取得上限（未指定なら全件）。達した時点で取得を打ち切り、ちょうど maxUsers 件に揃える
+ * @returns リアクションをつけたユーザーの配列（maxUsers 指定時は最大 maxUsers 件）
  */
-export async function getReactionUsers(channelId: string, messageId: string, emoji: string, options?: { intervalMs?: number }): Promise<DiscordReactor[]> {
+export async function getReactionUsers(channelId: string, messageId: string, emoji: string, options?: { intervalMs?: number; maxUsers?: number }): Promise<DiscordReactor[]> {
   const intervalMs = options?.intervalMs ?? 300
+  const maxUsers = options?.maxUsers
   const allUsers: DiscordReactor[] = []
   let after: string | undefined = undefined
 
   while (true) {
     const page = await getMessageReactions(channelId, messageId, emoji, { limit: REACTION_USERS_PAGE_LIMIT, after })
     allUsers.push(...page)
+
+    // 取得上限に達したら打ち切る（これ以上ページを辿らない）
+    if (maxUsers !== undefined && allUsers.length >= maxUsers) {
+      break
+    }
 
     // 100 件未満が返ったら終端（次ページは存在しない）
     if (page.length < REACTION_USERS_PAGE_LIMIT) {
@@ -248,7 +258,8 @@ export async function getReactionUsers(channelId: string, messageId: string, emo
     await new Promise((resolve) => setTimeout(resolve, intervalMs))
   }
 
-  return allUsers
+  // 上限指定時はちょうど maxUsers 件に切り揃える
+  return maxUsers !== undefined ? allUsers.slice(0, maxUsers) : allUsers
 }
 
 /**
@@ -392,6 +403,9 @@ export async function editWebhookOriginalMessage(
  * @param components - コンポーネント配列
  * @param ephemeral - true で本人にのみ表示（既定: false = public）
  * @param allowedMentions - メンション解釈の制御（例: `{ parse: [] }` で @everyone 等のピングを全抑止）
+ * @param embeds - Embed 配列（content を空にして embed のみ public 投稿する用途を含む）。
+ *   editWebhookOriginalMessage は (…components, embeds, allowedMentions) の並びだが、こちらは既存の
+ *   ephemeral / allowedMentions 引数を壊さないため embeds を末尾に置いた（後方互換優先の意図的な非対称）。
  */
 export async function createFollowupMessage(
   applicationId: string,
@@ -400,6 +414,7 @@ export async function createFollowupMessage(
   components?: APIActionRowComponent<APIComponentInMessageActionRow>[],
   ephemeral = false,
   allowedMentions?: APIAllowedMentions,
+  embeds?: APIEmbed[],
 ): Promise<void> {
   const url = `${DISCORD_API_BASE_URL}/webhooks/${applicationId}/${token}`
 
@@ -412,6 +427,9 @@ export async function createFollowupMessage(
   }
   if (allowedMentions) {
     body.allowed_mentions = allowedMentions
+  }
+  if (embeds && embeds.length > 0) {
+    body.embeds = embeds
   }
 
   const response = await fetch(url, {
@@ -448,20 +466,24 @@ export const retryAfterRateLimit = async <T>(fn: () => Promise<T>): Promise<T> =
 }
 
 /**
- * メッセージの全リアクション種について、種ごとに全ユーザーを「逐次」取得して field 化する。
+ * メッセージの全リアクション種について、種ごとにユーザーを「逐次」取得して field 化する。
  * 並列（Promise.all）はリアクション系ルートで 429 を構造的に誘発する（addReactions のコメント実測値参照）ため、
- * 絵文字ごとに直列で getReactionUsers（全ページ取得）を呼び、絵文字間に intervalMs だけ sleep する。
+ * 絵文字ごとに直列で getReactionUsers を呼び、絵文字間に intervalMs だけ sleep する。
+ * maxUsers を指定すると各絵文字の取得を上限で打ち切る。このとき返す field は
+ * **count = reaction.count（リアクションの真の総数）/ userIds = 最大 maxUsers 件**の非対称になる。
+ * 下流はこの差分（count - userIds.length）を「表示しきれなかった人数」の根拠に使う。
  * @param channelId - チャンネルID
  * @param messageId - メッセージID
  * @param reactions - リアクション配列
  * @param options.intervalMs - 絵文字間の待機時間（ミリ秒、既定 300 = addReactions と同値）
+ * @param options.maxUsers - 1 絵文字あたりの取得上限（未指定なら全件）。getReactionUsers に委譲
  * @returns リアクションフィールドデータの配列
  */
 export async function getAllReactionFields(
   channelId: string,
   messageId: string,
   reactions: DiscordReaction[],
-  options?: { intervalMs?: number },
+  options?: { intervalMs?: number; maxUsers?: number },
 ): Promise<Array<{ emojiName: string; count: number; userIds: string[] }>> {
   const intervalMs = options?.intervalMs ?? 300
   const fields: Array<{ emojiName: string; count: number; userIds: string[] }> = []
@@ -469,7 +491,7 @@ export async function getAllReactionFields(
   for (let i = 0; i < reactions.length; i++) {
     const reaction = reactions[i]
     const emojiEncoded = encodeEmoji(reaction)
-    const users = await getReactionUsers(channelId, messageId, emojiEncoded, { intervalMs })
+    const users = await getReactionUsers(channelId, messageId, emojiEncoded, { intervalMs, maxUsers: options?.maxUsers })
 
     fields.push({
       emojiName: reaction.emoji.name || "?",

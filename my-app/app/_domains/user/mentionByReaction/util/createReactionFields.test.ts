@@ -33,22 +33,41 @@ describe("createReactionFields", () => {
     ])
   })
 
-  it("success: メンション文字列が1024文字を超える場合、省略される", () => {
-    // 100ユーザー分のID（各ユーザーのメンションは約22文字 = `<@user_123456789012345678>`）
-    const userIds = Array.from({ length: 100 }, (_, i) => `user_${i.toString().padStart(18, "0")}`)
-
+  it("success: count が表示数を超える場合、「…ほか N 人」を付与する", () => {
+    // userIds は取得上限で 3 件のみ、count（真の総数）は 10 → 表示しきれなかったのは 7 人
     const reactionFields: ReactionFieldData[] = [
       {
         emojiName: "🔥",
-        count: 100,
-        userIds,
+        count: 10,
+        userIds: ["user1", "user2", "user3"],
       },
     ]
 
     const result = createReactionFields(reactionFields)
 
-    expect(result[0].value).toContain("...")
-    expect(result[0].value.length).toBeLessThanOrEqual(1024)
+    // 取得できた 3 件のメンションは全て含む（途中で割れない）
+    expect(result[0].value).toContain("<@user1>")
+    expect(result[0].value).toContain("<@user2>")
+    expect(result[0].value).toContain("<@user3>")
+    // 超過件数（10 - 3 = 7）を明示する
+    expect(result[0].value).toContain("…ほか 7 人（多すぎるため一部のみ表示）")
+    // substring 切り捨ては行わないので末尾省略記号は付かない
+    expect(result[0].value).not.toContain("...")
+  })
+
+  it("success: count と表示数が一致する場合、超過通知を付けない", () => {
+    const reactionFields: ReactionFieldData[] = [
+      {
+        emojiName: "👍",
+        count: 3,
+        userIds: ["user1", "user2", "user3"],
+      },
+    ]
+
+    const result = createReactionFields(reactionFields)
+
+    expect(result[0].value).toBe("<@user1> <@user2> <@user3>")
+    expect(result[0].value).not.toContain("ほか")
   })
 
   it("success: ユーザーIDが空の場合、「なし」が表示される", () => {
