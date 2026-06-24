@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import LolHeader from "@/app/lol/_components/LolHeader"
 import { useOverlay } from "@/app/_client/lib/modal/ModalContext"
 import type { ScheduleEntry, ScheduleStatus, SessionUser, TeamSchedule, TeamSummary } from "@/app/_domains/teamSchedules/types"
-import { hasAdminAuthority } from "@/app/_domains/teamSchedules/types"
+import { hasAdminAuthority, MAX_TEAMS_PER_USER } from "@/app/_domains/teamSchedules/types"
 import {
   acceptShare,
   createInvite,
@@ -42,6 +42,7 @@ import { CreateTeamModal } from "./CreateTeamModal"
 import { CreateTeamRestrictedModal } from "./CreateTeamRestrictedModal"
 import { DbHealthButton } from "./DbHealthButton"
 import { InviteModal } from "./InviteModal"
+import { JoinFailedModal } from "./JoinFailedModal"
 import { LoginModal } from "./LoginModal"
 import { ShareAcceptModal } from "./ShareAcceptModal"
 import { ScheduleDayCards } from "./ScheduleDayCards"
@@ -53,7 +54,13 @@ import { SettingModal, DEFAULT_SETTING_TAB, isSettingTab, type SettingTab } from
 import { SettingsIcon } from "../_icons/SettingsIcon"
 import { CollapseIcon } from "../_icons/CollapseIcon"
 
-const NUM_DAYS = 14
+/** 初期表示日数 */
+const INITIAL_DAYS = 14
+/** 「もっと見る」1回の増分（日） */
+const STEP_DAYS = 14
+/** 表示日数の上限。これ以上は増やせない（クエリ範囲の暴走防止）。
+ *  STEP_DAYS の倍数（14×7）にして、最後の一押しも必ず +STEP_DAYS ぶん＝ボタン表記と一致させる。 */
+const MAX_DAYS = 98
 
 /** 招待リンクからの参加トークンを、ログイン往復をまたいで保持する sessionStorage キー */
 const PENDING_JOIN_KEY = "ts_pending_join"
@@ -71,8 +78,14 @@ export function TeamSchedulesPage() {
     d.setHours(0, 0, 0, 0)
     return d
   })
-  const dates = useMemo(() => buildDateRange(start, NUM_DAYS), [start])
+  // 表示日数。「もっと見る」で STEP_DAYS ずつ MAX_DAYS まで伸ばす（#171）
+  const [visibleDays, setVisibleDays] = useState(INITIAL_DAYS)
+  const dates = useMemo(() => buildDateRange(start, visibleDays), [start, visibleDays])
   const dayKeys = useMemo(() => dates.map((d) => d.key), [dates])
+  const handleLoadMore = useCallback(() => {
+    setVisibleDays((d) => Math.min(d + STEP_DAYS, MAX_DAYS))
+  }, [])
+  const canLoadMore = visibleDays < MAX_DAYS
 
   const [session, setSession] = useState<SessionUser | null>(null)
   const [teams, setTeams] = useState<TeamSummary[]>([])
@@ -105,8 +118,13 @@ export function TeamSchedulesPage() {
   // 選択の整合（後段の reconcile 効果で参照）。magic-link ログイン確立後の再取得で
   // false に戻し、正しい isMember を反映した teams でもう一度だけ走らせる。
   const reconciledRef = useRef(false)
-  // 同一チームの取得が複数 effect 発火で二重に走らないようにする（#165: 先読みと選択取得の重複防止）
-  const fetchingRef = useRef<Set<string>>(new Set())
+  // チームごとに「どの終端（to）まで取得・適用済みか」を覚える。「もっと見る」で期間を伸ばした際の
+  // 再取得判定と、古い（狭い）レスポンスが後着して新しい（広い）データを上書きしないための比較に使う（#171）。
+  const fetchedToRef = useRef<Map<string, string>>(new Map())
+  // チームごとに「どの終端（to）で取得をリクエスト済みか」を覚える。同一範囲の二重取得
+  // （#165 の先読みと選択取得の重複、StrictMode の二重実行や再レンダリング）は防ぎつつ、
+  // より広い to の要求は別リクエストとして通すために使う（#171）。
+  const requestedToRef = useRef<Map<string, string>>(new Map())
 
   // token / join を URL から消す際、対象チーム選択用の team= だけは残して掃除する。
   // 招待リンク（?join=...&team=...）は join を消費しても team を後段の効果で読み取る必要があるため、
@@ -259,28 +277,69 @@ export function TeamSchedulesPage() {
     router.replace(qs ? `/team_schedules?${qs}` : "/team_schedules")
   }, [teamParam, loading, teams, setOwnTeamId, router])
 
-  // 予定取得: 選択中チーム + 参加チーム全てを先読みする（#165）。
-  // 自チームに選べるのは参加チームだけなので、開いた時点で全参加チームを取得しておけば
-  // 自チーム切替時のスピナーを無くせる。相手チームは選択時に取得し、以降はキャッシュを使う。
+  // 予定を取得して schedulesByTeam に格納する共通処理（先読み/延長と handleManageUpdated で共用。#189 指摘3）。
+  // mode:
+  //  - "extend": 表示期間の延長／初回取得。既に一部取得済み（appliedTo）なら、表示済みの日（<= appliedTo）は
+  //    既存（＝未永続の楽観編集を含む）を保持し、新規日（> appliedTo）だけサーバー値を採用してマージする。
+  //    これで「もっと見る」再取得が保存往復中の編集セルを丸ごと潰すのを防ぐ（#189 指摘1）。
+  //    後着の狭い／同一レスポンスで広い結果を潰さないよう、より広い終端のときだけ適用する。
+  //  - "replace": 全期間を取り直して丸ごと差し替える（管理モード変更後など、全セルを取り直したいとき）。
+  const loadSchedule = useCallback(
+    (id: string, to: string, mode: "extend" | "replace") => {
+      const from = dayKeys[0]
+      requestedToRef.current.set(id, to)
+      return fetchTeamSchedule(id, from, to)
+        .then((team) => {
+          const appliedTo = fetchedToRef.current.get(id)
+          // extend は後着の狭い／同一レスポンスを弾く（連打＋遅延での逆転を防ぐ）。replace は常に最新で上書き。
+          if (mode === "extend" && appliedTo !== undefined && appliedTo >= to) return
+          fetchedToRef.current.set(id, to)
+          setSchedulesByTeam((prev) => {
+            const existing = prev[id]
+            // 全置換・初回取得・既存なしは丸ごと格納
+            if (mode === "replace" || !existing || appliedTo === undefined) return { ...prev, [id]: team }
+            // 延長: 表示済みの日（<= appliedTo）は既存を保持して楽観編集を潰さず、新規日（> appliedTo）だけサーバー値を採用
+            return {
+              ...prev,
+              [id]: {
+                ...team, // name/members/managementMode 等のメタは最新を採用
+                schedules: [...existing.schedules.filter((s) => s.day <= appliedTo), ...team.schedules.filter((s) => s.day > appliedTo)],
+                teamStatus: [...existing.teamStatus.filter((s) => s.day <= appliedTo), ...team.teamStatus.filter((s) => s.day > appliedTo)],
+              },
+            }
+          })
+        })
+        .catch(() => {
+          // 失敗時はリクエスト記録を取り消す。ただし effect の deps は安定参照のため自発再実行はせず、
+          // 自動再取得はされない（回復にはユーザーの再操作＝「もっと見る」再押下や選択変更が要る）。
+          // 延長失敗時に新規日が空セルのまま黙って出る件の恒久対策（可視化/自動リトライ）は #158 と束ねてフォローアップ（#189 指摘2）。
+          if (requestedToRef.current.get(id) === to) requestedToRef.current.delete(id)
+        })
+    },
+    [dayKeys],
+  )
+
+  // 初マウント時に選択中チーム + 参加チーム全てを先読みする（#165）
+  // 開いた時点で全参加チームを取得し自チーム選択/切替時の通信をなくす
+  // 相手チームは選択時に取得しキャッシュする。
   // loading でガードしないのは意図的: 初期ロード中（teams が空）は memberIds が空になり ids=選択中チームだけになる。
   // localStorage 復元済みの選択中チームの予定を初期ロードと並行で取得し、view を loading 完了前に出すため
   // （下部カレンダーの「loading を待たず view 準備でき次第表示」コメント参照）。loading 完了で teams が入ると
   // deps 経由で再実行され、参加チーム全件を先読みする。
+  // 「もっと見る」で dayKeys が伸びると to が変わり、その終端をまだ取得リクエストしていないチームだけ再取得する（#171）。
+  // 取得状況は ref（requestedToRef/fetchedToRef）で判定するため schedulesByTeam は deps に入れない
+  // （セル編集の楽観更新のたびにこの effect が走るのを避ける）。
   useEffect(() => {
-    const from = dayKeys[0]
     const to = dayKeys[dayKeys.length - 1]
-    const memberIds = teams.filter((t) => t.isMember).map((t) => t.teamId)
-    const selectedIds = [ownTeamId, ...opponentTeamIds].filter((id): id is string => !!id)
-    const ids = Array.from(new Set([...selectedIds, ...memberIds]))
+    const joinedTeamIds = teams.filter((t) => t.isMember).map((t) => t.teamId)
+    const selectedTeamIds = [ownTeamId, ...opponentTeamIds].filter((id): id is string => !!id)
+    const ids = Array.from(new Set([...selectedTeamIds, ...joinedTeamIds]))
     ids.forEach((id) => {
-      if (schedulesByTeam[id] || fetchingRef.current.has(id)) return
-      fetchingRef.current.add(id)
-      void fetchTeamSchedule(id, from, to)
-        .then((team) => setSchedulesByTeam((prev) => ({ ...prev, [id]: team })))
-        .catch(() => {})
-        .finally(() => fetchingRef.current.delete(id))
+      // 同一終端を取得リクエスト済み（in-flight 含む）ならスキップ。より広い to は別リクエストとして通す。
+      if (requestedToRef.current.get(id) === to) return
+      void loadSchedule(id, to, "extend")
     })
-  }, [teams, ownTeamId, opponentTeamIds, dayKeys, schedulesByTeam])
+  }, [teams, ownTeamId, opponentTeamIds, dayKeys, loadSchedule])
 
   // ローカルの予定を更新（楽観的更新）
   const applyLocalEdit = useCallback((teamId: string, userId: string, day: string, status: CellStatus, note: string) => {
@@ -368,18 +427,22 @@ export function TeamSchedulesPage() {
         setOwnTeamId(team.teamId)
         // 自チーム未選択なら参加チームを自チームに、選択済みなら相手候補として扱えるよう一覧更新のみ
       })
-      .catch(() => {
-        // 失効・無効トークン等。退避を消して諦める
+      .catch((e) => {
+        // 失効・無効トークン／参加上限到達（403）等。退避を消し、理由をモーダルで知らせる
+        // （上限到達時はバックエンドの上限＋アップセル文言がそのまま表示される）。
         try {
           window.sessionStorage.removeItem(PENDING_JOIN_KEY)
         } catch {
           // noop
         }
+        if (cancelled) return
+        const message = e instanceof Error ? e.message : "チームへの参加に失敗しました"
+        open(<JoinFailedModal message={message} onClose={close} />)
       })
     return () => {
       cancelled = true
     }
-  }, [loading, session, openLogin, reloadTeams, setOwnTeamId])
+  }, [loading, session, openLogin, reloadTeams, setOwnTeamId, open, close])
 
   // 退避済みの共有トークンを処理する（#175）。
   // - 未ログイン: ログイン案内（ログイン後に再実行される）
@@ -529,10 +592,18 @@ export function TeamSchedulesPage() {
     [session, schedulesByTeam, applyLocalTeamEdit, persistTeam, openLogin],
   )
 
+  // 自分の所属チーム数（master + member 合算 = isMember な行数）。上限判定に使う。
+  const membershipCount = useMemo(() => teams.filter((t) => t.isMember).length, [teams])
+  // 上限内でまだチームを増やせるか（所属数 < 上限、または上限を無視できる許可ユーザー）。
+  // 用途は「チーム作成」UI の出し分け（作成ボタン押下時の案内・設定モーダルの作成タブ）に限る。
+  // 招待リンクからの参加はこの値で事前ゲートしない（既所属チームの冪等再参加を常に通すため）。
+  // 参加の上限判定はバックエンド（canJoinTeam）が真の enforce ポイントで、失敗は JoinFailedModal で可視化する。
+  const canCreateOrJoin = !!session && (session.bypassTeamLimit || membershipCount < MAX_TEAMS_PER_USER)
+
   // チーム作成モーダルを開く（作成後は一覧を更新して自チームに選択）
   const openCreate = useCallback(() => {
-    // ログインは通っていてもチーム作成権限が無い場合は、作成フォームではなくプレリリース案内モーダルを出す
-    if (!session?.canCreateTeam) {
+    // ログイン済みでも参加上限に達している場合は、作成フォームではなく上限案内（アップセル）モーダルを出す
+    if (!canCreateOrJoin) {
       open(<CreateTeamRestrictedModal onClose={close} />)
       return
     }
@@ -546,7 +617,7 @@ export function TeamSchedulesPage() {
         }}
       />,
     )
-  }, [session, open, close, reloadTeams, setOwnTeamId])
+  }, [canCreateOrJoin, open, close, reloadTeams, setOwnTeamId])
 
   // 選択中の自チームで、ログインユーザーが admin 相当以上（master/admin）か
   const isOwnAdmin = useMemo(() => {
@@ -650,13 +721,11 @@ export function TeamSchedulesPage() {
   // 全セル未記入で表示されてしまうため、必ず再取得して丸ごと差し替える。
   const handleManageUpdated = useCallback(() => {
     if (!ownTeamId) return
-    const from = dayKeys[0]
+    // モード変更後は全セルを取り直す必要があるため "replace" で丸ごと差し替える（取得＋ref記録は loadSchedule に集約・#189 指摘3）
     const to = dayKeys[dayKeys.length - 1]
-    void fetchTeamSchedule(ownTeamId, from, to)
-      .then((team) => setSchedulesByTeam((prev) => ({ ...prev, [ownTeamId]: team })))
-      .catch(() => {})
+    void loadSchedule(ownTeamId, to, "replace")
     void reloadTeams()
-  }, [ownTeamId, dayKeys, reloadTeams])
+  }, [ownTeamId, dayKeys, loadSchedule, reloadTeams])
 
   // 管理モーダルの「新規チーム作成」タブでチームを作成したとき: 一覧再取得＆作成チームを自チーム選択＆モーダルを閉じる
   const handleTeamCreatedInModal = useCallback(
@@ -841,7 +910,7 @@ export function TeamSchedulesPage() {
     }
 
     // 自チーム列: members モードはメンバーごと、team モードはチーム1列
-    const memberColumns: ScheduleColumn[] =
+    const ownColumns: ScheduleColumn[] =
       ownTeam.managementMode === "team"
         ? [buildTeamColumn(ownTeam, "ownteam")]
         : ownTeam.members.map((m) => {
@@ -920,7 +989,7 @@ export function TeamSchedulesPage() {
 
     // team モードは単一状態（ok=活動可能）なので閾値は 1
     const threshold = ownTeam.managementMode === "team" ? 1 : ownTeam.requiredCount
-    return { memberColumns, opponentColumns, rows, threshold, managementMode: ownTeam.managementMode, ownTeamName: ownTeam.name }
+    return { ownColumns, opponentColumns, rows, threshold, managementMode: ownTeam.managementMode, ownTeamName: ownTeam.name }
   }, [ownTeamId, opponentTeamIds, schedulesByTeam, dates, dayKeys, session, teams])
 
   // 自分が1つでもチームに所属しているか（teams 一覧の isMember 由来）。md以下で「チームを作成」ボタンを隠す判定に使う。
@@ -999,7 +1068,7 @@ export function TeamSchedulesPage() {
             )}
             */}
               {/* 招待リンク発行はチーム管理モーダルの「今のチーム」タブに移設した */}
-              {/* チームを作成: ログイン中なら全員に表示する（作成権限が無い場合は押下時にプレリリース案内モーダルを出す）。
+              {/* チームを作成: ログイン中なら全員に表示する（参加上限に達している場合は押下時に上限案内（アップセル）モーダルを出す）。
                   md以下では既に所属チームがあるなら隠す（縦スペース確保。md以上は常に表示） */}
               {session && (
                 <button
@@ -1050,7 +1119,14 @@ export function TeamSchedulesPage() {
         >
           <div className={"min-h-0 " + (chromeOverflowVisible ? "overflow-visible" : "overflow-hidden")}>
             <div className="flex flex-col md:gap-3 gap-1.5">
-              <TeamCompareSelector teams={teams} ownTeamId={ownTeamId} opponentTeamIds={opponentTeamIds} onOwnTeamChange={setOwnTeamId} onOpponentsChange={setOpponentTeamIds} onOpenShareSetting={openManage} />
+              <TeamCompareSelector
+                teams={teams}
+                ownTeamId={ownTeamId}
+                opponentTeamIds={opponentTeamIds}
+                onOwnTeamChange={setOwnTeamId}
+                onOpponentsChange={setOpponentTeamIds}
+                onOpenShareSetting={openManage}
+              />
               {view && <ControlBar threshold={view.threshold} managementMode={view.managementMode} />}
             </div>
           </div>
@@ -1066,7 +1142,7 @@ export function TeamSchedulesPage() {
                 rows={view.rows}
                 threshold={view.threshold}
                 opponentColumns={view.opponentColumns}
-                memberColumns={view.memberColumns}
+                ownColumns={view.ownColumns}
                 onCycle={handleCycle}
                 onNoteChange={handleNoteChange}
                 onTeamCycle={handleTeamCycle}
@@ -1077,12 +1153,14 @@ export function TeamSchedulesPage() {
                 rows={view.rows}
                 threshold={view.threshold}
                 opponentColumns={view.opponentColumns}
-                memberColumns={view.memberColumns}
+                ownColumns={view.ownColumns}
                 ownTeamName={view.ownTeamName}
                 onCycle={handleCycle}
                 onNoteChange={handleNoteChange}
                 onTeamCycle={handleTeamCycle}
                 onTeamNoteChange={handleTeamNoteChange}
+                onLoadMore={handleLoadMore}
+                canLoadMore={canLoadMore}
               />
             )
           ) : ownTeamId || loading ? (
@@ -1136,7 +1214,7 @@ export function TeamSchedulesPage() {
                 isAdmin={isOwnAdmin}
                 isMember={isOwnMember}
                 isMaster={isOwnMaster}
-                canCreate={!!session?.canCreateTeam}
+                canCreate={canCreateOrJoin}
                 tab={settingTab}
                 onTabChange={changeSettingTab}
                 onClose={closeManage}

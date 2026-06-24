@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, waitFor } from "@testing-library/react"
 import { WebhookSettingsSection } from "./WebhookSettingsSection"
-import type { TeamWebhookView } from "@/app/_domains/teamSchedules/types"
+import type { TeamWebhookSettings } from "@/app/_domains/teamSchedules/types"
 
-const mockFetch = vi.fn<() => Promise<TeamWebhookView[]>>()
+const mockFetch = vi.fn<() => Promise<TeamWebhookSettings>>()
 vi.mock("@/app/_domains/teamSchedules/_client/teamSchedulesApiClient", () => ({
   fetchTeamWebhooks: () => mockFetch(),
   updateTeamWebhooks: vi.fn(),
@@ -17,13 +17,16 @@ beforeEach(() => {
 })
 
 describe("WebhookSettingsSection", () => {
-  it("success: 未設定（空）でもクラッシュせず見出しと2枠を描画する", async () => {
-    mockFetch.mockResolvedValue([])
+  it("success: 未設定（空）でもクラッシュせず見出しと2枠・通知タイミングを描画する", async () => {
+    mockFetch.mockResolvedValue({ webhooks: [], notifyTime: null })
     render(<WebhookSettingsSection teamId={TEAM_ID} isMaster={true} />)
     expect(screen.getByText("活動可能の通知（Discord）")).toBeTruthy()
     await waitFor(() => {
       expect(screen.getByText("自分たち用")).toBeTruthy()
       expect(screen.getByText("相手も見るサーバー用")).toBeTruthy()
+      // 送信タイミング（#177）の選択肢も出る
+      expect(screen.getByText("活動可能になり次第すぐに通知")).toBeTruthy()
+      expect(screen.getByText("指定した時刻に通知")).toBeTruthy()
     })
   })
 

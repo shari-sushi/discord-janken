@@ -57,7 +57,7 @@ describe("POST /team-schedules/auth/verify", () => {
 
     expect(res.status).toBe(200)
     expect(json.success).toBe(true)
-    expect(json.user).toEqual({ userId: "new-user-id", displayName: "テスト太郎", canCreateTeam: false })
+    expect(json.user).toEqual({ userId: "new-user-id", displayName: "テスト太郎", bypassTeamLimit: false })
     expect(res.cookies.get("ts_session")?.value).toBeTruthy()
     // users / discord_links の2回 INSERT
     expect(insert).toHaveBeenCalledTimes(2)

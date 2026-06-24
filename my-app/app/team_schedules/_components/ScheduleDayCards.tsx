@@ -8,7 +8,7 @@ type ScheduleDayCardsProps = {
   rows: GridRow[]
   threshold: number
   opponentColumns: ScheduleColumn[]
-  memberColumns: ScheduleColumn[]
+  ownColumns: ScheduleColumn[]
 } & CellCallbacks
 
 /** カードの枠色（成立 > 詰み > 通常）。ScheduleGrid の rowBgClass のカード版 */
@@ -36,7 +36,7 @@ function ColumnCell({ col, day, dimOnNg, callbacks }: { col: ScheduleColumn; day
  * スマホ向け: 1日 = 1カードの縦積み表示。
  * ScheduleGrid と同じ view（rows / 列 / コールバック）を、横スクロール不要なレイアウトで描画する。
  */
-export function ScheduleDayCards({ rows, threshold, opponentColumns, memberColumns, onCycle, onNoteChange, onTeamCycle, onTeamNoteChange }: ScheduleDayCardsProps) {
+export function ScheduleDayCards({ rows, threshold, opponentColumns, ownColumns, onCycle, onNoteChange, onTeamCycle, onTeamNoteChange }: ScheduleDayCardsProps) {
   const callbacks: CellCallbacks = { onCycle, onNoteChange, onTeamCycle, onTeamNoteChange }
 
   return (
@@ -76,11 +76,11 @@ export function ScheduleDayCards({ rows, threshold, opponentColumns, memberColum
             )}
 
             {/* メンバー（members モード）/ チーム（team モード） */}
-            {memberColumns.length > 0 && (
+            {ownColumns.length > 0 && (
               <div className="mt-2 border-t border-zinc-800 pt-2">
                 <p className="mb-1 text-[11px] font-semibold text-zinc-500">メンバー</p>
                 <div className="flex flex-wrap gap-2">
-                  {memberColumns.map((col) => (
+                  {ownColumns.map((col) => (
                     <ColumnCell key={col.id} col={col} day={day} dimOnNg={false} callbacks={callbacks} />
                   ))}
                 </div>

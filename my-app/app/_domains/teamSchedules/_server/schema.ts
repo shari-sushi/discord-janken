@@ -29,6 +29,11 @@ export const teams = pgTable(
     managementMode: text("management_mode", { enum: ["members", "team"] })
       .notNull()
       .default("members"),
+    // 活動可能通知の送信時刻（#177）。"HH:MM"（JST）の文字列 or null。
+    // - null:   即時通知（活動可能になった立ち上がりエッジで送る。#172 の挙動）
+    // - "HH:MM": その日の指定時刻(JST)に送る（QStash 単発ジョブで予約し、発火時に再判定）
+    // date/note と同じく「文字列で TZ 事故回避」の流儀。形式はアプリ側 validator(isHhmm) で検証する。
+    notifyActivityTime: text("notify_activity_time"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [check("teams_required_count_chk", sql`${t.requiredCount} >= 1`), check("teams_management_mode_chk", sql`${t.managementMode} in ('members', 'team')`)],

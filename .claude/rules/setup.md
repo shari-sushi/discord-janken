@@ -16,10 +16,10 @@
 - `ALLOWED_USERS`: Web API認証用のユーザー名とパスワード（形式: `user1:pass1,user2:pass2`）
 - `ADMIN_PASSWORD`: 管理者パスワード
 - `WEB_API_SECRET`: Web API の秘密鍵
-- `TEAM_SCHEDULE_CREATOR_DISCORD_IDS`: スクリム調整でチームを作成できる Discord ユーザーID（カンマ区切り・省略可）
+- `TEAM_SCHEDULE_CREATOR_DISCORD_IDS`: 参加チーム数の上限（1人2チームまで）を無視して作成・参加できる Discord ユーザーID（カンマ区切り・省略可／運用保険・開発者用）
   - 例: `123456789012345678,234567890123456789`
-  - magic-link でログインしたユーザーのうち、ここに含まれる Discord ID を持つ人だけが `/team_schedules` でチームを作成できる
-  - 空（未設定）の場合は誰もチームを作成できない
+  - magic-link でログインしたユーザーのうち、ここに含まれる Discord ID を持つ人は `/team_schedules` で上限を超えてチームを作成・参加できる
+  - 空（未設定）でも全員が2チームまでは作成・参加できる（上限を超えられるのがこのリストの人だけ）
 
 **Riot Games API:**
 

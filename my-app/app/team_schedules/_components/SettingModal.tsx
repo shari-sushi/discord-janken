@@ -41,7 +41,7 @@ type SettingModalProps = {
   isMember: boolean
   /** 選択中チームの master か。master には「解散」、それ以外のメンバーには「脱退」を出し分ける */
   isMaster: boolean
-  /** 新規チーム作成タブを使えるか（チーム作成権限）。無い場合は案内のみ表示 */
+  /** 新規チーム作成タブで作成フォームを出せるか（参加上限内か＝上限未満 or 許可ユーザー）。上限到達時は案内のみ表示 */
   canCreate: boolean
   onClose: () => void
   /** 保存成功時に親へ通知（親は再取得して最新化する） */
@@ -157,8 +157,10 @@ export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, isM
         </button>
       </div>
 
-      {/* タブ切替 */}
-      <div className="mt-4 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-zinc-800">
+      {/* タブ切替。shrink-0 必須: ルートは高さに上限のある縦flexで自身がスクロールする構造。
+          このバーは overflow-y(visible 以外) を持つため flex の最小高さが 0 と解釈され、
+          中身の長いタブではバーだけが高さ0に潰れてボタンが切り取られ消える。shrink-0 で潰れを止める。 */}
+      <div className="mt-4 flex shrink-0 gap-1 overflow-x-auto overflow-y-hidden border-b border-zinc-800">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -382,7 +384,7 @@ export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, isM
           ) : canCreate ? (
             <CreateTeamForm onCreated={onCreated} />
           ) : (
-            // ログイン済みだが作成権限なし: プレリリース案内
+            // ログイン済みだが参加上限に達している: 上限案内（アップセル）
             <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-400">{CREATE_TEAM_RESTRICTED_MESSAGE}</p>
           )}
         </div>
