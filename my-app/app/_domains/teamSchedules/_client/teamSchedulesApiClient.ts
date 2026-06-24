@@ -1,4 +1,4 @@
-import type { DayKey, ScheduleStatus, SessionUser, SharePreview, TeamManagementMode, TeamSchedule, TeamSummary, TeamWebhookSettings, TeamWebhooksUpdate, WebhookProvider } from "@/app/_domains/teamSchedules/types"
+import type { DayKey, ScheduleStatus, SessionUser, SharePreview, TeamManagementMode, TeamManagerView, TeamSchedule, TeamSummary, TeamWebhookSettings, TeamWebhooksUpdate, WebhookProvider } from "@/app/_domains/teamSchedules/types"
 
 /**
  * スクリム調整機能の Web API クライアント。
@@ -84,6 +84,25 @@ export async function updateTeam(teamId: string, patch: { name?: string; managem
   const json = await parse<{ team?: TeamSummary }>(res, "チームの更新に失敗しました")
   if (!json.team) throw new Error("チームの更新に失敗しました")
   return json.team
+}
+
+/**
+ * チーム管理画面（#97）の初期表示データを取得する（要ログイン + そのチームのメンバー）。
+ * member は members が null（一覧は admin 相当のみ）。非メンバー / 未ログインはサーバーが 404 を返す。
+ */
+export async function fetchTeamManagerView(teamId: string): Promise<TeamManagerView> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}/members`, { cache: "no-store" })
+  const json = await parse<TeamManagerView>(res, "チーム管理画面の取得に失敗しました")
+  return { teamId: json.teamId, teamName: json.teamName, viewerRole: json.viewerRole, members: json.members ?? null }
+}
+
+/**
+ * チーム管理者（admin 相当以上）が指定メンバーを強制脱退（kick）させる（#97）。
+ * master・自分自身は不可（サーバーが 400 を返す）。成功すると当該メンバーの予定も cascade で消える。
+ */
+export async function kickMember(teamId: string, userId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}/members/${encodeURIComponent(userId)}`, { method: "DELETE" })
+  await parse<Record<string, never>>(res, "メンバーの脱退に失敗しました")
 }
 
 /** チームの招待リンクを発行する（要ログイン + admin）。参加用URLを返す */

@@ -107,6 +107,36 @@ export type TeamScheduleMember = {
   roles: LolRoleFlags
 }
 
+/**
+ * チーム管理画面のメンバー一覧1行ぶんの詳細（#97）。
+ * DB の team_members ⨝ users ＋ discord_links 集約から組み立てる。admin 相当以上にのみ返す。
+ */
+export type TeamMemberDetail = {
+  userId: string
+  displayName: string
+  /** 紐づく Discord ID（0..N）。UI はカンマ区切りで1カラム表示する */
+  discordUserIds: string[]
+  teamRole: TeamRole
+  /** 加入日（= 参加日）。ISO 文字列 */
+  joinedAt: string
+  /** 招待者の displayName。null = 不明 / master 直接作成・手動追加 / 招待者がアカウント削除済み */
+  invitedByName: string | null
+}
+
+/**
+ * チーム管理画面の初期表示データ（#97）。閲覧者ロールでメンバー一覧の有無が変わる。
+ * - member: members は null（一覧は管理者のみ閲覧可。ヘッダー・見出しまでは見せる）
+ * - admin / master: members に配列
+ */
+export type TeamManagerView = {
+  teamId: string
+  teamName: string
+  /** 閲覧者のチーム内ロール（member / admin / master） */
+  viewerRole: TeamRole
+  /** member のときは null（admin 相当以上のみ配列を返す） */
+  members: TeamMemberDetail[] | null
+}
+
 /** 1人・1日・1チームぶんの予定 */
 export type ScheduleEntry = {
   userId: string
