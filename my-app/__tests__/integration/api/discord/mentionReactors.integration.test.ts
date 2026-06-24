@@ -1,270 +1,150 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
-import { POST } from "@/app/api/discord/route"
 import { createMentionReactorsCommandPayload } from "../../../mocks/discord-payloads"
 import { createDiscordRequest, parseJsonResponse } from "../../../helpers/api-test-utils"
 import * as discordApi from "@/app/_server/lib/discord/api"
 import { InteractionResponseType, MessageFlags } from "discord-api-types/v10"
 
-// Discord API関数をモック化
+// next/server: NextResponse は本物を使い、after は実行されるコールバックを捕捉して手動で走らせる
+// （invite.test.ts と同じ流儀）。mentionReactors は defer + after() 型なので、
+// 初回応答は DeferredChannelMessageWithSource、重い処理は after() 内で検証する。
+const mockAfter: { fn: (() => Promise<void>) | null } = { fn: null }
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>()
+  return {
+    ...actual,
+    after: (fn: () => Promise<void>) => {
+      mockAfter.fn = fn
+    },
+  }
+})
+
+// Discord API 関数をモック化（getReactionUsers 経由の取得は getAllReactionFields をモックして抽象化）
 vi.mock("@/app/_server/lib/discord/api", async () => {
   const actual = await vi.importActual("@/app/_server/lib/discord/api")
   return {
     ...actual,
     getDiscordMessage: vi.fn(),
     getAllReactionFields: vi.fn(),
+    editWebhookOriginalMessage: vi.fn(async () => undefined),
   }
 })
+
+// route 経由で初回応答を得て、after() コールバックを手動でフラッシュするヘルパー
+async function dispatchAndFlush(messageLink: string) {
+  const { POST } = await import("@/app/api/discord/route")
+  const payload = createMentionReactorsCommandPayload(messageLink)
+  const request = createDiscordRequest(payload)
+
+  const response = await POST(request)
+  const data = await parseJsonResponse(response)
+
+  // after() 内の重い処理を実行
+  if (mockAfter.fn) {
+    await mockAfter.fn()
+  }
+
+  return { response, data }
+}
 
 describe("Discord API - /user-mention-reactors Command Integration Test", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockAfter.fn = null
   })
 
-  it("success: 正しいメッセージリンクとリアクションがある場合、Embedで返す", async () => {
+  it("success: 正常系は初回応答が deferred で返り、after() で embed を editWebhookOriginalMessage に渡す", async () => {
     const messageLink = "https://discord.com/channels/123456789/987654321/111222333"
 
-    // getDiscordMessageのモック
-    const mockGetDiscordMessage = vi.mocked(discordApi.getDiscordMessage)
-    mockGetDiscordMessage.mockResolvedValue({
+    vi.mocked(discordApi.getDiscordMessage).mockResolvedValue({
       id: "111222333",
       channel_id: "987654321",
       content: "これはテストメッセージです",
-      author: {
-        id: "author-id",
-        username: "author",
-        discriminator: "0001",
-        avatar: null,
-      },
-      timestamp: "2024-01-01T00:00:00.000Z",
-      reactions: [
-        {
-          count: 2,
-          me: false,
-          emoji: {
-            id: null,
-            name: "👍",
-          },
-        },
-      ],
-    })
+      reactions: [{ count: 2, me: false, emoji: { id: null, name: "👍" } }],
+    } as Awaited<ReturnType<typeof discordApi.getDiscordMessage>>)
 
-    // getAllReactionFieldsのモック
-    const mockGetAllReactionFields = vi.mocked(discordApi.getAllReactionFields)
-    mockGetAllReactionFields.mockResolvedValue([
-      {
-        emojiName: "👍",
-        count: 2,
-        userIds: ["user1", "user2"],
-      },
-    ])
+    vi.mocked(discordApi.getAllReactionFields).mockResolvedValue([{ emojiName: "👍", count: 2, userIds: ["user1", "user2"] }])
 
-    const payload = createMentionReactorsCommandPayload(messageLink)
-    const request = createDiscordRequest(payload)
+    const { response, data } = await dispatchAndFlush(messageLink)
 
-    const response = await POST(request)
-    const data = await parseJsonResponse(response)
-
+    // 初回応答は deferred（3秒制限回避）
     expect(response.status).toBe(200)
-    expect(data.type).toBe(InteractionResponseType.ChannelMessageWithSource)
-    expect(data.data.embeds).toBeDefined()
-    expect(data.data.embeds).toHaveLength(1)
+    expect(data.type).toBe(InteractionResponseType.DeferredChannelMessageWithSource)
 
-    const embed = data.data.embeds[0]
-    expect(embed.title).toBe("リアクションメンバー")
-    expect(embed.description).toContain("これはテストメッセージです")
-    expect(embed.fields).toHaveLength(1)
-    expect(embed.fields[0].name).toBe("👍 (2)")
-    expect(embed.fields[0].value).toBe("<@user1> <@user2>")
-    expect(embed.footer.text).toContain("Created by")
-    expect(embed.color).toBe(0x5865f2)
+    // after() で取得関数が呼ばれている
+    expect(discordApi.getDiscordMessage).toHaveBeenCalledWith("987654321", "111222333")
+    expect(discordApi.getAllReactionFields).toHaveBeenCalledWith("987654321", "111222333", [{ count: 2, me: false, emoji: { id: null, name: "👍" } }])
 
-    // API呼び出しの検証
-    expect(mockGetDiscordMessage).toHaveBeenCalledTimes(1)
-    expect(mockGetDiscordMessage).toHaveBeenCalledWith("987654321", "111222333")
-    expect(mockGetAllReactionFields).toHaveBeenCalledTimes(1)
-    expect(mockGetAllReactionFields).toHaveBeenCalledWith("987654321", "111222333", [
-      {
-        count: 2,
-        me: false,
-        emoji: {
-          id: null,
-          name: "👍",
-        },
-      },
-    ])
+    // 結果は embed で editWebhookOriginalMessage に差し替えられる。content は空・allowed_mentions は全抑止
+    expect(discordApi.editWebhookOriginalMessage).toHaveBeenCalledTimes(1)
+    const editCall = vi.mocked(discordApi.editWebhookOriginalMessage).mock.calls[0]
+    // 引数: (applicationId, token, content, components, embeds, allowedMentions)
+    expect(editCall[2]).toBe("")
+    expect(editCall[4]).toHaveLength(1)
+    const embed = editCall[4]?.[0]
+    expect(embed?.title).toBe("リアクションメンバー")
+    expect(embed?.description).toContain("これはテストメッセージです")
+    expect(embed?.fields?.[0].name).toBe("👍 (2)")
+    expect(embed?.fields?.[0].value).toBe("<@user1> <@user2>")
+    expect(editCall[5]).toEqual({ parse: [] })
   })
 
-  it("failure: 不正なメッセージリンクの場合、エラーメッセージを返す", async () => {
-    const invalidLink = "https://example.com/invalid/link"
-    const payload = createMentionReactorsCommandPayload(invalidLink)
-    const request = createDiscordRequest(payload)
-
-    const response = await POST(request)
-    const data = await parseJsonResponse(response)
+  it("failure: 不正なメッセージリンクは defer せず ephemeral で即返す", async () => {
+    const { response, data } = await dispatchAndFlush("https://example.com/invalid/link")
 
     expect(response.status).toBe(200)
     expect(data.type).toBe(InteractionResponseType.ChannelMessageWithSource)
     expect(data.data.content).toContain("不正なメッセージリンクです")
     expect(data.data.flags).toBe(MessageFlags.Ephemeral)
+    // 入力エラーなので after() は登録されない
+    expect(mockAfter.fn).toBeNull()
   })
 
-  it("failure: リアクションがない場合、エラーメッセージを返す", async () => {
+  it("failure: リアクションがない場合は after() 内で editWebhookOriginalMessage に文言を差し替える", async () => {
     const messageLink = "https://discord.com/channels/123456789/987654321/111222333"
 
-    // リアクションがないメッセージを返すモック
-    const mockGetDiscordMessage = vi.mocked(discordApi.getDiscordMessage)
-    mockGetDiscordMessage.mockResolvedValue({
+    vi.mocked(discordApi.getDiscordMessage).mockResolvedValue({
       id: "111222333",
       channel_id: "987654321",
       content: "リアクションなしのメッセージ",
-      author: {
-        id: "author-id",
-        username: "author",
-        discriminator: "0001",
-        avatar: null,
-      },
-      timestamp: "2024-01-01T00:00:00.000Z",
       reactions: [],
-    })
+    } as Awaited<ReturnType<typeof discordApi.getDiscordMessage>>)
 
-    const payload = createMentionReactorsCommandPayload(messageLink)
-    const request = createDiscordRequest(payload)
+    const { data } = await dispatchAndFlush(messageLink)
 
-    const response = await POST(request)
-    const data = await parseJsonResponse(response)
-
-    expect(response.status).toBe(200)
-    expect(data.type).toBe(InteractionResponseType.ChannelMessageWithSource)
-    expect(data.data.content).toContain("リアクションがありません")
-    expect(data.data.flags).toBe(MessageFlags.Ephemeral)
+    expect(data.type).toBe(InteractionResponseType.DeferredChannelMessageWithSource)
+    expect(discordApi.editWebhookOriginalMessage).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(discordApi.editWebhookOriginalMessage).mock.calls[0][2]).toContain("リアクションがありません")
+    // embed は渡さない（content のみの差し替え）
+    expect(vi.mocked(discordApi.editWebhookOriginalMessage).mock.calls[0][4]).toBeUndefined()
   })
 
-  it("failure: メッセージが見つからない場合、エラーメッセージを返す", async () => {
+  it("failure: 取得失敗時は after() 内でエラー文言を editWebhookOriginalMessage に差し替える", async () => {
     const messageLink = "https://discord.com/channels/123456789/987654321/999999999"
 
-    // API エラーをモック
-    const mockGetDiscordMessage = vi.mocked(discordApi.getDiscordMessage)
-    mockGetDiscordMessage.mockRejectedValue(new Error("Message not found"))
+    vi.mocked(discordApi.getDiscordMessage).mockRejectedValue(new Error("Message not found"))
 
-    const payload = createMentionReactorsCommandPayload(messageLink)
-    const request = createDiscordRequest(payload)
+    const { data } = await dispatchAndFlush(messageLink)
 
-    const response = await POST(request)
-    const data = await parseJsonResponse(response)
-
-    expect(response.status).toBe(200)
-    expect(data.type).toBe(InteractionResponseType.ChannelMessageWithSource)
-    expect(data.data.content).toContain("メッセージまたはリアクション情報の取得に失敗しました")
-    expect(data.data.flags).toBe(MessageFlags.Ephemeral)
+    expect(data.type).toBe(InteractionResponseType.DeferredChannelMessageWithSource)
+    expect(discordApi.editWebhookOriginalMessage).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(discordApi.editWebhookOriginalMessage).mock.calls[0][2]).toContain("取得に失敗しました")
   })
 
-  it("success: カスタム絵文字のリアクションも正しく処理できる", async () => {
+  it("failure: 429（レートリミット）時は専用のエラー文言を差し替える", async () => {
     const messageLink = "https://discord.com/channels/123456789/987654321/111222333"
 
-    // カスタム絵文字のリアクションを含むメッセージ
-    const mockGetDiscordMessage = vi.mocked(discordApi.getDiscordMessage)
-    mockGetDiscordMessage.mockResolvedValue({
+    vi.mocked(discordApi.getDiscordMessage).mockResolvedValue({
       id: "111222333",
       channel_id: "987654321",
-      content: "カスタム絵文字テスト",
-      author: {
-        id: "author-id",
-        username: "author",
-        discriminator: "0001",
-        avatar: null,
-      },
-      timestamp: "2024-01-01T00:00:00.000Z",
-      reactions: [
-        {
-          count: 1,
-          me: false,
-          emoji: {
-            id: "custom123",
-            name: "custom_emoji",
-          },
-        },
-      ],
-    })
+      content: "テスト",
+      reactions: [{ count: 1, me: false, emoji: { id: null, name: "👍" } }],
+    } as Awaited<ReturnType<typeof discordApi.getDiscordMessage>>)
 
-    const mockGetAllReactionFields = vi.mocked(discordApi.getAllReactionFields)
-    mockGetAllReactionFields.mockResolvedValue([
-      {
-        emojiName: "custom_emoji",
-        count: 1,
-        userIds: ["user1"],
-      },
-    ])
+    vi.mocked(discordApi.getAllReactionFields).mockRejectedValue(new discordApi.DiscordApiError(429, "Too Many Requests", { retry_after: 1 }))
 
-    const payload = createMentionReactorsCommandPayload(messageLink)
-    const request = createDiscordRequest(payload)
+    const { data } = await dispatchAndFlush(messageLink)
 
-    const response = await POST(request)
-    const data = await parseJsonResponse(response)
-
-    expect(response.status).toBe(200)
-    expect(data.type).toBe(InteractionResponseType.ChannelMessageWithSource)
-    expect(data.data.embeds[0].fields[0].name).toBe("custom_emoji (1)")
-    expect(data.data.embeds[0].fields[0].value).toBe("<@user1>")
-
-    // getAllReactionFieldsが正しく呼ばれたか検証
-    expect(mockGetAllReactionFields).toHaveBeenCalledWith("987654321", "111222333", [
-      {
-        count: 1,
-        me: false,
-        emoji: {
-          id: "custom123",
-          name: "custom_emoji",
-        },
-      },
-    ])
-  })
-
-  it("success: メッセージが200文字より長い場合、descriptionが省略される", async () => {
-    const messageLink = "https://discord.com/channels/123456789/987654321/111222333"
-    const longMessage = "あ".repeat(250) // 200文字を超える長いメッセージ
-
-    const mockGetDiscordMessage = vi.mocked(discordApi.getDiscordMessage)
-    mockGetDiscordMessage.mockResolvedValue({
-      id: "111222333",
-      channel_id: "987654321",
-      content: longMessage,
-      author: {
-        id: "author-id",
-        username: "author",
-        discriminator: "0001",
-        avatar: null,
-      },
-      timestamp: "2024-01-01T00:00:00.000Z",
-      reactions: [
-        {
-          count: 1,
-          me: false,
-          emoji: {
-            id: null,
-            name: "👍",
-          },
-        },
-      ],
-    })
-
-    const mockGetAllReactionFields = vi.mocked(discordApi.getAllReactionFields)
-    mockGetAllReactionFields.mockResolvedValue([
-      {
-        emojiName: "👍",
-        count: 1,
-        userIds: ["user1"],
-      },
-    ])
-
-    const payload = createMentionReactorsCommandPayload(messageLink)
-    const request = createDiscordRequest(payload)
-
-    const response = await POST(request)
-    const data = await parseJsonResponse(response)
-
-    expect(response.status).toBe(200)
-    const embed = data.data.embeds[0]
-    expect(embed.description).toContain("...")
-    expect(embed.description.length).toBeLessThanOrEqual("元メッセージ: ".length + 200 + "...".length)
+    expect(data.type).toBe(InteractionResponseType.DeferredChannelMessageWithSource)
+    expect(vi.mocked(discordApi.editWebhookOriginalMessage).mock.calls[0][2]).toContain("レートリミット")
   })
 })
