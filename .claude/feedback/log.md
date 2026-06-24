@@ -198,3 +198,11 @@
 - **コードに残すべきだった**: getter の Cookie 書き込み箇所に「失効目的のルートは extend:false で呼ぶ」注意を（→今回追加済み）。
 - **セルフレビュー観点（次回の lens）**: 「**共有関数に副作用（Cookie/ヘッダ/グローバル state の書き込み）を新規に足したら、同じリソースを書く他の経路を全列挙し、同一レスポンス/同一トランザクション内での write 競合を点検する**」。特に**失効・リセット系（logout/delete/expire）は延長・更新系と必ずぶつかる**ので最優先。
 **なぜセルフレビューで見つからなかったか**: footgun を「呼び出しコンテキスト（route handler か否か）」の軸だけで点検し、「**この getter が書く ts_session を、他に誰が書くか**」という co-writer の軸を列挙しなかった。蒸留済み #185「taint/副作用のスコープは自分の diff 行ではなく、その変更が関与するシンク経路全体」の Cookie 版——「getter に書き込みを足した」=「ts_session の書き手が1つ増えた」なら、既存の書き手（失効・再発行）との相互作用まで追うべきだった。「呼び出し元は全部 route handler→OK」で安心し、書き込み先リソースの他の書き手を見る向きに視点が回らなかった。
+
+## 2026-06-25: kick(DELETE) に suspend ガードが無く、利用停止中の admin が他メンバーを kick できた（PR #199）
+
+**カテゴリ**: code-quality
+**状況**: チーム管理画面のメンバー強制脱退(kick) `DELETE /teams/[teamId]/members/[userId]` を新規実装。認可は `getSessionUserId` + `getTeamRole`（ロール確認）→ master保護 → 自分自身保護 → delete で組んだ。実装時に参照した既存兄弟は **サイト管理者用の kick route**（`admin/.../members/[userId]`・`requireAdmin`）で、その形（role確認→master保護→delete）を踏襲した。
+**指摘（A: 要修正・対応済み）**: チーム内書き込み系の `succession` / `team-status` / membership は `getTeamMembershipWithSuspension` で **suspended→403 を先に判定**しているのに、kick だけこのガードを欠き、#166 で利用停止中の admin でも他メンバーを kick できた（schedules も cascade で消える）。「他人を消す管理書き込み」なのに、self-cleanup（脱退・アカウント削除＝suspend 中でも許可）と同じ無ガード扱いになっていた。
+**正解 / 対応**: `getTeamRole` を `getTeamMembershipWithSuspension(teamId, callerId)` に置換し、suspended→403 を先に判定（DB往復は増やさず1クエリに畳む）。なぜ kick は止めるのか（自己片付けと違い他人を消す管理書き込みだから）をコメントで明示。
+**なぜセルフレビューで見つからなかったか**: 一次原因は「**一貫性チェックで参照した既存兄弟が間違っていた**」。kick は (a) サイト管理者の kick route（`requireAdmin`・suspend概念なし・別の認証モデル）と (b) チーム内書き込み系（succession/team-status/membership・suspend ガードあり）の2つの“似た”ファミリに挟まれており、たまたま開いた (a) の形だけ踏襲して、本来の peer である (b) が一律で持つ**横断的な authz ガード（suspended→403）**を引き継がなかった。既存の蒸留教訓「差分の正しさだけでなく既存パターンとの一貫性を確認する」は当てたつもりだったが、(1) **どのファミリと比べるか（actor／認証モデルが同じ peer か）を取り違えた**、(2) 比べる軸が「処理の形（role→master→delete）」止まりで「**ファミリが共有する横断ガード（suspend・master保護等）を全部引き継いだか／省くなら意図的にコメントで明示したか**」まで降りなかった、の2点が抜けた。self-cleanup が suspend を**意図的に外している**（membership に理由コメントあり）ことを知っていれば、「kick はどちら側か？」という分類を1問挟めて気づけたはず。
