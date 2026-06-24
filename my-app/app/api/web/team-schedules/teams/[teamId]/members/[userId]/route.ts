@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm"
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/app/_server/lib/db"
 import { teamMembers } from "@/app/_domains/teamSchedules/_server/schema"
-import { getSessionUserId, getTeamRole } from "@/app/_domains/teamSchedules/_server/authz"
+import { getSessionUserId, getTeamMembershipWithSuspension } from "@/app/_domains/teamSchedules/_server/authz"
 import { hasAdminAuthority } from "@/app/_domains/teamSchedules/types"
 import { isUuid } from "@/app/_domains/teamSchedules/_server/validators"
 
@@ -17,6 +17,8 @@ type RouteContext = { params: Promise<{ teamId: string; userId: string }> }
  *
  * ガード（UI でも×ボタンを出し分けるが、サーバーでも必ず判定する二重防御）:
  * - 非UUID(teamId) / 未ログイン / 呼び出し元が admin 相当未満（非メンバー・member）: 存在を隠して 404
+ * - 呼び出し元が利用停止中（suspended）: 403。kick は「他人を消す管理書き込み」なので、自己片付け
+ *   （脱退・アカウント削除＝suspend 中でも許可）とは異なり、succession / team-status と同じく止める（#166）。
  * - 対象が master: 除外不可（master 保護・400）
  * - 対象が自分自身: 除外不可（脱退は設定の「チームを脱退」を使う・400）
  */
@@ -32,7 +34,12 @@ export async function DELETE(req: NextRequest, ctx: RouteContext): Promise<NextR
     if (!callerId) {
       return NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 })
     }
-    const callerRole = await getTeamRole(teamId, callerId)
+    // 操作者の利用停止判定とロール取得を1クエリにまとめる（#166・DB往復削減）。suspend→403 を先に判定する
+    // （succession / team-status と同じ流儀。suspended は users 起点で非メンバーでも取れる）
+    const { suspended, teamRole: callerRole } = await getTeamMembershipWithSuspension(teamId, callerId)
+    if (suspended) {
+      return NextResponse.json({ success: false, error: "アカウントが利用停止中のため、この操作はできません" }, { status: 403 })
+    }
     if (callerRole === null || !hasAdminAuthority(callerRole)) {
       return NextResponse.json({ success: false, error: "チームが見つかりません" }, { status: 404 })
     }

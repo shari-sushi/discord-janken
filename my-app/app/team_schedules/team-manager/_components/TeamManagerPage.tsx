@@ -119,7 +119,8 @@ export function TeamManagerPage() {
           ) : (
             <>
               <p className="mt-1 text-base text-zinc-300 md:text-lg">{view.teamName}</p>
-              <MembersSection members={view.members} currentUserId={session?.userId ?? ""} onKick={handleKick} />
+              {/* currentUserId はサーバー応答（viewerUserId）由来。session 取得の遅延・失敗に依存せず、自分の行に×が出ない */}
+              <MembersSection members={view.members} currentUserId={view.viewerUserId} onKick={handleKick} />
             </>
           )}
         </div>

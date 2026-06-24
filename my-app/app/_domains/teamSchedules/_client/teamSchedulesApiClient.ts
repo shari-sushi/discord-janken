@@ -93,7 +93,7 @@ export async function updateTeam(teamId: string, patch: { name?: string; managem
 export async function fetchTeamManagerView(teamId: string): Promise<TeamManagerView> {
   const res = await fetch(`${API_BASE}/teams/${encodeURIComponent(teamId)}/members`, { cache: "no-store" })
   const json = await parse<TeamManagerView>(res, "チーム管理画面の取得に失敗しました")
-  return { teamId: json.teamId, teamName: json.teamName, viewerRole: json.viewerRole, members: json.members ?? null }
+  return { teamId: json.teamId, teamName: json.teamName, viewerUserId: json.viewerUserId, viewerRole: json.viewerRole, members: json.members ?? null }
 }
 
 /**

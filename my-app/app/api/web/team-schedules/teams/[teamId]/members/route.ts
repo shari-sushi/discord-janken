@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, ctx: RouteContext): Promise<NextResp
 
     // member には一覧を返さない（API レベルでも隠す）。ヘッダー・見出しのみ描ける情報だけ返す
     if (!hasAdminAuthority(viewerRole)) {
-      const view: TeamManagerView = { teamId, teamName: teamRow.name, viewerRole, members: null }
+      const view: TeamManagerView = { teamId, teamName: teamRow.name, viewerUserId: userId, viewerRole, members: null }
       return NextResponse.json({ success: true, ...view })
     }
 
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest, ctx: RouteContext): Promise<NextResp
       invitedByName: m.invitedByName ?? null,
     }))
 
-    const view: TeamManagerView = { teamId, teamName: teamRow.name, viewerRole, members }
+    const view: TeamManagerView = { teamId, teamName: teamRow.name, viewerUserId: userId, viewerRole, members }
     return NextResponse.json({ success: true, ...view })
   } catch (error) {
     console.error("team-schedules team members GET error:", error)

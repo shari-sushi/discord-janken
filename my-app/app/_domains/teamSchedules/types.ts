@@ -131,6 +131,8 @@ export type TeamMemberDetail = {
 export type TeamManagerView = {
   teamId: string
   teamName: string
+  /** 閲覧者の userId。kick の「自分自身は除外不可」判定をサーバー応答だけで完結させるために返す */
+  viewerUserId: string
   /** 閲覧者のチーム内ロール（member / admin / master） */
   viewerRole: TeamRole
   /** member のときは null（admin 相当以上のみ配列を返す） */
