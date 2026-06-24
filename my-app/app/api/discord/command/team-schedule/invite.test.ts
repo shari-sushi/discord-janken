@@ -74,6 +74,8 @@ describe("teamScheduleInviteCommand", () => {
 
     expect(mockEditWebhookOriginalMessage).toHaveBeenCalledTimes(1)
     const editArgs = mockEditWebhookOriginalMessage.mock.calls[0]
-    expect(editArgs[4]).toEqual({ parse: [] }) // allowedMentions
+    // 引数: (applicationId, token, content, components, embeds, allowedMentions)
+    expect(editArgs[4]).toBeUndefined() // embeds（招待確認文は content のみ）
+    expect(editArgs[5]).toEqual({ parse: [] }) // allowedMentions
   })
 })
