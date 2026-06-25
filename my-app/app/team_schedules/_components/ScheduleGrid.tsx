@@ -213,20 +213,22 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, ownColumns, own
             >
               日付
             </th>
-            {/* 相手チーム: 2段ぶち抜き・ピン留め・相手セレクタの選択中チップと同色（amber） */}
+            {/* 相手チーム: 2段ぶち抜き・ピン留め・相手セレクタの選択中チップと同色（amber）。
+                sticky なので背景は不透明にする（半透明だと縦スクロール時に下を通る行が透ける）。行背景に近い不透明の amber ティント。 */}
             {opponentColumns.map((c, i) => (
               <th
                 key={`opp:${c.teamId}`}
                 rowSpan={2}
-                className={HEADER_BASE + " text-center align-middle bg-amber-500/15 text-amber-300"}
+                className={HEADER_BASE + " text-center align-middle bg-[#3a2e10] text-amber-300"}
                 style={{ position: "sticky", left: SIZE.date + i * SIZE.opponent, top: 0, zIndex: 30, minWidth: SIZE.opponent, width: SIZE.opponent }}
               >
                 {c.label}
               </th>
             ))}
-            {/* 自チーム: 上段にチーム名（○数〜各メンバーをまたぐ）。自分の色（indigo）で目立たせ、はみ出しは title で全文表示 */}
+            {/* 自チーム: 上段にチーム名（○数〜各メンバーをまたぐ）。自分の色（indigo）で目立たせ、はみ出しは title で全文表示。
+                sticky なので背景は不透明にする（半透明だと縦スクロール時に下を通る行が透ける）。行背景に近い不透明の indigo ティント。 */}
             {ownGrouped ? (
-              <th colSpan={ownLeaves.length} className="border-b border-r border-zinc-700 px-2 text-left bg-indigo-500/15" style={{ position: "sticky", top: 0, zIndex: 20, height: OWN_NAME_H }}>
+              <th colSpan={ownLeaves.length} className="border-b border-r border-zinc-700 px-2 text-left bg-[#1e213a]" style={{ position: "sticky", top: 0, zIndex: 20, height: OWN_NAME_H }}>
                 {/*
                   colSpan セル自体への sticky-left は border-collapse 下で効かないことがあるため、
                   ラベル（span）を sticky-left で固定する。セルは幅が広く背景は残るので、横スクロールしても

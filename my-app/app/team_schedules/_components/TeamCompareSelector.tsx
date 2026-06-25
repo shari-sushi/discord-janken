@@ -47,9 +47,9 @@ export function TeamCompareSelector({
   const showShareCta = ownTeam !== null && opponentCandidates.length === 0 && !!onOpenShareSetting
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm">
+    <div className="flex w-full min-w-0 flex-col gap-3 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm">
       {/* md未満: 自作ドロップダウン（下向きに展開・幅いっぱい） */}
-      <div className="flex items-center gap-2 md:hidden">
+      <div className="flex w-full min-w-0 items-center gap-2 md:hidden">
         <span
           className={LABEL_WIDTH + " shrink-0 whitespace-nowrap text-zinc-400"}
         >
@@ -64,7 +64,7 @@ export function TeamCompareSelector({
       </div>
 
       {/* md以上: ネイティブ select（従来表示） */}
-      <label className="hidden items-center gap-2 md:flex">
+      <label className="hidden w-full min-w-0 items-center gap-2 md:flex">
         <span
           className={LABEL_WIDTH + " shrink-0 whitespace-nowrap text-zinc-400"}
         >
@@ -85,7 +85,7 @@ export function TeamCompareSelector({
       </label>
 
       {/* md未満: チェックボックス式ドロップダウン（空きスペースいっぱいに広げる） */}
-      <div className="flex items-center gap-2 md:hidden">
+      <div className="flex w-full min-w-0 items-center gap-2 md:hidden">
         <span
           className={LABEL_WIDTH + " shrink-0 whitespace-nowrap text-zinc-400"}
         >
@@ -110,7 +110,7 @@ export function TeamCompareSelector({
       </div>
 
       {/* md以上: ピル（チップ）一覧（従来表示） */}
-      <div className="hidden items-start gap-2 md:flex">
+      <div className="hidden w-full min-w-0 items-start gap-2 md:flex">
         <span
           className={
             LABEL_WIDTH + " shrink-0 whitespace-nowrap pt-1 text-zinc-400"

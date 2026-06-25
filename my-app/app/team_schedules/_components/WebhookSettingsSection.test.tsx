@@ -30,6 +30,15 @@ describe("WebhookSettingsSection", () => {
     })
   })
 
+  it("success: 通知が1回だけ届く旨の補足文を表示する", async () => {
+    mockFetch.mockResolvedValue({ webhooks: [], notifyTime: null })
+    render(<WebhookSettingsSection teamId={TEAM_ID} isMaster={true} />)
+    await waitFor(() => {
+      // 「活動可能になった日」につき1回だけ送られる旨の補足文（2通知ではなくタイミング違いである説明）
+      expect(screen.getByText(/「活動可能になった日」につき1回だけ送られます/)).toBeTruthy()
+    })
+  })
+
   it("failure: 取得失敗でもクラッシュせずエラー表示する", async () => {
     mockFetch.mockRejectedValue(new Error("通信失敗"))
     render(<WebhookSettingsSection teamId={TEAM_ID} isMaster={false} />)
