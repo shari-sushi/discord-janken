@@ -1022,7 +1022,7 @@ export function TeamSchedulesPage() {
           <div className="flex min-w-0 flex-1 items-start md:gap-2">
             <div className="min-w-0">
               <h1 className="text-lg font-bold tracking-tight text-zinc-100">チーム活動 スケジュール調整</h1>
-              <p className="mt-0.5 text-sm text-zinc-400">メンバーの参加可能日から、スクリム相手を探す</p>
+              <p className={"mt-0.5 text-sm text-zinc-400" + (chromeCollapsed ? " hidden md:block" : "")}>メンバーの参加可能日から、スクリム相手を探す</p>
             </div>
             {/* md以下: 設定をタイトル右に置いて縦スペースを節約する（md以上は右側のボタン群に表示）。
                 ml-auto で右端へ寄せ、タイトル側の幅を確保する。

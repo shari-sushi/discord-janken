@@ -208,6 +208,12 @@ export function WebhookSettingsSection({ teamId, isMaster }: { teamId: string; i
           {/* 送信タイミング（#177）。即時 or 指定時刻 */}
           <div className="rounded-lg border border-zinc-800 p-3">
             <span className="text-sm font-medium text-zinc-200">通知タイミング</span>
+            <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+              通知は「活動可能になった日」につき1回だけ送られます。届くタイミングだけを選べます。
+              <br />
+              <span className="text-zinc-300">「すぐに通知」</span>は条件が揃った瞬間に、
+              <span className="text-zinc-300">「指定した時刻に通知」</span>はその活動可能になった当日の指定時刻に、同じ通知が届きます。
+            </p>
             <div className="mt-2 flex flex-col gap-2">
               <label className="flex items-center gap-2 text-sm text-zinc-300">
                 <input type="radio" name="notify-timing" checked={!scheduled} onChange={() => updateScheduled(false)} disabled={saving} className="h-4 w-4 accent-indigo-500" />

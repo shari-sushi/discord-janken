@@ -100,7 +100,7 @@ export function TeamSchedulesAdminPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl p-6 text-zinc-100">
+    <div className="mx-auto w-full min-w-0 max-w-5xl overflow-x-hidden p-4 text-zinc-100 sm:p-6">
       <header className="mb-6 flex items-center justify-between gap-4">
         <h1 className="text-2xl font-bold">スクリム調整 管理画面</h1>
         <button
