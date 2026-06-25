@@ -83,16 +83,6 @@ const TABS: { key: SettingTab; label: string }[] = [
   { key: "global-settings", label: "全体設定" },
 ]
 
-/** 準備中のセクション枠（未実装項目の見出しだけ先に置く） */
-function ComingSoonSection({ title }: { title: string }) {
-  return (
-    <section className="border-t border-zinc-800 pt-4">
-      <h3 className="text-sm font-bold text-zinc-300">{title}</h3>
-      <p className="mt-1 text-xs text-zinc-500">準備中</p>
-    </section>
-  )
-}
-
 /**
  * 設定画面（#126 / #96 / #142）。
  * 未ログインでも開けて機能のイメージを掴めるが、その場合は全入力・ボタンを disabled にしてログインを促す。
@@ -241,8 +231,21 @@ export function SettingModal({ isLoggedIn, onLogin, team, isAdmin, isMember, isM
             </label>
           </section>
 
-          {/* メンバー管理（準備中）。編集権限のない一般メンバーには出さない */}
-          {isAdmin && <ComingSoonSection title="メンバー管理" />}
+          {/* メンバー管理（#97）。チーム管理画面を別タブで開く。編集権限のない一般メンバーには出さない */}
+          {isAdmin && (
+            <section className="border-t border-zinc-800 pt-4">
+              <h3 className="text-sm font-bold text-zinc-300">メンバー管理</h3>
+              <p className="mt-1 text-xs text-zinc-500">メンバー一覧の確認や、メンバーの脱退（kick）ができます。</p>
+              <a
+                href={`/team_schedules/team-manager?teamId=${encodeURIComponent(team.teamId)}`}
+                target="_blank"
+                rel="noopener"
+                className="mt-2 inline-block rounded-lg border border-indigo-500 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-indigo-300 hover:bg-zinc-800"
+              >
+                チーム管理画面を開く
+              </a>
+            </section>
+          )}
 
           {/* 招待リンク発行（admin のみ。発行・表示は親に委譲） */}
           {isAdmin && (
