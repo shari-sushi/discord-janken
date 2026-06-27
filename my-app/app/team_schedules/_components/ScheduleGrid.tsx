@@ -70,6 +70,17 @@ function pinnedStyle(column: Column<GridRow>, isHeader: boolean): React.CSSPrope
   }
 }
 
+/**
+ * sticky な見出しセルの「チップ同色ティント」を表現する装飾レイヤー。
+ * 背景色そのものを半透明にすると縦スクロール時に下を通る行が透けるため、
+ * 不透明ベース（bg-zinc-900＝グリッド地色）を敷いたセルの上に、この半透明レイヤーを重ねて色味だけ乗せる。
+ * 親セルは sticky（=positioned）なので、これが containing block になり inset-0 でセル全体を覆う。
+ * tintClass には `bg-amber-500/15` のようなセレクタの選択中チップと同色の半透明背景を渡す。
+ */
+function StickyTintOverlay({ tintClass }: { tintClass: string }) {
+  return <span aria-hidden className={"pointer-events-none absolute inset-0 " + tintClass} />
+}
+
 export function ScheduleGrid({ rows, threshold, opponentColumns, ownColumns, ownTeamName, onCycle, onNoteChange, onTeamCycle, onTeamNoteChange, onLoadMore, canLoadMore }: ScheduleGridProps) {
   const columns = useMemo<ColumnDef<GridRow>[]>(() => {
     // 列の種別に応じた編集ハンドラ（表・カード共通の makeCellHandlers に委譲）
@@ -214,21 +225,26 @@ export function ScheduleGrid({ rows, threshold, opponentColumns, ownColumns, own
               日付
             </th>
             {/* 相手チーム: 2段ぶち抜き・ピン留め・相手セレクタの選択中チップと同色（amber）。
-                sticky なので背景は不透明にする（半透明だと縦スクロール時に下を通る行が透ける）。行背景に近い不透明の amber ティント。 */}
+                sticky なので背景は不透明にする（半透明だと縦スクロール時に下を通る行が透ける）。
+                不透明ベース(bg-zinc-900)＋ StickyTintOverlay でチップと同色のティントを保ちつつ不透明化する。 */}
             {opponentColumns.map((c, i) => (
               <th
                 key={`opp:${c.teamId}`}
                 rowSpan={2}
-                className={HEADER_BASE + " text-center align-middle bg-[#3a2e10] text-amber-300"}
+                className={HEADER_BASE + " text-center align-middle bg-zinc-900 text-amber-300"}
                 style={{ position: "sticky", left: SIZE.date + i * SIZE.opponent, top: 0, zIndex: 30, minWidth: SIZE.opponent, width: SIZE.opponent }}
               >
-                {c.label}
+                <StickyTintOverlay tintClass="bg-amber-500/15" />
+                {/* ティントレイヤーより上に出すため relative にする */}
+                <span className="relative">{c.label}</span>
               </th>
             ))}
             {/* 自チーム: 上段にチーム名（○数〜各メンバーをまたぐ）。自分の色（indigo）で目立たせ、はみ出しは title で全文表示。
-                sticky なので背景は不透明にする（半透明だと縦スクロール時に下を通る行が透ける）。行背景に近い不透明の indigo ティント。 */}
+                sticky なので背景は不透明にする（半透明だと縦スクロール時に下を通る行が透ける）。
+                不透明ベース(bg-zinc-900)＋ StickyTintOverlay でチップと同色のティントを保ちつつ不透明化する。 */}
             {ownGrouped ? (
-              <th colSpan={ownLeaves.length} className="border-b border-r border-zinc-700 px-2 text-left bg-[#1e213a]" style={{ position: "sticky", top: 0, zIndex: 20, height: OWN_NAME_H }}>
+              <th colSpan={ownLeaves.length} className="border-b border-r border-zinc-700 px-2 text-left bg-zinc-900" style={{ position: "sticky", top: 0, zIndex: 20, height: OWN_NAME_H }}>
+                <StickyTintOverlay tintClass="bg-indigo-500/15" />
                 {/*
                   colSpan セル自体への sticky-left は border-collapse 下で効かないことがあるため、
                   ラベル（span）を sticky-left で固定する。セルは幅が広く背景は残るので、横スクロールしても
