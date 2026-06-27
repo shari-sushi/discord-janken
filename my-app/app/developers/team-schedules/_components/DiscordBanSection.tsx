@@ -60,7 +60,7 @@ export function DiscordBanSection({ bans, onAddBan, onRemoveBan }: Props) {
               value={discordUserId}
               onChange={(e) => setDiscordUserId(e.target.value)}
               placeholder="例: 123456789012345678"
-              className="w-64 rounded-md border border-zinc-600 bg-zinc-800 px-2 py-1.5 text-sm text-zinc-100"
+              className="w-full sm:w-64 rounded-md border border-zinc-600 bg-zinc-800 px-2 py-1.5 text-sm text-zinc-100"
             />
           </label>
           <label className="flex flex-1 flex-col gap-1 text-xs text-zinc-400">
