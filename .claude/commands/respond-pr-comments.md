@@ -45,8 +45,10 @@ baseline として記録し、5分ごとに最大12回、baseline 後に増え�
 
 ```bash
 PR=<PR番号>
-ME=$(gh api user --jq .login)
 BASE="$TMPDIR/pr_${PR}_seen.txt"   # baseline 保存先（スクラッチパッドでも可）
+# 対応不要なノイズ bot だけを無視（カンマ区切り）。デプロイ通知など。
+# 注意: 自分の gh アカウントは除外しない（後述）。
+IGNORE_AUTHORS="vercel[bot]"
 
 collect_ids() {
   gh api "repos/{owner}/{repo}/issues/$PR/comments" --paginate \
@@ -70,8 +72,12 @@ for i in $(seq 1 12); do
 
   NEW=$(collect_ids | while IFS=: read -r typ id login; do
           key="$typ:$id"
-          # baseline に無く、かつ自分以外の投稿だけを「新規」とする
-          grep -qxF "$key" "$BASE" || { [ "$login" != "$ME" ] && echo "$key by $login"; }
+          # baseline（開始時点スナップショット）に在れば既知なのでスキップ
+          grep -qxF "$key" "$BASE" && continue
+          # 対応不要なノイズ bot はスキップ
+          case ",$IGNORE_AUTHORS," in *",$login,"*) continue ;; esac
+          # それ以外は作者を問わず「新規」とする（自分の gh アカウントの投稿も含む）
+          echo "$key by $login"
         done)
   if [ -n "$NEW" ]; then
     echo "NEW_COMMENTS:"
@@ -85,7 +91,8 @@ echo "TIMEOUT: no new comments within 1 hour"
 exit 1
 ```
 
-- 自分（`ME`）の投稿は除外する。返信が自分に反応して無限ループするのを防ぐ。
+- **作者で除外しない（重要）**: このリポジトリでは人間のレビューも・別 Claude セッションのレビューも・自分の返信も、すべて同じ gh アカウントで投稿される。よって「自分のアカウントを除外」すると正当なレビューまで握りつぶす。除外するのは `IGNORE_AUTHORS` のノイズ bot だけにする。
+- **返信ループ防止は baseline（開始時点スナップショット）で担保する**: 検出したら対応して終了し、同一 run 内では再ポーリングしない。再監視時は自分の過去の返信も baseline に入るため新規扱いされない。
 - スクリプト終了時に再度呼び出されるので、ポーリング中は他作業を続けてよい。
 
 ### 3. 結果に応じて分岐する
