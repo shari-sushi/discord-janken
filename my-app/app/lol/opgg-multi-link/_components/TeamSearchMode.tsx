@@ -52,17 +52,19 @@ export function TeamSearchMode({
         />
       </div>
 
-      {!selected && query.length > 0 && filtered.length > 0 && (
-        <div className="border border-zinc-600 rounded overflow-hidden">
-          {filtered.map((team) => (
-            <button key={team.name} onClick={() => handleSelect(team)} className="w-full text-left px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border-b border-zinc-700 last:border-b-0 text-sm min-w-0">
-              <div className="flex items-baseline min-w-0 overflow-hidden">
-                <span className="font-semibold text-white shrink-0">{team.name}</span>
-                <span className="text-zinc-400 shrink-0 mr-1">({team.members.length}人)：</span>
-                <span className="text-zinc-500 truncate">{team.members.join(", ")}</span>
-              </div>
-            </button>
-          ))}
+      {!selected && filtered.length > 0 && (
+        <div>
+          {query.length === 0 && <p className="text-xs text-zinc-500 mb-1">登録チーム ({filtered.length})</p>}
+          <div className="border border-zinc-600 rounded overflow-hidden max-h-72 overflow-y-auto">
+            {filtered.map((team) => (
+              <button key={team.name} onClick={() => handleSelect(team)} className="w-full text-left px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border-b border-zinc-700 last:border-b-0 text-sm min-w-0">
+                <div className="flex items-baseline min-w-0 overflow-hidden">
+                  <span className="font-semibold text-white shrink-0">{team.name}</span>
+                  <span className="text-zinc-400 shrink-0 ml-1">({team.members.length}人)</span>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
